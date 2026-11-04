@@ -11,8 +11,8 @@ Status: design + plan approved 2026-11-04; implementing. Phases 1–3 complete (
 - [x] Q2 Phase 4 implementation plan (`implementation-plan.md`) — planned sub-phases 4.1, 4.2, 4.3
 - [x] Q3 Cross-model review of design + plan (7 accepted: reviews/design-codex.md), owner approved 2026-11-04
 - [x] Q4 Sub-phase 4.1 — library move and API (`d672ef8`, phase-4.1-complete.md)
-- [ ] Q5 Sub-phase 4.2 — `-o json` and golden files ← CURRENT
-- [ ] Q6 Sub-phase 4.3 — OSS corpus on v2.4.7 + v2.5.0, enterprise corpus moved
+- [x] Q5 Sub-phase 4.2 — `-o json` and golden files (`1ef9633`, phase-4.2-complete.md)
+- [ ] Q6 Sub-phase 4.3 — OSS corpus on v2.4.7 + v2.5.0, enterprise corpus moved ← CURRENT
 
 ### Exit gates
 - [ ] tests/vet pass (observed)
@@ -23,21 +23,7 @@ Status: design + plan approved 2026-11-04; implementing. Phases 1–3 complete (
 - [ ] phase-4-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-Sub-phase: 4.2 — `-o json`
-Kind: planned
-Base: 59cac51b1770fdcb4a66dcad13ef5cc7c096b52e
-Brief: docs/phases/phase-4/phase-4.2-brief.md
-
-### Allowed work
-Features within the approved design (design.md § `-o json`, D-005).
-
-### Not allowed
-Design changes without a decisions.md entry and owner approval.
-
-### Queue
-- [ ] S1 `-o/--output` flag, validation, envelope encoder ← CURRENT
-- [ ] S2 Golden test over every dump + filtered cases; `-update`
-- [ ] S3 Rejection tests; README; text byte comparison
+none
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`)
