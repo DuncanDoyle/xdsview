@@ -16,6 +16,10 @@
                   "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "router"
                   }
                 }
               ],
@@ -42,6 +46,21 @@
                             "namespace": "kgateway-system",
                             "rule": "httproute-api-example-com-kgateway-system-0-0"
                           }
+                        },
+                        "origin": {
+                          "certainty": "exact",
+                          "candidates": [
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "kgateway-system",
+                                "name": "api-example-com"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            }
+                          ]
                         }
                       },
                       {
@@ -58,6 +77,21 @@
                             "namespace": "kgateway-system",
                             "rule": "httproute-api-example-com-kgateway-system-1-0"
                           }
+                        },
+                        "origin": {
+                          "certainty": "exact",
+                          "candidates": [
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "kgateway-system",
+                                "name": "api-example-com"
+                              },
+                              "ruleIndex": 1,
+                              "matchIndex": 0
+                            }
+                          ]
                         }
                       },
                       {
@@ -80,6 +114,21 @@
                             "namespace": "kgateway-system",
                             "rule": "httproute-api-example-com-kgateway-system-1-1"
                           }
+                        },
+                        "origin": {
+                          "certainty": "exact",
+                          "candidates": [
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "kgateway-system",
+                                "name": "api-example-com"
+                              },
+                              "ruleIndex": 1,
+                              "matchIndex": 1
+                            }
+                          ]
                         }
                       },
                       {
@@ -96,15 +145,42 @@
                             "namespace": "kgateway-system",
                             "rule": "httproute-api-example-com-kgateway-system-2-0"
                           }
+                        },
+                        "origin": {
+                          "certainty": "exact",
+                          "candidates": [
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "kgateway-system",
+                                "name": "api-example-com"
+                              },
+                              "ruleIndex": 2,
+                              "matchIndex": 0
+                            }
+                          ]
                         }
                       }
-                    ]
+                    ],
+                    "origin": {
+                      "certainty": "inferred",
+                      "listener": {
+                        "certainty": "inferred",
+                        "port": 80
+                      },
+                      "hostname": "api.example.com"
+                    }
                   }
                 ]
               }
             }
           }
-        ]
+        ],
+        "origin": {
+          "certainty": "inferred",
+          "port": 80
+        }
       }
     ]
   },

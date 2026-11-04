@@ -25,7 +25,12 @@
                       }
                     ]
                   },
-                  "disabled": true
+                  "disabled": true,
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "set_metadata",
+                    "helper": true
+                  }
                 },
                 {
                   "name": "extauth_ee/default",
@@ -54,13 +59,21 @@
                     ],
                     "transport_api_version": "V3"
                   },
-                  "disabled": true
+                  "disabled": true,
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "ext_authz"
+                  }
                 },
                 {
                   "name": "envoy.filters.http.router",
                   "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "router"
                   }
                 }
               ],
@@ -95,15 +108,83 @@
                               "enterprisekgateway.solo.io/EnterpriseKgatewayTrafficPolicy/kgateway-system/ext-auth"
                             ]
                           }
-                        }
+                        },
+                        "origin": {
+                          "certainty": "ambiguous",
+                          "candidates": [
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "example-com-kgateway-system",
+                                "name": "api"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "com-kgateway-system",
+                                "name": "api-example"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "kgateway-system",
+                                "name": "api-example-com"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "system",
+                                "name": "api-example-com-kgateway"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            }
+                          ]
+                        },
+                        "policies": [
+                          {
+                            "policy": {
+                              "group": "enterprisekgateway.solo.io",
+                              "kind": "EnterpriseKgatewayTrafficPolicy",
+                              "namespace": "kgateway-system",
+                              "name": "ext-auth"
+                            },
+                            "field": "entExtAuth"
+                          }
+                        ]
                       }
-                    ]
+                    ],
+                    "origin": {
+                      "certainty": "inferred",
+                      "listener": {
+                        "certainty": "inferred",
+                        "port": 80
+                      },
+                      "hostname": "api.example.com"
+                    }
                   }
                 ]
               }
             }
           }
-        ]
+        ],
+        "origin": {
+          "certainty": "inferred",
+          "port": 80
+        }
       }
     ]
   },

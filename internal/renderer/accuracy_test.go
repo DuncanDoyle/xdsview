@@ -61,3 +61,43 @@ func TestRender_UpstreamFilters(t *testing.T) {
 		t.Errorf("upstream filters should follow the HTTP filter list:\n%s", out)
 	}
 }
+
+var testRoute = model.Ref{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute", Namespace: "shop", Name: "web"}
+
+// TestRender_Origins checks the origin lines: a route's HTTPRoute rule, a
+// filter's extension, and the route's policies.
+func TestRender_Origins(t *testing.T) {
+	hcm := model.HCMConfig{HTTPFilters: []model.HTTPFilter{
+		{Name: "ext_auth/shop/authz", Origin: &model.FilterOrigin{Certainty: model.Inferred, Kind: "ext_authz",
+			Extension: &model.Ref{Group: "gateway.kgateway.dev", Kind: "GatewayExtension", Namespace: "shop", Name: "authz"}}},
+		{Name: "envoy.filters.http.router"},
+	}}
+	route := model.Route{Cluster: "c",
+		Origin: &model.RouteAnnotation{Certainty: model.Inferred, Candidates: []model.RouteOrigin{
+			{Route: testRoute, RuleIndex: 1, RuleName: "api", MatchIndex: 0}}},
+		Policies: []model.PolicyRef{{Policy: model.Ref{Group: "gateway.kgateway.dev", Kind: "TrafficPolicy", Namespace: "shop", Name: "auth"}, Field: "extAuth"}},
+	}
+	out := renderRoute(hcm, route)
+	for _, want := range []string{
+		"HTTPRoute shop/web · rule 1 (api) · match 0",
+		"ext_auth/shop/authz ← GatewayExtension shop/authz",
+		"Policies:",
+		"TrafficPolicy shop/auth (extAuth)",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+}
+
+// TestRender_AmbiguousOriginHidden checks that an ambiguous route origin
+// prints nothing rather than a guess.
+func TestRender_AmbiguousOriginHidden(t *testing.T) {
+	other := testRoute
+	other.Namespace, other.Name = "web-shop", "x"
+	route := model.Route{Cluster: "c", Origin: &model.RouteAnnotation{Certainty: model.Ambiguous, Candidates: []model.RouteOrigin{
+		{Route: testRoute}, {Route: other}}}}
+	if out := renderRoute(routerOnly, route); strings.Contains(out, "HTTPRoute ") {
+		t.Errorf("ambiguous origin rendered:\n%s", out)
+	}
+}

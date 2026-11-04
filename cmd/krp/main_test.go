@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
+	"github.com/DuncanDoyle/krp/pkg/envoy/model"
+	"github.com/DuncanDoyle/krp/pkg/envoy/origin"
 	"os"
 	"path/filepath"
 	"strings"
@@ -183,5 +185,72 @@ func TestDumpOutput_Rejected(t *testing.T) {
 				t.Errorf("stdout has dump output: %q", out)
 			}
 		})
+	}
+}
+
+// TestDumpText_Origins checks the origin lines in the text view: with --route,
+// route names resolve against that HTTPRoute; route_source metadata needs nothing.
+func TestDumpText_Origins(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+		want []string
+	}{
+		{"known route", []string{"--file", filepath.Join(testdataDir, "scenarios/02_7-single-policy/envoy/kgateway-v2.5.0/config_dump.json"),
+			"--route", "api-example-com", "--route-ns", "kgateway-system"},
+			[]string{"HTTPRoute kgateway-system/api-example-com · rule 0 · match 0",
+				"ext_auth/kgateway-system/ext-authz ← GatewayExtension kgateway-system/ext-authz",
+				"TrafficPolicy kgateway-system/ext-auth (extAuth)"}},
+		{"route_source metadata", []string{"--file", filepath.Join(testdataDir, "scenarios/04-multi-rule/envoy/kgateway-v2.4.7-route-source/config_dump.json")},
+			[]string{"HTTPRoute kgateway-system/api-example-com · rule 1 · match 1"}},
+		{"rule by name", []string{"--file", filepath.Join(testdataDir, "scenarios/08-named-rules/envoy/kgateway-v2.5.0/config_dump.json"),
+			"--route", "api-example-com", "--route-ns", "kgateway-system", "--rule", "a-b"},
+			[]string{"HTTPRoute kgateway-system/api-example-com · rule 1 (a-b) · match 0"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			out, _, err := runKrp(t, append([]string{"dump"}, c.args...)...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, w := range c.want {
+				if !strings.Contains(out, w) {
+					t.Errorf("missing %q in:\n%s", w, out)
+				}
+			}
+		})
+	}
+	// Rule a-b selects one route, not the a or a-matcher-b rules.
+	out, _, _ := runKrp(t, "dump", "--file", filepath.Join(testdataDir, "scenarios/08-named-rules/envoy/kgateway-v2.5.0/config_dump.json"),
+		"--route", "api-example-com", "--route-ns", "kgateway-system", "--rule", "a-b")
+	if n := strings.Count(out, "Route: "); n != 1 {
+		t.Errorf("--rule a-b printed %d routes, want 1", n)
+	}
+}
+
+// waf is a test plugin mapper that claims every ext_auth filter.
+type waf struct{ origin.Mapper }
+
+func (waf) HTTPFilter(f model.HTTPFilter) model.FilterOrigin {
+	if !strings.HasPrefix(f.Name, "ext_auth/") {
+		return model.FilterOrigin{}
+	}
+	return model.FilterOrigin{Certainty: model.Inferred, Kind: "waf", Extension: &model.Ref{Group: "acme.example", Kind: "WafPolicy", Namespace: "acme", Name: "edge"}}
+}
+
+// TestDumpJSON_PluginOrigin checks that a plugged-in mapper's origin reaches
+// the JSON output, and the kgateway mapper still answers everything else.
+func TestDumpJSON_PluginOrigin(t *testing.T) {
+	extraMappers = []origin.Mapper{waf{origin.Chain()}}
+	defer func() { extraMappers = nil }()
+	dump := filepath.Join(testdataDir, "scenarios", "02_7-single-policy", "envoy", "kgateway-v2.5.0", "config_dump.json")
+	out, _, err := runKrp(t, "dump", "--file", dump, "-o", "json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkEnvelope(t, out)
+	checkGolden(t, goldenPath(t, dump, ".plugin"), out)
+	if !strings.Contains(out, `"WafPolicy"`) || !strings.Contains(out, `"set_metadata"`) {
+		t.Error("expected the plugin origin and an OSS filter origin in the output")
 	}
 }

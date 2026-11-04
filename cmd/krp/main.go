@@ -9,6 +9,7 @@
 //	krp dump --gateway <name> -n <ns> --context ctx                                            # same, with an explicit kubeconfig context
 //	krp dump --file <path> --route <name> --route-ns <ns>                                       # filter by HTTPRoute
 //	krp dump --file <path> --route <name> --route-ns <ns> --rule 0                             # filter by rule index
+//	krp dump --file <path> --route <name> --route-ns <ns> --rule api                           # filter by rule name
 //	krp dump --file <path> --route <name> --route-ns <ns> --rule 0 --interactive            # interactive TUI mode with filter config expansion
 //	krp dump --file <path> -o json                                                             # machine-readable output (see output.go)
 package main
@@ -17,10 +18,13 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/DuncanDoyle/krp/internal/renderer"
 	"github.com/DuncanDoyle/krp/internal/tui"
 	"github.com/DuncanDoyle/krp/pkg/envoy/filter"
+	"github.com/DuncanDoyle/krp/pkg/envoy/model"
+	"github.com/DuncanDoyle/krp/pkg/envoy/origin"
 	"github.com/DuncanDoyle/krp/pkg/envoy/parser"
 	"github.com/DuncanDoyle/krp/pkg/envoy/source"
 	"github.com/DuncanDoyle/krp/pkg/envoy/source/kube"
@@ -59,7 +63,7 @@ func newRootCmd() *cobra.Command {
 	// HTTPRoute namespace can differ from the Gateway namespace.
 	dump.Flags().String("route", "", "Filter output to routes belonging to this HTTPRoute name")
 	dump.Flags().String("route-ns", "", "Namespace of the HTTPRoute (required with --route; may differ from the Gateway namespace)")
-	dump.Flags().Int("rule", filter.AllRules, "Zero-based rule index within the HTTPRoute (-1 = all rules, used with --route)")
+	dump.Flags().String("rule", "", "Rule within the HTTPRoute: a zero-based index or a rule name (default all rules, used with --route)")
 
 	// Interactive mode — launches a bubbletea TUI instead of printing static output.
 	// Composes with --route/--route-ns/--rule: the filter is applied before the TUI launches.
@@ -69,6 +73,37 @@ func newRootCmd() *cobra.Command {
 
 	root.AddCommand(dump)
 	return root
+}
+
+// extraMappers run before the kgateway mapper. Tests use it to plug in a mapper.
+var extraMappers []origin.Mapper
+
+// mapper builds the origin mapper from what the flags say: the Gateway behind
+// --gateway, and the HTTPRoute behind --route, which resolves its route names.
+func mapper(gateway, namespace, routeName, routeNS string) origin.Mapper {
+	var opts origin.KgatewayOptions
+	if gateway != "" {
+		opts.Gateway = &model.Ref{Group: "gateway.networking.k8s.io", Kind: "Gateway", Namespace: namespace, Name: gateway}
+	}
+	if routeName != "" {
+		opts.Known = []model.Ref{{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute", Namespace: routeNS, Name: routeName}}
+	}
+	return origin.Chain(append(append([]origin.Mapper(nil), extraMappers...), origin.Kgateway(opts))...)
+}
+
+// parseRule reads --rule: empty or -1 means all rules, a non-negative integer
+// is a rule index, and anything else is a rule name.
+func parseRule(rule string) (index int, name string, err error) {
+	if rule == "" {
+		return filter.AllRules, "", nil
+	}
+	if n, err := strconv.Atoi(rule); err == nil {
+		if n < filter.AllRules {
+			return 0, "", fmt.Errorf("--rule must be a rule index >= 0 or a rule name")
+		}
+		return n, "", nil
+	}
+	return filter.AllRules, rule, nil
 }
 
 // runDump is the cobra RunE handler for the "dump" subcommand.
@@ -84,7 +119,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 
 	routeName, _ := cmd.Flags().GetString("route")
 	routeNS, _ := cmd.Flags().GetString("route-ns")
-	ruleIndex, _ := cmd.Flags().GetInt("rule")
+	rule, _ := cmd.Flags().GetString("rule")
 	interactive, _ := cmd.Flags().GetBool("interactive")
 	output, _ := cmd.Flags().GetString("output")
 
@@ -115,10 +150,11 @@ func runDump(cmd *cobra.Command, args []string) error {
 	if routeNS != "" && routeName == "" {
 		return fmt.Errorf("--route-ns requires --route")
 	}
-	if ruleIndex < -1 {
-		return fmt.Errorf("--rule must be >= 0 (use -1 for all rules, which is the default)")
+	ruleIndex, ruleName, err := parseRule(rule)
+	if err != nil {
+		return err
 	}
-	if ruleIndex >= 0 && routeName == "" {
+	if rule != "" && routeName == "" {
 		return fmt.Errorf("--rule requires --route")
 	}
 
@@ -160,6 +196,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 			HTTPRouteName:      routeName,
 			HTTPRouteNamespace: routeNS,
 			RuleIndex:          ruleIndex,
+			RuleName:           ruleName,
 		})
 		if len(snapshot.Listeners) == 0 {
 			fmt.Fprintf(cmd.ErrOrStderr(),
@@ -167,6 +204,8 @@ func runDump(cmd *cobra.Command, args []string) error {
 				routeNS, routeName)
 		}
 	}
+
+	snapshot = origin.Annotate(snapshot, mapper(gateway, namespace, routeName, routeNS))
 
 	// Render and print — or launch the interactive TUI.
 	switch {

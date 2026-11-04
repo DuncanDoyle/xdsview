@@ -188,9 +188,13 @@ func renderHCMContent(b *strings.Builder, hcm *model.HCMConfig, indent string, c
 				routeIndent, routePrefix, matchStyle.Render(matchStr)))
 
 			filterIndent := routeIndent + routeChildPrefix + "  "
+			if o := route.Origin; o != nil && o.Certainty >= model.Inferred && len(o.Candidates) == 1 {
+				b.WriteString(fmt.Sprintf("%s%s\n", filterIndent, disabledStyle.Render(formatRouteOrigin(o.Candidates[0]))))
+			}
 			renderHTTPFilters(b, hcm.HTTPFilters, route.TypedPerFilterConfig, filterIndent, ctx)
 			renderUpstreamFilters(b, hcm.UpstreamFilters, filterIndent)
 			renderRoutePolicies(b, route, filterIndent)
+			renderPolicies(b, route.Policies, filterIndent)
 
 			if route.Cluster != "" {
 				b.WriteString(fmt.Sprintf("%sBackend: %s\n",
@@ -250,6 +254,9 @@ func renderHTTPFilters(b *strings.Builder, filters []model.HTTPFilter, typedPerF
 			label = filterStyle.Render(labelText)
 		}
 
+		if f.Origin != nil && f.Origin.Extension != nil {
+			label += " ← " + disabledStyle.Render(fmt.Sprintf("%s %s/%s", f.Origin.Extension.Kind, f.Origin.Extension.Namespace, f.Origin.Extension.Name))
+		}
 		b.WriteString(fmt.Sprintf("%s%s [%d] %s\n", indent, prefix, i+1, label))
 
 		// Render expanded typed config if this item is in the expanded set.
@@ -269,6 +276,40 @@ func renderHTTPFilters(b *strings.Builder, filters []model.HTTPFilter, typedPerF
 				b.WriteString(fmt.Sprintf("%s    %s\n", indent, line))
 			}
 		}
+	}
+}
+
+// formatRouteOrigin renders a route's origin, e.g. "HTTPRoute ns/web · rule 1 (api) · match 0".
+func formatRouteOrigin(o model.RouteOrigin) string {
+	s := fmt.Sprintf("%s %s/%s", o.Route.Kind, o.Route.Namespace, o.Route.Name)
+	if o.RuleIndex >= 0 {
+		s += fmt.Sprintf(" · rule %d", o.RuleIndex)
+	}
+	if o.RuleName != "" {
+		s += fmt.Sprintf(" (%s)", o.RuleName)
+	}
+	if o.MatchIndex >= 0 {
+		s += fmt.Sprintf(" · match %d", o.MatchIndex)
+	}
+	return s
+}
+
+// renderPolicies lists the policies a route's metadata names, with the field each set.
+func renderPolicies(b *strings.Builder, policies []model.PolicyRef, indent string) {
+	if len(policies) == 0 {
+		return
+	}
+	b.WriteString(fmt.Sprintf("%sPolicies:\n", indent))
+	for i, p := range policies {
+		prefix := treeT
+		if i == len(policies)-1 {
+			prefix = treeL
+		}
+		line := fmt.Sprintf("%s %s/%s", p.Policy.Kind, p.Policy.Namespace, p.Policy.Name)
+		if p.Field != "" {
+			line += fmt.Sprintf(" (%s)", p.Field)
+		}
+		b.WriteString(fmt.Sprintf("%s%s %s\n", indent, prefix, filterStyle.Render(line)))
 	}
 }
 

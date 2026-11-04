@@ -1,0 +1,194 @@
+{
+  "schemaVersion": "v1alpha1",
+  "snapshot": {
+    "listeners": [
+      {
+        "name": "listener~80",
+        "address": ":::80",
+        "filterChains": [
+          {
+            "name": "listener~80",
+            "hcm": {
+              "routeConfigName": "listener~80",
+              "httpFilters": [
+                {
+                  "name": "global_disable/ext_auth",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.set_metadata.v3.Config",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.set_metadata.v3.Config",
+                    "metadata": [
+                      {
+                        "metadata_namespace": "dev.kgateway.disable_ext_auth",
+                        "value": {
+                          "disable": true
+                        }
+                      }
+                    ]
+                  },
+                  "disabled": true,
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "set_metadata",
+                    "helper": true
+                  }
+                },
+                {
+                  "name": "ext_auth/kgateway-system/ext-authz",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
+                    "emit_filter_state_stats": true,
+                    "filter_enabled_metadata": {
+                      "filter": "dev.kgateway.disable_ext_auth",
+                      "invert": true,
+                      "path": [
+                        {
+                          "key": "disable"
+                        }
+                      ],
+                      "value": {
+                        "bool_match": true
+                      }
+                    },
+                    "grpc_service": {
+                      "envoy_grpc": {
+                        "cluster_name": "kube_kgateway-system_ext-authz_4444"
+                      }
+                    },
+                    "status_on_error": {
+                      "code": "Forbidden"
+                    }
+                  },
+                  "disabled": true,
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "waf",
+                    "extension": {
+                      "group": "acme.example",
+                      "kind": "WafPolicy",
+                      "namespace": "acme",
+                      "name": "edge"
+                    }
+                  }
+                },
+                {
+                  "name": "envoy.filters.http.router",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "router"
+                  }
+                }
+              ],
+              "routeConfig": {
+                "name": "listener~80",
+                "virtualHosts": [
+                  {
+                    "name": "listener~80~api_example_com",
+                    "domains": [
+                      "api.example.com"
+                    ],
+                    "routes": [
+                      {
+                        "name": "listener~80~api_example_com-route-0-httproute-api-example-com-kgateway-system-0-0-matcher-0",
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "cluster": "kube_httpbin_httpbin_8000",
+                        "typedPerFilterConfig": {
+                          "ext_auth/kgateway-system/ext-authz": {
+                            "@type": "type.googleapis.com/envoy.config.route.v3.FilterConfig",
+                            "config": {}
+                          }
+                        },
+                        "metadata": {
+                          "merge.TrafficPolicy.gateway.kgateway.dev": {
+                            "extAuth": [
+                              "gateway.kgateway.dev/TrafficPolicy/kgateway-system/ext-auth"
+                            ]
+                          }
+                        },
+                        "origin": {
+                          "certainty": "ambiguous",
+                          "candidates": [
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "example-com-kgateway-system",
+                                "name": "api"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "com-kgateway-system",
+                                "name": "api-example"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "kgateway-system",
+                                "name": "api-example-com"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "system",
+                                "name": "api-example-com-kgateway"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            }
+                          ]
+                        },
+                        "policies": [
+                          {
+                            "policy": {
+                              "group": "gateway.kgateway.dev",
+                              "kind": "TrafficPolicy",
+                              "namespace": "kgateway-system",
+                              "name": "ext-auth"
+                            },
+                            "field": "extAuth"
+                          }
+                        ]
+                      }
+                    ],
+                    "origin": {
+                      "certainty": "inferred",
+                      "listener": {
+                        "certainty": "inferred",
+                        "port": 80
+                      },
+                      "hostname": "api.example.com"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "origin": {
+          "certainty": "inferred",
+          "port": 80
+        }
+      }
+    ]
+  },
+  "warnings": []
+}

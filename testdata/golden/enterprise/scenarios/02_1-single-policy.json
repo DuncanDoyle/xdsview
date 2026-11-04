@@ -29,6 +29,10 @@
                   "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "router"
                   }
                 }
               ],
@@ -80,9 +84,73 @@
                               "enterprisekgateway.solo.io/EnterpriseKgatewayTrafficPolicy/kgateway-system/transformation"
                             ]
                           }
-                        }
+                        },
+                        "origin": {
+                          "certainty": "ambiguous",
+                          "candidates": [
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "example-com-kgateway-system",
+                                "name": "api"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "com-kgateway-system",
+                                "name": "api-example"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "kgateway-system",
+                                "name": "api-example-com"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "system",
+                                "name": "api-example-com-kgateway"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            }
+                          ]
+                        },
+                        "policies": [
+                          {
+                            "policy": {
+                              "group": "enterprisekgateway.solo.io",
+                              "kind": "EnterpriseKgatewayTrafficPolicy",
+                              "namespace": "kgateway-system",
+                              "name": "transformation"
+                            },
+                            "field": "entTransformation"
+                          }
+                        ]
                       }
-                    ]
+                    ],
+                    "origin": {
+                      "certainty": "inferred",
+                      "listener": {
+                        "certainty": "inferred",
+                        "section": "https-api"
+                      },
+                      "hostname": "api.example.com"
+                    }
                   }
                 ]
               }
@@ -111,6 +179,10 @@
                   "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "router"
                   }
                 }
               ],
@@ -162,15 +234,83 @@
                               "enterprisekgateway.solo.io/EnterpriseKgatewayTrafficPolicy/kgateway-system/transformation"
                             ]
                           }
-                        }
+                        },
+                        "origin": {
+                          "certainty": "ambiguous",
+                          "candidates": [
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "example-com-kgateway-system",
+                                "name": "api"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "com-kgateway-system",
+                                "name": "api-example"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "kgateway-system",
+                                "name": "api-example-com"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "system",
+                                "name": "api-example-com-kgateway"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            }
+                          ]
+                        },
+                        "policies": [
+                          {
+                            "policy": {
+                              "group": "enterprisekgateway.solo.io",
+                              "kind": "EnterpriseKgatewayTrafficPolicy",
+                              "namespace": "kgateway-system",
+                              "name": "transformation"
+                            },
+                            "field": "entTransformation"
+                          }
+                        ]
                       }
-                    ]
+                    ],
+                    "origin": {
+                      "certainty": "inferred",
+                      "listener": {
+                        "certainty": "inferred",
+                        "section": "https-developer"
+                      },
+                      "hostname": "developer.example.com"
+                    }
                   }
                 ]
               }
             }
           }
-        ]
+        ],
+        "origin": {
+          "certainty": "inferred",
+          "port": 443
+        }
       }
     ]
   },

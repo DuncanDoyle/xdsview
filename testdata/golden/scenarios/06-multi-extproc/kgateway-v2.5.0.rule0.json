@@ -25,7 +25,12 @@
                       }
                     ]
                   },
-                  "disabled": true
+                  "disabled": true,
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "set_metadata",
+                    "helper": true
+                  }
                 },
                 {
                   "name": "ext_proc/kgateway-system/ext-proc-a",
@@ -93,7 +98,17 @@
                       }
                     }
                   },
-                  "disabled": true
+                  "disabled": true,
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "ext_proc",
+                    "extension": {
+                      "group": "gateway.kgateway.dev",
+                      "kind": "GatewayExtension",
+                      "namespace": "kgateway-system",
+                      "name": "ext-proc-a"
+                    }
+                  }
                 },
                 {
                   "name": "ext_proc/kgateway-system/ext-proc-b",
@@ -161,13 +176,27 @@
                       }
                     }
                   },
-                  "disabled": true
+                  "disabled": true,
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "ext_proc",
+                    "extension": {
+                      "group": "gateway.kgateway.dev",
+                      "kind": "GatewayExtension",
+                      "namespace": "kgateway-system",
+                      "name": "ext-proc-b"
+                    }
+                  }
                 },
                 {
                   "name": "envoy.filters.http.router",
                   "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "router"
                   }
                 }
               ],
@@ -198,15 +227,53 @@
                               "gateway.kgateway.dev/TrafficPolicy/kgateway-system/ext-proc-a"
                             ]
                           }
-                        }
+                        },
+                        "origin": {
+                          "certainty": "inferred",
+                          "candidates": [
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "kgateway-system",
+                                "name": "api-example-com"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            }
+                          ]
+                        },
+                        "policies": [
+                          {
+                            "policy": {
+                              "group": "gateway.kgateway.dev",
+                              "kind": "TrafficPolicy",
+                              "namespace": "kgateway-system",
+                              "name": "ext-proc-a"
+                            },
+                            "field": "extProc"
+                          }
+                        ]
                       }
-                    ]
+                    ],
+                    "origin": {
+                      "certainty": "inferred",
+                      "listener": {
+                        "certainty": "inferred",
+                        "port": 80
+                      },
+                      "hostname": "api.example.com"
+                    }
                   }
                 ]
               }
             }
           }
-        ]
+        ],
+        "origin": {
+          "certainty": "inferred",
+          "port": 80
+        }
       }
     ]
   },

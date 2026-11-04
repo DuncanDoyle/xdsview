@@ -17,7 +17,8 @@ Kgateway translates Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/) r
 
 **Phase 2 (complete) — HTTPRoute Selector**
 - Filter the rendered output to routes belonging to a specific HTTPRoute (`--route`, `--route-ns`)
-- Optionally narrow to a single rule within the HTTPRoute (`--rule`)
+- Optionally narrow to a single rule within the HTTPRoute (`--rule`, by index or name)
+- Label routes, filters and policies with the Gateway API objects that produced them
 - Port-forward to any Deployment pod via `--deployment` (alternative to `--gateway`)
 
 **Planned**
@@ -68,9 +69,30 @@ krp dump --gateway gw -n kgateway-system --context my-cluster
 # Show only routes for a specific HTTPRoute
 krp dump --file config_dump.json --route my-route --route-ns default
 
-# Narrow to a single rule within the HTTPRoute (zero-based index)
+# Narrow to a single rule within the HTTPRoute: a zero-based index or a rule name
 krp dump --file config_dump.json --route my-route --route-ns default --rule 0
+krp dump --file config_dump.json --route my-route --route-ns default --rule api
 ```
+
+### Where it came from
+
+`krp dump` labels Envoy objects with the Gateway API objects that produced them:
+- each route's HTTPRoute, rule and match
+- each policy filter's `GatewayExtension`
+- each route's policies, from kgateway's `merge.*` route metadata
+
+```
+└─ Route: / (prefix)
+    HTTPRoute kgateway-system/api-example-com · rule 0 · match 0
+    HTTP Filters:
+    ├─ [1] global_disable/ext_auth (disabled)
+    ├─ [2] ext_auth/kgateway-system/ext-authz ← GatewayExtension kgateway-system/ext-authz
+    └─ [3] envoy.filters.http.router
+    Policies:
+    └─ TrafficPolicy kgateway-system/ext-auth (extAuth)
+```
+
+A route name can be read several ways, because HTTPRoute names and namespaces may both contain `-`. krp shows a route's HTTPRoute only when there's one reading. That's the case with `--route`/`--route-ns`, which tell krp which HTTPRoute exists, or when kgateway runs with `enableRouteSourceMetadata: true`. `-o json` lists every reading, with a `certainty` of `exact`, `inferred` or `ambiguous`.
 
 ### JSON output
 
@@ -143,6 +165,7 @@ pkg/envoy/        Importable library (standard library only, except source/kube)
   model/          EnvoySnapshot data model
   parser/         Envoy config dump JSON parser (io.Reader)
   filter/         HTTPRoute snapshot filter
+  origin/         Envoy object → Gateway API object mapping (kgateway OSS, pluggable)
   source/         Config dump sources: File, Admin (HTTP)
     kube/         Port-forward sources: Gateway, Deployment (client-go)
 internal/
@@ -173,6 +196,19 @@ snap := filter.Filter(result.Snapshot, filter.Options{
 ```
 
 Snapshots are read-only once shared: `filter.Filter` returns a view that shares data with its input.
+
+```go
+// Label a snapshot with Gateway API origins. Known HTTPRoutes resolve route
+// names that can be read several ways; a vendor plugin is another Mapper in the chain.
+m := origin.Chain(vendorMapper, origin.Kgateway(origin.KgatewayOptions{
+	Gateway: &model.Ref{Group: "gateway.networking.k8s.io", Kind: "Gateway", Namespace: "kgateway-system", Name: "gw"},
+	Known:   httpRoutes,
+}))
+annotated := origin.Annotate(snap, m)
+
+// A bare name from proxy stats: a cluster or a route config.
+ref, ok := origin.ObjectForName(m, "kube_shop_cart_8080") // Service shop/cart
+```
 
 ---
 

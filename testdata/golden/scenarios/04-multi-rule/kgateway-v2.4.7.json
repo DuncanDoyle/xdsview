@@ -16,6 +16,10 @@
                   "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "router"
                   }
                 }
               ],
@@ -33,14 +37,104 @@
                         "match": {
                           "pathSeparatedPrefix": "/api"
                         },
-                        "cluster": "kube_httpbin_httpbin_8000"
+                        "cluster": "kube_httpbin_httpbin_8000",
+                        "origin": {
+                          "certainty": "ambiguous",
+                          "candidates": [
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "example-com-kgateway-system",
+                                "name": "api"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "com-kgateway-system",
+                                "name": "api-example"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "kgateway-system",
+                                "name": "api-example-com"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "system",
+                                "name": "api-example-com-kgateway"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "listener~80~api_example_com-route-1-httproute-api-example-com-kgateway-system-1-0-matcher-0",
                         "match": {
                           "pathSeparatedPrefix": "/web"
                         },
-                        "cluster": "kube_httpbin_httpbin-v2_8000"
+                        "cluster": "kube_httpbin_httpbin-v2_8000",
+                        "origin": {
+                          "certainty": "ambiguous",
+                          "candidates": [
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "example-com-kgateway-system",
+                                "name": "api"
+                              },
+                              "ruleIndex": 1,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "com-kgateway-system",
+                                "name": "api-example"
+                              },
+                              "ruleIndex": 1,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "kgateway-system",
+                                "name": "api-example-com"
+                              },
+                              "ruleIndex": 1,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "system",
+                                "name": "api-example-com-kgateway"
+                              },
+                              "ruleIndex": 1,
+                              "matchIndex": 0
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "listener~80~api_example_com-route-2-httproute-api-example-com-kgateway-system-1-1-matcher-1",
@@ -53,22 +147,124 @@
                             }
                           ]
                         },
-                        "cluster": "kube_httpbin_httpbin-v2_8000"
+                        "cluster": "kube_httpbin_httpbin-v2_8000",
+                        "origin": {
+                          "certainty": "ambiguous",
+                          "candidates": [
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "example-com-kgateway-system",
+                                "name": "api"
+                              },
+                              "ruleIndex": 1,
+                              "matchIndex": 1
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "com-kgateway-system",
+                                "name": "api-example"
+                              },
+                              "ruleIndex": 1,
+                              "matchIndex": 1
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "kgateway-system",
+                                "name": "api-example-com"
+                              },
+                              "ruleIndex": 1,
+                              "matchIndex": 1
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "system",
+                                "name": "api-example-com-kgateway"
+                              },
+                              "ruleIndex": 1,
+                              "matchIndex": 1
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "listener~80~api_example_com-route-3-httproute-api-example-com-kgateway-system-2-0-matcher-0",
                         "match": {
                           "prefix": "/"
                         },
-                        "cluster": "kube_httpbin_httpbin_8000"
+                        "cluster": "kube_httpbin_httpbin_8000",
+                        "origin": {
+                          "certainty": "ambiguous",
+                          "candidates": [
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "example-com-kgateway-system",
+                                "name": "api"
+                              },
+                              "ruleIndex": 2,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "com-kgateway-system",
+                                "name": "api-example"
+                              },
+                              "ruleIndex": 2,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "kgateway-system",
+                                "name": "api-example-com"
+                              },
+                              "ruleIndex": 2,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "system",
+                                "name": "api-example-com-kgateway"
+                              },
+                              "ruleIndex": 2,
+                              "matchIndex": 0
+                            }
+                          ]
+                        }
                       }
-                    ]
+                    ],
+                    "origin": {
+                      "certainty": "inferred",
+                      "listener": {
+                        "certainty": "inferred",
+                        "port": 80
+                      },
+                      "hostname": "api.example.com"
+                    }
                   }
                 ]
               }
             }
           }
-        ]
+        ],
+        "origin": {
+          "certainty": "inferred",
+          "port": 80
+        }
       }
     ]
   },

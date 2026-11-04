@@ -33,6 +33,10 @@
                       "request_header_mode": "SEND",
                       "response_header_mode": "SEND"
                     }
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "ext_proc"
                   }
                 },
                 {
@@ -40,6 +44,10 @@
                   "type": "type.googleapis.com/envoy.extensions.filters.http.fault.v3.HTTPFault",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.fault.v3.HTTPFault"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "fault"
                   }
                 },
                 {
@@ -47,6 +55,10 @@
                   "type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "cors"
                   }
                 },
                 {
@@ -71,6 +83,10 @@
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit",
                     "stage": 3,
                     "stat_prefix": "http_local_ratelimit"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "local_ratelimit"
                   }
                 },
                 {
@@ -100,6 +116,10 @@
                   "type": "type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "rbac"
                   }
                 },
                 {
@@ -124,6 +144,10 @@
                       "request_header_mode": "SEND",
                       "response_header_mode": "SEND"
                     }
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "ext_proc"
                   }
                 },
                 {
@@ -131,6 +155,10 @@
                   "type": "type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "grpc_web"
                   }
                 },
                 {
@@ -148,6 +176,10 @@
                     "filter_enabled": {
                       "default_value": {}
                     }
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "csrf"
                   }
                 },
                 {
@@ -186,6 +218,10 @@
                         }
                       }
                     ]
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "router"
                   }
                 }
               ],
@@ -212,6 +248,10 @@
                       "request_header_mode": "SEND",
                       "response_header_mode": "SEND"
                     }
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "ext_proc"
                   }
                 },
                 {
@@ -219,6 +259,10 @@
                   "type": "type.googleapis.com/envoy.extensions.filters.http.upstream_codec.v3.UpstreamCodec",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.upstream_codec.v3.UpstreamCodec"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "upstream_codec"
                   }
                 }
               ],

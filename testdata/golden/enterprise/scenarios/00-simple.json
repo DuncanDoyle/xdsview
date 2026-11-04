@@ -16,6 +16,10 @@
                   "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "router"
                   }
                 }
               ],
@@ -33,15 +37,62 @@
                         "match": {
                           "prefix": "/"
                         },
-                        "cluster": "kube_httpbin_httpbin_8000"
+                        "cluster": "kube_httpbin_httpbin_8000",
+                        "origin": {
+                          "certainty": "ambiguous",
+                          "candidates": [
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "example-com-default",
+                                "name": "api"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "com-default",
+                                "name": "api-example"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            },
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "default",
+                                "name": "api-example-com"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            }
+                          ]
+                        }
                       }
-                    ]
+                    ],
+                    "origin": {
+                      "certainty": "inferred",
+                      "listener": {
+                        "certainty": "inferred",
+                        "port": 80
+                      },
+                      "hostname": "api.example.com"
+                    }
                   }
                 ]
               }
             }
           }
-        ]
+        ],
+        "origin": {
+          "certainty": "inferred",
+          "port": 80
+        }
       }
     ]
   },
