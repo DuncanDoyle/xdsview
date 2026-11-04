@@ -191,8 +191,8 @@ func portForward(ctx context.Context, namespace string, opts Options, finder pod
 // Through a proxy, the connect and TLS handshake honour ctx but the response
 // read doesn't, because client-go's upgrade transport hook bypasses proxies.
 //
-// release unregisters the close-on-cancel hooks; call it once the tunnel is
-// done, or they stay on ctx until it ends.
+// release closes the tunnel's connections and unregisters their hooks; call it
+// once the tunnel is done, or the hooks stay on ctx until it ends.
 func newDialer(ctx context.Context, cfg *rest.Config, u *url.URL) (d httpstream.Dialer, release func(), err error) {
 	tlsConfig, err := rest.TLSConfigFor(cfg)
 	if err != nil {
@@ -229,10 +229,11 @@ func newDialer(ctx context.Context, cfg *rest.Config, u *url.URL) (d httpstream.
 }
 
 // cancelHooks dials connections that close when the dial's ctx is done, and
-// can unregister those hooks.
+// releases them when the tunnel is done.
 type cancelHooks struct {
 	mu    sync.Mutex
 	stops []func() bool
+	conns []net.Conn
 }
 
 func (h *cancelHooks) dial(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -244,17 +245,23 @@ func (h *cancelHooks) dial(ctx context.Context, network, addr string) (net.Conn,
 	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
 	h.mu.Lock()
 	h.stops = append(h.stops, stop)
+	h.conns = append(h.conns, conn)
 	h.mu.Unlock()
 	return conn, nil
 }
 
+// release unregisters the hooks and closes the connections. client-go doesn't
+// close the connection of a rejected upgrade, so the tunnel's teardown does.
 func (h *cancelHooks) release() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for _, stop := range h.stops {
 		stop()
 	}
-	h.stops = nil
+	for _, c := range h.conns {
+		_ = c.Close()
+	}
+	h.stops, h.conns = nil, nil
 }
 
 // ctxDialer is spdy.NewDialer with the upgrade request bound to ctx.

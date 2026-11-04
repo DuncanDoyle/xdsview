@@ -243,8 +243,8 @@ func TestConfigDump_VerifiesServerCertificate(t *testing.T) {
 	}
 }
 
-// TestCancelHooks_Release checks that a released hook no longer closes its
-// connection when the context ends, so a long-lived context holds nothing.
+// TestCancelHooks_Release checks that release closes the tunnel's
+// connections and unregisters their hooks from ctx.
 func TestCancelHooks_Release(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -261,32 +261,63 @@ func TestCancelHooks_Release(t *testing.T) {
 		}
 	}()
 
-	for _, release := range []bool{false, true} {
-		ctx, cancel := context.WithCancel(context.Background())
-		hooks := &cancelHooks{}
-		conn, err := hooks.dial(ctx, "tcp", ln.Addr().String())
-		if err != nil {
-			t.Fatal(err)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	hooks := &cancelHooks{}
+	conn, err := hooks.dial(ctx, "tcp", ln.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	hooks.release()
+	if _, err := conn.Write([]byte("x")); err == nil {
+		t.Error("release left the connection open")
+	}
+	if n := len(hooks.stops); n != 0 {
+		t.Errorf("%d hooks still registered", n)
+	}
+}
+
+// TestConfigDump_RejectedUpgradeClosesConnection has the API server refuse the
+// upgrade with a keep-alive 403. The failed call must close its connection.
+func TestConfigDump_RejectedUpgradeClosesConnection(t *testing.T) {
+	closed := make(chan struct{}, 1)
+	apiServer := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	apiServer.Config.ConnState = func(_ net.Conn, s http.ConnState) {
+		if s == http.StateClosed {
+			closed <- struct{}{}
 		}
-		if release {
-			hooks.release()
-		}
-		cancel()
-		if release {
-			// Absence can't be awaited: give a registered hook ample time to fire.
-			time.Sleep(100 * time.Millisecond)
-			if _, err := conn.Write([]byte("x")); err != nil {
-				t.Errorf("released hook still closed the connection: %v", err)
-			}
-		} else {
-			deadline := time.Now().Add(2 * time.Second)
-			for _, err := conn.Write([]byte("x")); err == nil; _, err = conn.Write([]byte("x")) {
-				if time.Now().After(deadline) {
-					t.Fatal("cancel did not close the connection")
-				}
-				time.Sleep(5 * time.Millisecond)
-			}
-		}
-		conn.Close()
+	}
+	apiServer.StartTLS()
+	defer apiServer.Close()
+
+	cfg := &rest.Config{Host: apiServer.URL, TLSClientConfig: rest.TLSClientConfig{Insecure: true},
+		Proxy: func(*http.Request) (*url.URL, error) { return nil, nil }}
+	finder := func(context.Context, kubernetes.Interface, string) (string, error) { return "gw-0", nil }
+	if _, _, err := portForward(context.Background(), "ns", Options{RESTConfig: cfg}, finder); err == nil {
+		t.Fatal("expected the rejected upgrade to fail")
+	}
+	select {
+	case <-closed:
+	case <-time.After(2 * time.Second):
+		t.Error("the rejected connection is still open")
+	}
+}
+
+// errOnlyCtx reports cancellation through Err but never closes Done, so a
+// failing dial is the only branch portForward's select can take.
+type errOnlyCtx struct{ context.Context }
+
+func (errOnlyCtx) Err() error { return context.Canceled }
+
+// TestConfigDump_CancelledDialReportsCanceled checks the dial-error branch: when
+// the dial fails and the context is cancelled, the error is context.Canceled.
+func TestConfigDump_CancelledDialReportsCanceled(t *testing.T) {
+	cfg := &rest.Config{Host: "https://127.0.0.1:1", TLSClientConfig: rest.TLSClientConfig{Insecure: true},
+		Proxy: func(*http.Request) (*url.URL, error) { return nil, nil }}
+	finder := func(context.Context, kubernetes.Interface, string) (string, error) { return "gw-0", nil }
+	if _, _, err := portForward(errOnlyCtx{context.Background()}, "ns", Options{RESTConfig: cfg}, finder); !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v, want context.Canceled", err)
 	}
 }
