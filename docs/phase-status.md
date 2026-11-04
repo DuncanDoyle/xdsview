@@ -10,7 +10,7 @@ Status: design in progress (2026-11-04). Phase 4 complete 2026-11-04, tag `v0.1.
 - [x] Q1 Phase 5 design (`design.md`)
 - [x] Q2 Phase 5 implementation plan (`implementation-plan.md`): planned sub-phases 5.1–5.4
 - [ ] Q3 Cross-model review of design + plan (10 accepted: reviews/design-codex.md), owner approval ← CURRENT (pending: owner is away; 5.x work happens on branch `duncandoyle/phase5` until approval)
-- [ ] Q4 Sub-phase 5.1: #25 cancellation
+- [x] Q4 Sub-phase 5.1: #25 cancellation (`a0c7cc9`, phase-5.1-complete.md; #25 closes on merge)
 - [ ] Q5 Sub-phase 5.2: model accuracy (#11, #13, #15) and corpus (#17)
 - [ ] Q6 Sub-phase 5.3: `pkg/envoy/origin` (E5) and `--rule` by name in `filter` (#16)
 - [ ] Q7 Sub-phase 5.4: CLI origins, `--rule <name>`, golden files
@@ -26,21 +26,7 @@ Status: design in progress (2026-11-04). Phase 4 complete 2026-11-04, tag `v0.1.
 - [ ] phase-5-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-Sub-phase: 5.1 — Cancellation (#25)
-Kind: planned
-Base: d1dfc47
-Brief: docs/phases/phase-5/phase-5.1-brief.md
-
-### Allowed work
-features within the approved design
-
-### Not allowed
-design changes without decisions.md + user approval
-
-### Queue
-- [ ] Failing acceptance test ← CURRENT
-- [ ] Fix
-- [ ] Record
+none
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`)
