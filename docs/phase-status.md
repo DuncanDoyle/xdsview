@@ -26,7 +26,22 @@ Status: design in progress (2026-11-04). Phase 4 complete 2026-11-04, tag `v0.1.
 - [ ] phase-5-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-none
+Sub-phase: 5.2 — Model accuracy and corpus
+Kind: planned
+Base: 6ab2858
+Brief: docs/phases/phase-5/phase-5.2-brief.md
+
+### Allowed work
+features within the approved design
+
+### Not allowed
+design changes without decisions.md + user approval
+
+### Queue
+- [ ] Parser fields ← CURRENT
+- [ ] Renderer
+- [ ] Scenarios and recording
+- [ ] Filter and parser e2e, golden files
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`)
