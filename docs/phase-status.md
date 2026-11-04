@@ -23,7 +23,23 @@ Status: design + plan approved 2026-11-04; implementing. Phases 1–3 complete (
 - [ ] phase-4-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-none
+Sub-phase: 4.3 — Test corpus
+Kind: planned
+Base: 99a678f7cfe2f9f1fabb45475630249106347f35
+Brief: docs/phases/phase-4/phase-4.3-brief.md
+
+### Allowed work
+Features within the approved design (design.md § Test corpus, D-003).
+
+### Not allowed
+Design changes without a decisions.md entry and owner approval.
+
+### Queue
+- [ ] S1 Move enterprise corpus; enterprise README ← CURRENT
+- [ ] S2 OSS manifests (gatewayClass, 02_1/02_6/02_7/02_8, 06) + hack/scenario.sh
+- [ ] S3 hack/record-dumps.sh; record v2.4.7 and v2.5.0
+- [ ] S4 e2e tests over both corpora with exact expected route sets
+- [ ] S5 Golden regenerate; roadmap/README tables
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`)
