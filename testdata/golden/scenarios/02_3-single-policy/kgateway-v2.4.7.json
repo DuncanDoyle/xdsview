@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "v1alpha1",
+  "snapshot": {
+    "listeners": [
+      {
+        "name": "listener~80",
+        "address": ":::80",
+        "filterChains": [
+          {
+            "name": "listener~80",
+            "hcm": {
+              "routeConfigName": "listener~80",
+              "httpFilters": [
+                {
+                  "name": "envoy.filters.http.router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  }
+                }
+              ],
+              "routeConfig": {
+                "name": "listener~80",
+                "virtualHosts": [
+                  {
+                    "name": "listener~80~api_example_com",
+                    "domains": [
+                      "api.example.com"
+                    ],
+                    "routes": [
+                      {
+                        "name": "listener~80~api_example_com-route-0-httproute-api-example-com-kgateway-system-0-0-matcher-0",
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "cluster": "kube_httpbin_httpbin_8000",
+                        "responseHeadersToAdd": [
+                          {
+                            "key": "x-powered-by",
+                            "value": "kgateway"
+                          }
+                        ],
+                        "responseHeadersToRemove": [
+                          "server"
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "warnings": []
+}

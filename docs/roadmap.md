@@ -148,21 +148,21 @@ pkg/envoy/source  ──►  pkg/envoy/parser  ──►  pkg/envoy/model  ─�
 
 ## Test Scenarios
 
-Real K8S + Envoy config pairs in `testdata/scenarios/`:
+Two corpora (D-003). The OSS corpus in `testdata/scenarios/` is recorded with `hack/record-dumps.sh <version>` on OSS kgateway v2.4.7 and v2.5.0, into `envoy/kgateway-<version>/`. The enterprise corpus in `testdata/enterprise/scenarios/` holds the earlier recordings from the enterprise distribution (06 from Gloo Gateway v1). It's kept for parser coverage and removed before the move into kgateway.
 
-| Scenario | Description | Has config_dump |
-|----------|-------------|:---:|
-| 00-simple | HTTP Gateway, 1 route, no policies | Yes |
-| 01_1–01_9-matchers | Path (prefix, exact, regex), header, method and other matchers | Yes |
-| 02_1-single-policy | HTTPS Gateway, transformation policy | Yes |
-| 02_2-single-policy | HTTP, RequestHeaderModifier (native K8S filter) | Yes |
-| 02_3-single-policy | HTTP, ResponseHeaderModifier (native K8S filter) | Yes |
-| 02_4-single-policy | HTTP, RequestMirror (native K8S filter) | Yes |
-| 02_5-single-policy | HTTP, URLRewrite (native K8S filter) | Yes |
-| 02_6-single-policy | HTTP, CORS | Yes |
-| 02_7-single-policy | HTTP, ExtAuth | Yes |
-| 02_8-single-policy | HTTP, RateLimit | Yes |
-| 03-multi-policy | Multiple policies on one route | No |
-| 04-multi-rule | One route, multiple rules/backends | No |
-| 05-multi-listener | Gateway with HTTP + HTTPS listeners | No |
-| 06-multi-extproc | Multiple ext_proc filters | Yes |
+| Scenario | Description | OSS v2.4.7 / v2.5.0 | Enterprise |
+|----------|-------------|:---:|:---:|
+| 00-simple | HTTP Gateway, 1 route, no policies | Yes | Yes |
+| 01_1–01_9-matchers | Path (prefix, exact, regex), header, method and other matchers | Yes | Yes |
+| 02_1-single-policy | HTTPS Gateway (2 hostnames), transformation policy | Yes | Yes |
+| 02_2-single-policy | HTTP, RequestHeaderModifier (native K8S filter) | Yes | Yes |
+| 02_3-single-policy | HTTP, ResponseHeaderModifier (native K8S filter) | Yes | Yes |
+| 02_4-single-policy | HTTP, RequestMirror (native K8S filter) | Yes | Yes |
+| 02_5-single-policy | HTTP, URLRewrite (native K8S filter) | Yes | Yes |
+| 02_6-single-policy | HTTP, CORS | Yes | Yes |
+| 02_7-single-policy | HTTP, ExtAuth | Yes | Yes |
+| 02_8-single-policy | HTTP, RateLimit (global) | Yes | Yes |
+| 03-multi-policy | Multiple policies on one route | No (gateway only) | No |
+| 04-multi-rule | One route, multiple rules/backends | No (gateway only) | No |
+| 05-multi-listener | Gateway with HTTP + HTTPS listeners | No (gateway only) | No |
+| 06-multi-extproc | Two HTTPRoutes, one ext_proc extension each | Yes | Yes (Gloo Gateway v1) |

@@ -1,0 +1,210 @@
+{
+  "schemaVersion": "v1alpha1",
+  "snapshot": {
+    "listeners": [
+      {
+        "name": "listener~80",
+        "address": ":::80",
+        "filterChains": [
+          {
+            "name": "listener~80",
+            "hcm": {
+              "routeConfigName": "listener~80",
+              "httpFilters": [
+                {
+                  "name": "global_disable/ext_proc",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.set_metadata.v3.Config",
+                    "metadata": [
+                      {
+                        "metadata_namespace": "dev.kgateway.disable_ext_proc",
+                        "value": {
+                          "disable": true
+                        }
+                      }
+                    ]
+                  },
+                  "disabled": true
+                },
+                {
+                  "name": "ext_proc/kgateway-system/ext-proc-a",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.common.matching.v3.ExtensionWithMatcher",
+                    "extension_config": {
+                      "name": "composite_ext_proc",
+                      "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.filters.http.composite.v3.Composite"
+                      }
+                    },
+                    "xds_matcher": {
+                      "matcher_list": {
+                        "matchers": [
+                          {
+                            "on_match": {
+                              "action": {
+                                "name": "composite-action",
+                                "typed_config": {
+                                  "@type": "type.googleapis.com/envoy.extensions.filters.http.composite.v3.ExecuteFilterAction",
+                                  "typed_config": {
+                                    "name": "envoy.filters.http.ext_proc",
+                                    "typed_config": {
+                                      "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+                                      "failure_mode_allow": true,
+                                      "grpc_service": {
+                                        "envoy_grpc": {
+                                          "cluster_name": "kube_kgateway-system_ext-proc-a_4444"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "predicate": {
+                              "single_predicate": {
+                                "custom_match": {
+                                  "name": "envoy.matching.matchers.metadata_matcher",
+                                  "typed_config": {
+                                    "@type": "type.googleapis.com/envoy.extensions.matching.input_matchers.metadata.v3.Metadata",
+                                    "invert": true,
+                                    "value": {
+                                      "bool_match": true
+                                    }
+                                  }
+                                },
+                                "input": {
+                                  "name": "disable",
+                                  "typed_config": {
+                                    "@type": "type.googleapis.com/envoy.extensions.matching.common_inputs.network.v3.DynamicMetadataInput",
+                                    "filter": "dev.kgateway.disable_ext_proc",
+                                    "path": [
+                                      {
+                                        "key": "disable"
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "disabled": true
+                },
+                {
+                  "name": "ext_proc/kgateway-system/ext-proc-b",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.common.matching.v3.ExtensionWithMatcher",
+                    "extension_config": {
+                      "name": "composite_ext_proc",
+                      "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.filters.http.composite.v3.Composite"
+                      }
+                    },
+                    "xds_matcher": {
+                      "matcher_list": {
+                        "matchers": [
+                          {
+                            "on_match": {
+                              "action": {
+                                "name": "composite-action",
+                                "typed_config": {
+                                  "@type": "type.googleapis.com/envoy.extensions.filters.http.composite.v3.ExecuteFilterAction",
+                                  "typed_config": {
+                                    "name": "envoy.filters.http.ext_proc",
+                                    "typed_config": {
+                                      "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+                                      "failure_mode_allow": true,
+                                      "grpc_service": {
+                                        "envoy_grpc": {
+                                          "cluster_name": "kube_kgateway-system_ext-proc-b_4444"
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "predicate": {
+                              "single_predicate": {
+                                "custom_match": {
+                                  "name": "envoy.matching.matchers.metadata_matcher",
+                                  "typed_config": {
+                                    "@type": "type.googleapis.com/envoy.extensions.matching.input_matchers.metadata.v3.Metadata",
+                                    "invert": true,
+                                    "value": {
+                                      "bool_match": true
+                                    }
+                                  }
+                                },
+                                "input": {
+                                  "name": "disable",
+                                  "typed_config": {
+                                    "@type": "type.googleapis.com/envoy.extensions.matching.common_inputs.network.v3.DynamicMetadataInput",
+                                    "filter": "dev.kgateway.disable_ext_proc",
+                                    "path": [
+                                      {
+                                        "key": "disable"
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "disabled": true
+                },
+                {
+                  "name": "envoy.filters.http.router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  }
+                }
+              ],
+              "routeConfig": {
+                "name": "listener~80",
+                "virtualHosts": [
+                  {
+                    "name": "listener~80~api_example_com",
+                    "domains": [
+                      "api.example.com"
+                    ],
+                    "routes": [
+                      {
+                        "name": "listener~80~api_example_com-route-1-httproute-api-example-com-kgateway-system-0-0-matcher-0",
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "cluster": "kube_httpbin_httpbin_8000",
+                        "typedPerFilterConfig": {
+                          "ext_proc/kgateway-system/ext-proc-a": {
+                            "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExtProcPerRoute",
+                            "overrides": {}
+                          }
+                        },
+                        "metadata": {
+                          "merge.TrafficPolicy.gateway.kgateway.dev": {
+                            "extProc": [
+                              "gateway.kgateway.dev/TrafficPolicy/kgateway-system/ext-proc-a"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "warnings": []
+}

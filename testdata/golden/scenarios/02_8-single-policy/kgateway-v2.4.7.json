@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "v1alpha1",
+  "snapshot": {
+    "listeners": [
+      {
+        "name": "listener~80",
+        "address": ":::80",
+        "filterChains": [
+          {
+            "name": "listener~80",
+            "hcm": {
+              "routeConfigName": "listener~80",
+              "httpFilters": [
+                {
+                  "name": "ratelimit/kgateway-system/ratelimit",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit",
+                    "domain": "api-example-com",
+                    "rate_limit_service": {
+                      "grpc_service": {
+                        "envoy_grpc": {
+                          "cluster_name": "kube_kgateway-system_ratelimit_4444"
+                        }
+                      },
+                      "transport_api_version": "V3"
+                    },
+                    "timeout": "0.100s"
+                  },
+                  "disabled": true
+                },
+                {
+                  "name": "envoy.filters.http.router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  }
+                }
+              ],
+              "routeConfig": {
+                "name": "listener~80",
+                "virtualHosts": [
+                  {
+                    "name": "listener~80~api_example_com",
+                    "domains": [
+                      "api.example.com"
+                    ],
+                    "routes": [
+                      {
+                        "name": "listener~80~api_example_com-route-0-httproute-api-example-com-kgateway-system-0-0-matcher-0",
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "cluster": "kube_httpbin_httpbin_8000",
+                        "typedPerFilterConfig": {
+                          "ratelimit/kgateway-system/ratelimit": {
+                            "@type": "type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimitPerRoute",
+                            "rate_limits": [
+                              {
+                                "actions": [
+                                  {
+                                    "request_headers": {
+                                      "descriptor_key": "X-Custom",
+                                      "header_name": "X-Custom"
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        "metadata": {
+                          "merge.TrafficPolicy.gateway.kgateway.dev": {
+                            "rateLimit.global": [
+                              "gateway.kgateway.dev/TrafficPolicy/kgateway-system/rate-limit"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "warnings": []
+}

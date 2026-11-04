@@ -26,23 +26,11 @@ All conditions in the `match` block are ANDed together — a request must match 
 
 ## Envoy dump
 
-- `envoy/config_dump.json` — Full output of `curl localhost:19000/config_dump`
+- `envoy/kgateway-<version>/config_dump.json` — `/config_dump` per kgateway version, with `server_info.json`
 
 ## How to collect
 
 ```bash
-# Apply the K8S resources
-./testdata/scenarios/01_4-matchers/k8s/setup.sh
-
-# Wait for the HTTPBin application to be ready
-kubectl wait --for=condition=Ready pod -l app=httpbin -n httpbin --timeout=120s
-
-# Wait for the gateway pod to be ready
-kubectl wait --for=condition=Ready pod -l gateway.networking.k8s.io/gateway-name=gw -n kgateway-system --timeout=60s
-
-# Grab the Envoy config dump: port-forward admin port to localhost, wait for readiness, dump config, then kill the port-forward
-kubectl port-forward -n kgateway-system deploy/gw 19000:19000 & sleep 2 && curl -s localhost:19000/config_dump | jq . > testdata/scenarios/01_4-matchers/envoy/config_dump.json; kill %1
-
-# Tear down the K8S resources
-./testdata/scenarios/01_4-matchers/k8s/setup.sh
+# Record this scenario on a throwaway kind cluster (envoy/kgateway-<version>/)
+hack/record-dumps.sh v2.5.0 01_4-matchers
 ```

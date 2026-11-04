@@ -1,6 +1,6 @@
-# Scenario 02_8: Single Policy — RateLimit (EnterpriseKgatewayTrafficPolicy)
+# Scenario 02_8: Single Policy — RateLimit (TrafficPolicy)
 
-HTTP Gateway with one HTTPRoute and a single `EnterpriseKgatewayTrafficPolicy` applying rate limiting via `entRateLimit`.
+HTTP Gateway with one HTTPRoute and a `TrafficPolicy` with a global rate limit through a `RateLimit` `GatewayExtension`, using the `X-Custom` header as descriptor. The extension points at a Service with no pods; no rate limit server runs.
 
 ## What to observe
 
@@ -14,28 +14,16 @@ HTTP Gateway with one HTTPRoute and a single `EnterpriseKgatewayTrafficPolicy` a
 - `k8s/httpbin.yaml` — HTTPBin backend
 - `k8s/gateway.yaml` — HTTP Gateway on port 80
 - `k8s/api-example-com-httproute.yaml` — Simple HTTPRoute with no filters
-- `k8s/rate-limit-ektp.yaml` — EnterpriseKgatewayTrafficPolicy with `entRateLimit`
+- `k8s/rate-limit-trafficpolicy.yaml` — `ratelimit` Service (no pods), `RateLimit` `GatewayExtension`, and the `TrafficPolicy` that uses it
 - `k8s/httproute-kgateway-system_service-httpbin-rg.yaml` — ReferenceGrant from kgateway-system to httpbin namespace
 
 ## Envoy dump
 
-- `envoy/config_dump.json` — Full output of `curl localhost:19000/config_dump`
+HTTP Gateway with one HTTPRoute and a `TrafficPolicy` with a global rate limit through a `RateLimit` `GatewayExtension` (descriptor from the `X-Custom` header). The extension points at a Service with no pods; no rate limit server runs.
 
 ## How to collect
 
 ```bash
-# Apply the K8S resources
-./testdata/scenarios/02_8-single-policy/k8s/setup.sh
-
-# Wait for the HTTPBin application to be ready
-kubectl wait --for=condition=Ready pod -l app=httpbin -n httpbin --timeout=120s
-
-# Wait for the gateway pod to be ready
-kubectl wait --for=condition=Ready pod -l gateway.networking.k8s.io/gateway-name=gw -n kgateway-system --timeout=60s
-
-# Grab the Envoy config dump: port-forward admin port to localhost, wait for readiness, dump config, then kill the port-forward
-kubectl port-forward -n kgateway-system deploy/gw 19000:19000 & sleep 2 && curl -s localhost:19000/config_dump | jq . > testdata/scenarios/02_8-single-policy/envoy/config_dump.json; kill %1
-
-# Tear down the K8S resources
-./testdata/scenarios/02_8-single-policy/k8s/teardown.sh
+# Record this scenario on a throwaway kind cluster (envoy/kgateway-<version>/)
+hack/record-dumps.sh v2.5.0 02_8-single-policy
 ```

@@ -1,8 +1,8 @@
-# Scenario 02_6: Single Policy — CORS (EnterpriseKgatewayTrafficPolicy)
+# Scenario 02_6: Single Policy — CORS (TrafficPolicy)
 
-HTTP Gateway with one HTTPRoute and a single `EnterpriseKgatewayTrafficPolicy` applying CORS configuration via `entCors`.
+HTTP Gateway with one HTTPRoute and a `TrafficPolicy` with a `cors` section.
 
-Contrast with an HTTPRoute-level CORS implementation to see where CORS ends up in the Envoy config when driven by an EKTP policy.
+Contrast with an HTTPRoute-level CORS filter to see where CORS ends up in the Envoy config when it comes from a policy.
 
 ## What to observe
 
@@ -16,28 +16,16 @@ Contrast with an HTTPRoute-level CORS implementation to see where CORS ends up i
 - `k8s/httpbin.yaml` — HTTPBin backend
 - `k8s/gateway.yaml` — HTTP Gateway on port 80
 - `k8s/api-example-com-httproute.yaml` — Simple HTTPRoute with no filters (policy attached separately)
-- `k8s/cors-ektp.yaml` — EnterpriseKgatewayTrafficPolicy with `entCors`
+- `k8s/cors-trafficpolicy.yaml` — `TrafficPolicy` with `cors`
 - `k8s/httproute-kgateway-system_service-httpbin-rg.yaml` — ReferenceGrant from kgateway-system to httpbin namespace
 
 ## Envoy dump
 
-- `envoy/config_dump.json` — Full output of `curl localhost:19000/config_dump`
+HTTP Gateway with one HTTPRoute and a `TrafficPolicy` with a `cors` section.
 
 ## How to collect
 
 ```bash
-# Apply the K8S resources
-./testdata/scenarios/02_6-single-policy/k8s/setup.sh
-
-# Wait for the HTTPBin application to be ready
-kubectl wait --for=condition=Ready pod -l app=httpbin -n httpbin --timeout=120s
-
-# Wait for the gateway pod to be ready
-kubectl wait --for=condition=Ready pod -l gateway.networking.k8s.io/gateway-name=gw -n kgateway-system --timeout=60s
-
-# Grab the Envoy config dump: port-forward admin port to localhost, wait for readiness, dump config, then kill the port-forward
-kubectl port-forward -n kgateway-system deploy/gw 19000:19000 & sleep 2 && curl -s localhost:19000/config_dump | jq . > testdata/scenarios/02_6-single-policy/envoy/config_dump.json; kill %1
-
-# Tear down the K8S resources
-./testdata/scenarios/02_6-single-policy/k8s/teardown.sh
+# Record this scenario on a throwaway kind cluster (envoy/kgateway-<version>/)
+hack/record-dumps.sh v2.5.0 02_6-single-policy
 ```

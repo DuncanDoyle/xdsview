@@ -7,7 +7,7 @@ spec:
   allowedListeners:
     namespaces:
       from: All
-  gatewayClassName: enterprise-kgateway
+  gatewayClassName: kgateway
   listeners:
   - protocol: HTTP
     port: 80

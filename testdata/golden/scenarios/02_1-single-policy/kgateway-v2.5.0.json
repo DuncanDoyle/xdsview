@@ -1,0 +1,164 @@
+{
+  "schemaVersion": "v1alpha1",
+  "snapshot": {
+    "listeners": [
+      {
+        "name": "listener~443",
+        "address": ":::443",
+        "filterChains": [
+          {
+            "name": "https-api",
+            "tls": {
+              "sniHosts": [
+                "api.example.com"
+              ]
+            },
+            "hcm": {
+              "routeConfigName": "https-api",
+              "httpFilters": [
+                {
+                  "name": "dynamic_modules/simple_mutations",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilter",
+                    "dynamic_module_config": {
+                      "name": "rust_module"
+                    },
+                    "filter_config": {
+                      "@type": "type.googleapis.com/google.protobuf.StringValue",
+                      "value": "{}"
+                    },
+                    "filter_name": "rustformation"
+                  },
+                  "disabled": true
+                },
+                {
+                  "name": "envoy.filters.http.router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  }
+                }
+              ],
+              "routeConfig": {
+                "name": "https-api",
+                "virtualHosts": [
+                  {
+                    "name": "https-api~api_example_com",
+                    "domains": [
+                      "api.example.com"
+                    ],
+                    "routes": [
+                      {
+                        "name": "https-api~api_example_com-route-0-httproute-api-example-com-kgateway-system-0-0-matcher-0",
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "cluster": "kube_httpbin_httpbin_8000",
+                        "typedPerFilterConfig": {
+                          "dynamic_modules/simple_mutations": {
+                            "@type": "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilterPerRoute",
+                            "dynamic_module_config": {
+                              "name": "rust_module"
+                            },
+                            "filter_config": {
+                              "@type": "type.googleapis.com/google.protobuf.StringValue",
+                              "value": "{\"request\":{\"add\":[{\"name\":\"x-season\",\"value\":\"winter\"}]}}"
+                            },
+                            "filter_name": "rustformation",
+                            "per_route_config_name": "rustformation"
+                          }
+                        },
+                        "metadata": {
+                          "merge.TrafficPolicy.gateway.kgateway.dev": {
+                            "transformation": [
+                              "gateway.kgateway.dev/TrafficPolicy/kgateway-system/transformation"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "name": "https-developer",
+            "tls": {
+              "sniHosts": [
+                "developer.example.com"
+              ]
+            },
+            "hcm": {
+              "routeConfigName": "https-developer",
+              "httpFilters": [
+                {
+                  "name": "dynamic_modules/simple_mutations",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilter",
+                    "dynamic_module_config": {
+                      "name": "rust_module"
+                    },
+                    "filter_config": {
+                      "@type": "type.googleapis.com/google.protobuf.StringValue",
+                      "value": "{}"
+                    },
+                    "filter_name": "rustformation"
+                  },
+                  "disabled": true
+                },
+                {
+                  "name": "envoy.filters.http.router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  }
+                }
+              ],
+              "routeConfig": {
+                "name": "https-developer",
+                "virtualHosts": [
+                  {
+                    "name": "https-developer~developer_example_com",
+                    "domains": [
+                      "developer.example.com"
+                    ],
+                    "routes": [
+                      {
+                        "name": "https-developer~developer_example_com-route-0-httproute-api-example-com-kgateway-system-0-0-matcher-0",
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "cluster": "kube_httpbin_httpbin_8000",
+                        "typedPerFilterConfig": {
+                          "dynamic_modules/simple_mutations": {
+                            "@type": "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilterPerRoute",
+                            "dynamic_module_config": {
+                              "name": "rust_module"
+                            },
+                            "filter_config": {
+                              "@type": "type.googleapis.com/google.protobuf.StringValue",
+                              "value": "{\"request\":{\"add\":[{\"name\":\"x-season\",\"value\":\"winter\"}]}}"
+                            },
+                            "filter_name": "rustformation",
+                            "per_route_config_name": "rustformation"
+                          }
+                        },
+                        "metadata": {
+                          "merge.TrafficPolicy.gateway.kgateway.dev": {
+                            "transformation": [
+                              "gateway.kgateway.dev/TrafficPolicy/kgateway-system/transformation"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "warnings": []
+}

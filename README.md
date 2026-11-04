@@ -178,19 +178,16 @@ Snapshots are read-only once shared: `filter.Filter` returns a view that shares 
 
 ## Testdata Scenarios
 
-The `testdata/scenarios/` directory contains real Kubernetes manifests and Envoy config dumps collected from a live Kgateway cluster. These are used as parser test fixtures.
+`testdata/scenarios/` holds Kubernetes manifests and Envoy config dumps recorded on OSS kgateway v2.4.7 and v2.5.0 (`envoy/kgateway-<version>/`). `testdata/enterprise/` holds older recordings from the enterprise distribution, kept as extra parser coverage. See the Test Scenarios table in [docs/roadmap.md](docs/roadmap.md).
 
-| Scenario | Description |
-|---|---|
-| `01-simple` | HTTP Gateway, one route, no policies |
-| `02_1-single-policy` | HTTPS Gateway, transformation (EKTP) |
-| `02_2-single-policy` | HTTP, RequestHeaderModifier (native K8S filter) |
-| `02_3-single-policy` | HTTP, ResponseHeaderModifier |
-| `02_4-single-policy` | HTTP, RequestMirror |
-| `02_5-single-policy` | HTTP, URLRewrite |
-| `02_6-single-policy` | HTTP, CORS (EKTP) |
-| `02_7-single-policy` | HTTP, ExtAuth (EKTP) |
-| `02_8-single-policy` | HTTP, RateLimit (EKTP) |
+Re-record the OSS corpus on a throwaway kind cluster (needs Docker, kind, Helm, kubectl, jq):
+
+```bash
+hack/record-dumps.sh v2.5.0                 # every scenario with an HTTPRoute
+hack/record-dumps.sh v2.5.0 02_7-single-policy   # just one
+```
+
+Apply a single scenario to a cluster of your own with `hack/scenario.sh up|down <scenario-dir> <kubeconfig> <context>`.
 
 ---
 

@@ -20,12 +20,11 @@ This scenario tests the Correlator's ability to match multiple Envoy HTTP filter
 
 ## Envoy dump
 
-- `envoy/config_dump.json` — Full output of `curl localhost:19000/config_dump`
+- `envoy/kgateway-<version>/config_dump.json` — `/config_dump` per kgateway version, with `server_info.json`
 
 ## How to collect
 
 ```bash
-kubectl apply -f testdata/scenarios/03-multi-policy/k8s/
-kubectl wait --for=condition=Ready pod -l gateway.networking.k8s.io/gateway-name=multi-policy-gw -n default --timeout=60s
-kubectl exec deploy/multi-policy-gw -n default -- curl -s localhost:19000/config_dump | jq . > testdata/scenarios/03-multi-policy/envoy/config_dump.json
+# Record this scenario on a throwaway kind cluster (envoy/kgateway-<version>/)
+hack/record-dumps.sh v2.5.0 03-multi-policy
 ```

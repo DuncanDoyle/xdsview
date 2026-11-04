@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ext-proc-b
+  namespace: kgateway-system
+spec:
+  ports:
+  - name: grpc
+    port: 4444
+    appProtocol: kubernetes.io/h2c
+  selector:
+    app: ext-proc-b
+---
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: GatewayExtension
+metadata:
+  name: ext-proc-b
+  namespace: kgateway-system
+spec:
+  type: ExtProc
+  extProc:
+    grpcService:
+      backendRef:
+        name: ext-proc-b
+        port: 4444
+---
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: TrafficPolicy
+metadata:
+  name: ext-proc-b
+  namespace: kgateway-system
+spec:
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: api-example-com-admin
+  extProc:
+    extensionRef:
+      name: ext-proc-b

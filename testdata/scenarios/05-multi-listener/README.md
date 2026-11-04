@@ -19,12 +19,11 @@ This scenario tests listener selection logic and validates that the tool picks t
 
 ## Envoy dump
 
-- `envoy/config_dump.json` — Full output of `curl localhost:19000/config_dump`
+- `envoy/kgateway-<version>/config_dump.json` — `/config_dump` per kgateway version, with `server_info.json`
 
 ## How to collect
 
 ```bash
-kubectl apply -f testdata/scenarios/05-multi-listener/k8s/
-kubectl wait --for=condition=Ready pod -l gateway.networking.k8s.io/gateway-name=multi-listener-gw -n default --timeout=60s
-kubectl exec deploy/multi-listener-gw -n default -- curl -s localhost:19000/config_dump | jq . > testdata/scenarios/05-multi-listener/envoy/config_dump.json
+# Record this scenario on a throwaway kind cluster (envoy/kgateway-<version>/)
+hack/record-dumps.sh v2.5.0 05-multi-listener
 ```

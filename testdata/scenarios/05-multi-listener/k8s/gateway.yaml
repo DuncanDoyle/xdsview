@@ -10,13 +10,7 @@ spec:
   allowedListeners:
     namespaces:
       from: All
-  gatewayClassName: enterprise-kgateway
-  # ddoyle: GlooGatewayParameters configured on GatewayClass
-  # infrastructure:
-  #   parametersRef:
-  #     name: ent-kgateway-parameters
-  #     group: enterprisekgateway.solo.io
-  #     kind: EnterpriseKgatewayParameters   
+  gatewayClassName: kgateway
   listeners:
   - protocol: HTTP
     port: 80

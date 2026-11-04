@@ -116,7 +116,7 @@ func TestDumpJSON_Golden(t *testing.T) {
 }
 
 func TestDumpJSON_Filtered(t *testing.T) {
-	dump := filepath.Join(testdataDir, "scenarios", "01_1-matchers", "envoy", "config_dump.json")
+	dump := filepath.Join(testdataDir, "scenarios", "06-multi-extproc", "envoy", "kgateway-v2.5.0", "config_dump.json")
 	cases := []struct {
 		suffix string
 		args   []string
@@ -163,7 +163,7 @@ func TestDumpJSON_Warnings(t *testing.T) {
 }
 
 func TestDumpOutput_Rejected(t *testing.T) {
-	dump := filepath.Join(testdataDir, "scenarios", "00-simple", "envoy", "config_dump.json")
+	dump := filepath.Join(testdataDir, "scenarios", "00-simple", "envoy", "kgateway-v2.5.0", "config_dump.json")
 	cases := []struct {
 		name, want string
 		args       []string

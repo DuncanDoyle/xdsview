@@ -10,10 +10,11 @@ import (
 	"github.com/DuncanDoyle/krp/pkg/envoy/parser"
 )
 
-// testdataPath returns the path to a testdata file relative to the project root.
+// testdataPath returns the path to a file of an enterprise-corpus scenario. The
+// policy assertions below check enterprise-specific filters and metadata.
 // Tests are run from the package directory, so we need to go up to the project root.
 func testdataPath(scenario, file string) string {
-	return "../../../testdata/scenarios/" + scenario + "/" + file
+	return "../../../testdata/enterprise/scenarios/" + scenario + "/" + file
 }
 
 func TestParse_SimpleHTTP(t *testing.T) {

@@ -1,0 +1,7 @@
+{
+  "version": "aacd0340210b536e99ec44ebe59ab9d16b259552/1.39.6/Clean/RELEASE/BoringSSL",
+  "state": "LIVE",
+  "command_line_options": {
+    "concurrency": 4
+  }
+}
