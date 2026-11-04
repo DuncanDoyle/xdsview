@@ -1,0 +1,108 @@
+{
+  "schemaVersion": "v1alpha1",
+  "snapshot": {
+    "listeners": [
+      {
+        "name": "listener~80",
+        "address": ":::80",
+        "filterChains": [
+          {
+            "name": "listener~80",
+            "hcm": {
+              "routeConfigName": "listener~80",
+              "httpFilters": [
+                {
+                  "name": "global_disable/ext_auth",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.set_metadata.v3.Config",
+                    "metadata": [
+                      {
+                        "metadata_namespace": "dev.kgateway.disable_ext_auth",
+                        "value": {
+                          "disable": true
+                        }
+                      }
+                    ]
+                  },
+                  "disabled": true
+                },
+                {
+                  "name": "extauth_ee/default",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
+                    "filter_enabled_metadata": {
+                      "filter": "dev.kgateway.disable_ext_auth",
+                      "invert": true,
+                      "path": [
+                        {
+                          "key": "disable"
+                        }
+                      ],
+                      "value": {
+                        "bool_match": true
+                      }
+                    },
+                    "grpc_service": {
+                      "envoy_grpc": {
+                        "cluster_name": "kube_kgateway-system_ext-auth-service-enterprise-kgateway_8083"
+                      }
+                    },
+                    "metadata_context_namespaces": [
+                      "envoy.filters.http.jwt_authn"
+                    ],
+                    "transport_api_version": "V3"
+                  },
+                  "disabled": true
+                },
+                {
+                  "name": "envoy.filters.http.router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  }
+                }
+              ],
+              "routeConfig": {
+                "name": "listener~80",
+                "virtualHosts": [
+                  {
+                    "name": "listener~80~api_example_com",
+                    "domains": [
+                      "api.example.com"
+                    ],
+                    "routes": [
+                      {
+                        "name": "listener~80~api_example_com-route-0-httproute-api-example-com-kgateway-system-0-0-matcher-0",
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "cluster": "kube_httpbin_httpbin_8000",
+                        "typedPerFilterConfig": {
+                          "extauth_ee/default": {
+                            "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthzPerRoute",
+                            "check_settings": {
+                              "context_extensions": {
+                                "config_id": "[redacted]"
+                              }
+                            }
+                          }
+                        },
+                        "metadata": {
+                          "merge.EnterpriseKgatewayTrafficPolicy.enterprisekgateway.solo.io": {
+                            "entExtAuth": [
+                              "enterprisekgateway.solo.io/EnterpriseKgatewayTrafficPolicy/kgateway-system/ext-auth"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "warnings": []
+}

@@ -10,6 +10,7 @@
 //	krp dump --file <path> --route <name> --route-ns <ns>                                       # filter by HTTPRoute
 //	krp dump --file <path> --route <name> --route-ns <ns> --rule 0                             # filter by rule index
 //	krp dump --file <path> --route <name> --route-ns <ns> --rule 0 --interactive            # interactive TUI mode with filter config expansion
+//	krp dump --file <path> -o json                                                             # machine-readable output (see output.go)
 package main
 
 import (
@@ -27,6 +28,14 @@ import (
 )
 
 func main() {
+	if err := newRootCmd().Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+
+// newRootCmd builds the krp command tree. Output goes to the command's Out and
+// Err writers, which default to stdout and stderr.
+func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "krp",
 		Short: "Kgateway route printer — visualize Envoy config",
@@ -56,11 +65,10 @@ func main() {
 	// Composes with --route/--route-ns/--rule: the filter is applied before the TUI launches.
 	dump.Flags().BoolP("interactive", "i", false, "Launch the interactive TUI instead of printing static output")
 
-	root.AddCommand(dump)
+	dump.Flags().StringP("output", "o", outputText, "Output format: text, json")
 
-	if err := root.Execute(); err != nil {
-		os.Exit(1)
-	}
+	root.AddCommand(dump)
+	return root
 }
 
 // runDump is the cobra RunE handler for the "dump" subcommand.
@@ -78,6 +86,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 	routeNS, _ := cmd.Flags().GetString("route-ns")
 	ruleIndex, _ := cmd.Flags().GetInt("rule")
 	interactive, _ := cmd.Flags().GetBool("interactive")
+	output, _ := cmd.Flags().GetString("output")
 
 	// Exactly one source must be specified; --gateway and --deployment are mutually exclusive.
 	if file == "" && gateway == "" && deployment == "" {
@@ -88,6 +97,13 @@ func runDump(cmd *cobra.Command, args []string) error {
 	}
 	if gateway != "" && deployment != "" {
 		return fmt.Errorf("--gateway and --deployment are mutually exclusive")
+	}
+
+	if output != outputText && output != outputJSON {
+		return fmt.Errorf("unknown output format %q: use one of text, json", output)
+	}
+	if output == outputJSON && interactive {
+		return fmt.Errorf("-o json cannot be combined with --interactive")
 	}
 
 	// Validate HTTPRoute filter flags.
@@ -117,7 +133,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 		src = kube.Deployment(deployment, namespace, kube.Options{KubeContext: kubeContext})
 	}
 	if file == "" {
-		fmt.Fprintln(os.Stderr, "Connecting to Envoy admin API...")
+		fmt.Fprintln(cmd.ErrOrStderr(), "Connecting to Envoy admin API...")
 	}
 
 	rc, err := src.ConfigDump(context.Background())
@@ -134,7 +150,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 
 	// Print any non-fatal parse warnings to stderr so users know if sections were skipped.
 	for _, w := range result.Warnings {
-		fmt.Fprintf(os.Stderr, "warning: %s\n", w)
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s\n", w)
 	}
 
 	// Apply the HTTPRoute filter when requested.
@@ -146,16 +162,19 @@ func runDump(cmd *cobra.Command, args []string) error {
 			RuleIndex:          ruleIndex,
 		})
 		if len(snapshot.Listeners) == 0 {
-			fmt.Fprintf(os.Stderr,
+			fmt.Fprintf(cmd.ErrOrStderr(),
 				"warning: no routes found for HTTPRoute %s/%s — check name, namespace, and that the HTTPRoute is attached to this Gateway\n",
 				routeNS, routeName)
 		}
 	}
 
 	// Render and print — or launch the interactive TUI.
-	if interactive {
+	switch {
+	case interactive:
 		return tui.Run(snapshot)
+	case output == outputJSON:
+		return writeJSON(cmd.OutOrStdout(), snapshot, result.Warnings)
 	}
-	fmt.Println(renderer.Render(snapshot))
+	fmt.Fprintln(cmd.OutOrStdout(), renderer.Render(snapshot))
 	return nil
 }

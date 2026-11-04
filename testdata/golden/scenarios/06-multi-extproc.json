@@ -1,0 +1,253 @@
+{
+  "schemaVersion": "v1alpha1",
+  "snapshot": {
+    "listeners": [
+      {
+        "name": "listener-::-8080",
+        "address": ":::8080",
+        "filterChains": [
+          {
+            "name": "",
+            "hcm": {
+              "routeConfigName": "listener-::-8080-routes",
+              "httpFilters": [
+                {
+                  "name": "envoy.filters.http.early_ext_proc",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+                    "grpc_service": {
+                      "envoy_grpc": {
+                        "cluster_name": "default-ext-proc-grpc-4444_gloo-system"
+                      }
+                    },
+                    "metadata_options": {
+                      "receiving_namespaces": {
+                        "untyped": [
+                          "envoy.filters.http.ext_proc.encoder",
+                          "envoy.filters.http.ext_proc.decoder"
+                        ]
+                      }
+                    },
+                    "processing_mode": {
+                      "request_header_mode": "SEND",
+                      "response_header_mode": "SEND"
+                    }
+                  }
+                },
+                {
+                  "name": "envoy.filters.http.fault",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.fault.v3.HTTPFault"
+                  }
+                },
+                {
+                  "name": "envoy.filters.http.cors",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors"
+                  }
+                },
+                {
+                  "name": "io.solo.filters.http.transformation_ee",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.config.filter.http.transformation_ee.v2.FilterTransformations"
+                  }
+                },
+                {
+                  "name": "io.solo.filters.http.modsecurity",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.config.filter.http.modsecurity.v2.ModSecurity",
+                    "disabled": true
+                  }
+                },
+                {
+                  "name": "envoy.filters.http.local_ratelimit",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit",
+                    "stage": 3,
+                    "stat_prefix": "http_local_ratelimit"
+                  }
+                },
+                {
+                  "name": "io.solo.filters.http.sanitize",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.config.filter.http.sanitize.v2.Sanitize",
+                    "headers_to_remove": [
+                      "x-user-id"
+                    ]
+                  }
+                },
+                {
+                  "name": "io.solo.filters.http.solo_jwt_authn_staged",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.config.filter.http.solo_jwt_authn.v2.JwtWithStage",
+                    "jwt_authn": {
+                      "filter_state_rules": {
+                        "name": "stage0-filterState"
+                      }
+                    }
+                  }
+                },
+                {
+                  "name": "envoy.filters.http.rbac",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC"
+                  }
+                },
+                {
+                  "name": "envoy.filters.http.ext_proc",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+                    "grpc_service": {
+                      "envoy_grpc": {
+                        "cluster_name": "default-ext-proc-grpc-4444_gloo-system"
+                      }
+                    },
+                    "metadata_options": {
+                      "receiving_namespaces": {
+                        "untyped": [
+                          "envoy.filters.http.ext_proc.encoder",
+                          "envoy.filters.http.ext_proc.decoder"
+                        ]
+                      }
+                    },
+                    "processing_mode": {
+                      "request_header_mode": "SEND",
+                      "response_header_mode": "SEND"
+                    }
+                  }
+                },
+                {
+                  "name": "envoy.filters.http.grpc_web",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb"
+                  }
+                },
+                {
+                  "name": "io.solo.transformation",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.api.v2.filter.http.FilterTransformations"
+                  }
+                },
+                {
+                  "name": "envoy.filters.http.csrf",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.csrf.v3.CsrfPolicy",
+                    "filter_enabled": {
+                      "default_value": {}
+                    }
+                  }
+                },
+                {
+                  "name": "envoy.filters.http.router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                    "upstream_http_filters": [
+                      {
+                        "name": "envoy.filters.http.late_ext_proc",
+                        "typed_config": {
+                          "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+                          "grpc_service": {
+                            "envoy_grpc": {
+                              "cluster_name": "default-ext-proc-grpc-4444_gloo-system"
+                            }
+                          },
+                          "metadata_options": {
+                            "receiving_namespaces": {
+                              "untyped": [
+                                "envoy.filters.http.ext_proc.encoder",
+                                "envoy.filters.http.ext_proc.decoder"
+                              ]
+                            }
+                          },
+                          "processing_mode": {
+                            "request_header_mode": "SEND",
+                            "response_header_mode": "SEND"
+                          }
+                        }
+                      },
+                      {
+                        "name": "envoy.filters.http.upstream_codec",
+                        "typed_config": {
+                          "@type": "type.googleapis.com/envoy.extensions.filters.http.upstream_codec.v3.UpstreamCodec"
+                        }
+                      }
+                    ]
+                  }
+                }
+              ],
+              "routeConfig": {
+                "name": "listener-::-8080-routes",
+                "virtualHosts": [
+                  {
+                    "name": "gloo-system_api-example-com",
+                    "domains": [
+                      "api.example.com"
+                    ],
+                    "routes": [
+                      {
+                        "name": "gloo-system_api-example-com-route-0-matcher-0",
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "cluster": "httpbin-httpbin-8000_gloo-system",
+                        "requestHeadersToAdd": [
+                          {
+                            "key": "request",
+                            "value": "header"
+                          }
+                        ],
+                        "responseHeadersToAdd": [
+                          {
+                            "key": "response",
+                            "value": "header"
+                          }
+                        ],
+                        "typedPerFilterConfig": {
+                          "ai.extproc.solo.io": {
+                            "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExtProcPerRoute",
+                            "disabled": true
+                          },
+                          "envoy.filters.http.cors": {
+                            "@type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.CorsPolicy",
+                            "allow_origin_string_match": [
+                              {
+                                "exact": "*"
+                              }
+                            ]
+                          },
+                          "envoy.filters.http.early_ext_proc": {
+                            "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExtProcPerRoute",
+                            "overrides": {
+                              "processing_mode": {
+                                "request_header_mode": "SEND",
+                                "response_header_mode": "SEND"
+                              }
+                            }
+                          },
+                          "envoy.filters.http.ext_proc": {
+                            "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExtProcPerRoute",
+                            "disabled": true
+                          },
+                          "envoy.filters.http.late_ext_proc": {
+                            "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExtProcPerRoute",
+                            "overrides": {
+                              "processing_mode": {
+                                "request_header_mode": "SEND",
+                                "response_header_mode": "SEND"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "warnings": []
+}

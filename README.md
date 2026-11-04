@@ -72,6 +72,15 @@ krp dump --file config_dump.json --route my-route --route-ns default
 krp dump --file config_dump.json --route my-route --route-ns default --rule 0
 ```
 
+### JSON output
+
+```bash
+# Print the (filtered) snapshot as JSON; composes with every source and filter flag
+krp dump --file config_dump.json -o json
+```
+
+The document is `{"schemaVersion": "v1alpha1", "snapshot": {...}, "warnings": [...]}`. `schemaVersion` changes only when a field is removed or renamed. `testdata/golden/` holds the expected output for every test dump. `-o json` can't be combined with `--interactive`.
+
 ### Collecting a config dump manually
 
 ```bash
