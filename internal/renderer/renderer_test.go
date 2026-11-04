@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 
-	"github.com/DuncanDoyle/krp/internal/model"
+	"github.com/DuncanDoyle/krp/pkg/envoy/model"
 	"github.com/DuncanDoyle/krp/internal/renderer"
 )
 

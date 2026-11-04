@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	envoymodel "github.com/DuncanDoyle/krp/internal/model"
+	envoymodel "github.com/DuncanDoyle/krp/pkg/envoy/model"
 	"github.com/DuncanDoyle/krp/internal/renderer"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"

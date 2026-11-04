@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DuncanDoyle/krp/internal/filter"
-	"github.com/DuncanDoyle/krp/internal/model"
+	"github.com/DuncanDoyle/krp/pkg/envoy/filter"
+	"github.com/DuncanDoyle/krp/pkg/envoy/model"
 )
 
 // routeName builds a realistic Envoy route name for test cases, following the
@@ -18,7 +18,7 @@ func routeName(name, ns string, rule int) string {
 
 func TestFilter_NoOptions_ReturnsUnchanged(t *testing.T) {
 	snap := snapshotWithRoute("listener~80~x-route-0-httproute-foo-default-0-0-matcher-0")
-	got := filter.Filter(snap, filter.FilterOptions{})
+	got := filter.Filter(snap, filter.Options{})
 	if len(got.Listeners) != 1 {
 		t.Fatalf("expected 1 listener, got %d", len(got.Listeners))
 	}
@@ -26,7 +26,7 @@ func TestFilter_NoOptions_ReturnsUnchanged(t *testing.T) {
 
 func TestFilter_ByHTTPRoute_MatchingRoute(t *testing.T) {
 	snap := snapshotWithRoute(routeName("api-example-com", "default", 0))
-	opts := filter.FilterOptions{HTTPRouteName: "api-example-com", HTTPRouteNamespace: "default", RuleIndex: -1}
+	opts := filter.Options{HTTPRouteName: "api-example-com", HTTPRouteNamespace: "default", RuleIndex: filter.AllRules}
 	got := filter.Filter(snap, opts)
 	if len(got.Listeners) != 1 {
 		t.Fatalf("expected 1 listener, got %d", len(got.Listeners))
@@ -39,7 +39,7 @@ func TestFilter_ByHTTPRoute_MatchingRoute(t *testing.T) {
 
 func TestFilter_ByHTTPRoute_NoMatch_EmptySnapshot(t *testing.T) {
 	snap := snapshotWithRoute(routeName("api-example-com", "default", 0))
-	opts := filter.FilterOptions{HTTPRouteName: "other-route", HTTPRouteNamespace: "default", RuleIndex: -1}
+	opts := filter.Options{HTTPRouteName: "other-route", HTTPRouteNamespace: "default", RuleIndex: filter.AllRules}
 	got := filter.Filter(snap, opts)
 	if len(got.Listeners) != 0 {
 		t.Fatalf("expected 0 listeners, got %d", len(got.Listeners))
@@ -53,7 +53,7 @@ func TestFilter_ByRule_MatchingRule(t *testing.T) {
 		routeName("api-example-com", "default", 0),
 		routeName("api-example-com", "default", 1),
 	})
-	opts := filter.FilterOptions{HTTPRouteName: "api-example-com", HTTPRouteNamespace: "default", RuleIndex: 1}
+	opts := filter.Options{HTTPRouteName: "api-example-com", HTTPRouteNamespace: "default", RuleIndex: 1}
 	got := filter.Filter(snap, opts)
 	routes := got.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes
 	if len(routes) != 1 {
@@ -68,10 +68,10 @@ func TestFilter_PrunesEmptyVirtualHost(t *testing.T) {
 	// Two virtual hosts in one listener: VH1 has a matching route, VH2 does not.
 	// VH2 must be pruned; VH1 must be retained.
 	snap := snapshotWithTwoVHs(
-		routeName("api-example-com", "default", 0),                    // VH1: matches
+		routeName("api-example-com", "default", 0),                        // VH1: matches
 		"listener~80~other-route-0-httproute-other-default-0-0-matcher-0", // VH2: does not match
 	)
-	opts := filter.FilterOptions{HTTPRouteName: "api-example-com", HTTPRouteNamespace: "default", RuleIndex: -1}
+	opts := filter.Options{HTTPRouteName: "api-example-com", HTTPRouteNamespace: "default", RuleIndex: filter.AllRules}
 	got := filter.Filter(snap, opts)
 	vhs := got.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts
 	if len(vhs) != 1 {
@@ -83,10 +83,10 @@ func TestFilter_PrunesEmptyListener(t *testing.T) {
 	// Two listeners: only listener~80 has a matching route.
 	// listener~443 must be pruned entirely.
 	snap := snapshotWithTwoListeners(
-		routeName("api-example-com", "default", 0),                // listener~80: matches
+		routeName("api-example-com", "default", 0),               // listener~80: matches
 		"listener~443~other-route-0-httproute-x-y-0-0-matcher-0", // listener~443: does not match
 	)
-	opts := filter.FilterOptions{HTTPRouteName: "api-example-com", HTTPRouteNamespace: "default", RuleIndex: -1}
+	opts := filter.Options{HTTPRouteName: "api-example-com", HTTPRouteNamespace: "default", RuleIndex: filter.AllRules}
 	got := filter.Filter(snap, opts)
 	if len(got.Listeners) != 1 {
 		t.Fatalf("expected 1 listener after pruning, got %d", len(got.Listeners))
@@ -111,7 +111,7 @@ func TestFilter_MultipleFilterChains_PartialMatch(t *testing.T) {
 			}},
 		},
 	}
-	opts := filter.FilterOptions{HTTPRouteName: "api-example-com", HTTPRouteNamespace: "default", RuleIndex: -1}
+	opts := filter.Options{HTTPRouteName: "api-example-com", HTTPRouteNamespace: "default", RuleIndex: filter.AllRules}
 	got := filter.Filter(snap, opts)
 
 	if len(got.Listeners) != 1 {

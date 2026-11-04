@@ -1,16 +1,19 @@
 package parser_test
 
 import (
+	"bytes"
+	"errors"
 	"os"
+	"strings"
 	"testing"
 
-	"github.com/DuncanDoyle/krp/internal/parser"
+	"github.com/DuncanDoyle/krp/pkg/envoy/parser"
 )
 
 // testdataPath returns the path to a testdata file relative to the project root.
 // Tests are run from the package directory, so we need to go up to the project root.
 func testdataPath(scenario, file string) string {
-	return "../../testdata/scenarios/" + scenario + "/" + file
+	return "../../../testdata/scenarios/" + scenario + "/" + file
 }
 
 func TestParse_SimpleHTTP(t *testing.T) {
@@ -19,7 +22,7 @@ func TestParse_SimpleHTTP(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	result, err := parser.Parse(data)
+	result, err := parser.Parse(bytes.NewReader(data))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
@@ -100,7 +103,7 @@ func TestParse_HTTPSWithSNI(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	result, err := parser.Parse(data)
+	result, err := parser.Parse(bytes.NewReader(data))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
@@ -157,7 +160,7 @@ func TestParse_ExtAuth(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	result, err := parser.Parse(data)
+	result, err := parser.Parse(bytes.NewReader(data))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
@@ -195,7 +198,7 @@ func TestParse_RequestHeaderModifier(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	result, err := parser.Parse(data)
+	result, err := parser.Parse(bytes.NewReader(data))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
@@ -228,7 +231,7 @@ func TestParse_ResponseHeaderModifier(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	result, err := parser.Parse(data)
+	result, err := parser.Parse(bytes.NewReader(data))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
@@ -263,7 +266,7 @@ func TestParse_RequestMirror(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	result, err := parser.Parse(data)
+	result, err := parser.Parse(bytes.NewReader(data))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
@@ -291,7 +294,7 @@ func TestParse_URLRewrite(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	result, err := parser.Parse(data)
+	result, err := parser.Parse(bytes.NewReader(data))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
@@ -333,7 +336,7 @@ func TestParse_CORSPolicy(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	result, err := parser.Parse(data)
+	result, err := parser.Parse(bytes.NewReader(data))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
@@ -363,7 +366,7 @@ func TestParse_RateLimit(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	result, err := parser.Parse(data)
+	result, err := parser.Parse(bytes.NewReader(data))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
@@ -389,14 +392,14 @@ func TestParse_RateLimit(t *testing.T) {
 }
 
 func TestParse_MalformedJSON(t *testing.T) {
-	_, err := parser.Parse([]byte("{invalid json"))
+	_, err := parser.Parse(strings.NewReader("{invalid json"))
 	if err == nil {
 		t.Fatal("expected error for malformed JSON")
 	}
 }
 
 // TestParse_MalformedSection verifies that a config section that fails to unmarshal
-// produces a warning in ParseResult.Warnings instead of being silently dropped.
+// produces a warning in Result.Warnings instead of being silently dropped.
 func TestParse_MalformedSection(t *testing.T) {
 	// A valid config dump envelope containing one section with the correct @type
 	// but structurally invalid content (wrong field types).
@@ -409,7 +412,7 @@ func TestParse_MalformedSection(t *testing.T) {
 		]
 	}`
 
-	result, err := parser.Parse([]byte(input))
+	result, err := parser.Parse(strings.NewReader(input))
 	if err != nil {
 		t.Fatalf("unexpected hard error: %v", err)
 	}
@@ -427,7 +430,7 @@ func TestParse_WarningForUnreadableType(t *testing.T) {
 	// A config entry that is not a valid JSON object (cannot read @type).
 	input := `{"configs": ["not-an-object"]}`
 
-	result, err := parser.Parse([]byte(input))
+	result, err := parser.Parse(strings.NewReader(input))
 	if err != nil {
 		t.Fatalf("unexpected hard error: %v", err)
 	}
@@ -437,11 +440,39 @@ func TestParse_WarningForUnreadableType(t *testing.T) {
 }
 
 func TestParse_EmptyConfigs(t *testing.T) {
-	result, err := parser.Parse([]byte(`{"configs": []}`))
+	result, err := parser.Parse(strings.NewReader(`{"configs": []}`))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(result.Snapshot.Listeners) != 0 {
 		t.Errorf("expected 0 listeners, got %d", len(result.Snapshot.Listeners))
+	}
+}
+
+// errReader returns its data and then a read error, like a dropped connection.
+type errReader struct{ data *strings.Reader }
+
+func (e errReader) Read(p []byte) (int, error) {
+	if e.data.Len() == 0 {
+		return 0, errors.New("connection reset")
+	}
+	return e.data.Read(p)
+}
+
+// TestParse_ReaderError verifies that a read error mid-stream fails the parse
+// rather than returning a snapshot of the partial document.
+func TestParse_ReaderError(t *testing.T) {
+	_, err := parser.Parse(errReader{strings.NewReader(`{"configs": [`)})
+	if err == nil || !strings.Contains(err.Error(), "connection reset") {
+		t.Fatalf("err = %v, want the reader's error", err)
+	}
+}
+
+// TestParse_TrailingData verifies that data after the JSON document is rejected.
+func TestParse_TrailingData(t *testing.T) {
+	for _, input := range []string{`{"configs": []} garbage`, `{"configs": []}{"configs": []}`} {
+		if _, err := parser.Parse(strings.NewReader(input)); err == nil {
+			t.Errorf("Parse(%q): expected an error for trailing data", input)
+		}
 	}
 }

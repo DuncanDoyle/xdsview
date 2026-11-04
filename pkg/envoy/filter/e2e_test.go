@@ -1,18 +1,19 @@
 package filter_test
 
 import (
+	"bytes"
 	"os"
 	"strings"
 	"testing"
 
-	"github.com/DuncanDoyle/krp/internal/filter"
-	"github.com/DuncanDoyle/krp/internal/parser"
+	"github.com/DuncanDoyle/krp/pkg/envoy/filter"
+	"github.com/DuncanDoyle/krp/pkg/envoy/parser"
 )
 
 // testdataPath returns the path to a testdata file relative to the project root.
 // Tests are run from the package directory, so two levels up reaches the root.
 func testdataPath(scenario, file string) string {
-	return "../../testdata/scenarios/" + scenario + "/" + file
+	return "../../../testdata/scenarios/" + scenario + "/" + file
 }
 
 // TestFilter_E2E_SimpleHTTP_Match verifies that filtering the 00-simple config
@@ -28,12 +29,12 @@ func TestFilter_E2E_SimpleHTTP_Match(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading fixture: %v", err)
 	}
-	result, err := parser.Parse(data)
+	result, err := parser.Parse(bytes.NewReader(data))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
 
-	opts := filter.FilterOptions{
+	opts := filter.Options{
 		HTTPRouteName:      "api-example-com",
 		HTTPRouteNamespace: "default",
 		RuleIndex:          -1,
@@ -67,12 +68,12 @@ func TestFilter_E2E_SimpleHTTP_NoMatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading fixture: %v", err)
 	}
-	result, err := parser.Parse(data)
+	result, err := parser.Parse(bytes.NewReader(data))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
 
-	opts := filter.FilterOptions{
+	opts := filter.Options{
 		HTTPRouteName:      "does-not-exist",
 		HTTPRouteNamespace: "default",
 		RuleIndex:          -1,

@@ -1,19 +1,20 @@
 package parser_test
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/DuncanDoyle/krp/internal/model"
-	"github.com/DuncanDoyle/krp/internal/parser"
 	"github.com/DuncanDoyle/krp/internal/renderer"
+	"github.com/DuncanDoyle/krp/pkg/envoy/model"
+	"github.com/DuncanDoyle/krp/pkg/envoy/parser"
 )
 
 // TestParseAllScenarios walks testdata/scenarios/ and parses every config_dump.json found.
 // This ensures the parser handles all real config dump variants without errors.
 func TestParseAllScenarios(t *testing.T) {
-	scenariosDir := "../../testdata/scenarios"
+	scenariosDir := "../../../testdata/scenarios"
 
 	entries, err := os.ReadDir(scenariosDir)
 	if err != nil {
@@ -34,7 +35,7 @@ func TestParseAllScenarios(t *testing.T) {
 		}
 
 		t.Run(entry.Name(), func(t *testing.T) {
-			result, err := parser.Parse(data)
+			result, err := parser.Parse(bytes.NewReader(data))
 			if err != nil {
 				t.Fatalf("parse failed: %v", err)
 			}
@@ -88,12 +89,12 @@ func firstRoute(t *testing.T, snapshot *model.EnvoySnapshot) model.Route {
 // It skips the test if the dump has not been collected yet.
 func parseMatcherScenario(t *testing.T, scenario string) *model.EnvoySnapshot {
 	t.Helper()
-	dumpPath := filepath.Join("../../testdata/scenarios", scenario, "envoy/config_dump.json")
+	dumpPath := filepath.Join("../../../testdata/scenarios", scenario, "envoy/config_dump.json")
 	data, err := os.ReadFile(dumpPath)
 	if err != nil {
 		t.Skipf("config dump not yet collected for %s (run setup.sh then collect): %v", scenario, err)
 	}
-	result, err := parser.Parse(data)
+	result, err := parser.Parse(bytes.NewReader(data))
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}

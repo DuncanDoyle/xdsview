@@ -17,30 +17,37 @@
 // HTTPRoute "foo-bar" in namespace "baz" versus "foo" in "bar-baz"), the two
 // routes are indistinguishable without a Kubernetes API call. In practice this
 // ambiguity is extremely rare.
+//
+// # Ownership
+//
+// [Filter] returns a new snapshot that shares nested slices, maps and pointers
+// with its input. Treat both as read-only.
 package filter
 
 import (
 	"fmt"
 	"strings"
 
-	"github.com/DuncanDoyle/krp/internal/model"
+	"github.com/DuncanDoyle/krp/pkg/envoy/model"
 )
 
-// FilterOptions controls which routes [Filter] retains from a snapshot.
+// Options controls which routes [Filter] retains from a snapshot.
 //
 // HTTPRouteName and HTTPRouteNamespace together identify a single HTTPRoute
 // resource. They correspond to the metadata.name and metadata.namespace fields
 // of the HTTPRoute and may differ from the Gateway name and namespace used for
 // port-forwarding.
 //
-// RuleIndex narrows the selection to one rule within the HTTPRoute. Use -1
-// (the zero value is not safe here; always set RuleIndex explicitly) to include
-// routes from all rules.
-type FilterOptions struct {
+// RuleIndex narrows the selection to one rule within the HTTPRoute. Use
+// [AllRules] to include routes from all rules; the zero value selects rule 0.
+type Options struct {
 	HTTPRouteName      string // HTTPRoute resource name, e.g. "api-example-com"
 	HTTPRouteNamespace string // HTTPRoute resource namespace, e.g. "default"
-	RuleIndex          int    // zero-based rule index within the HTTPRoute; -1 means all rules
+	RuleIndex          int    // zero-based rule index within the HTTPRoute, or AllRules
 }
+
+// AllRules is the [Options.RuleIndex] value that keeps routes from every rule.
+const AllRules = -1
 
 // Filter returns a new [model.EnvoySnapshot] that contains only the routes
 // whose Envoy route name embeds the HTTPRoute identity described by opts.
@@ -52,7 +59,7 @@ type FilterOptions struct {
 //   - Listeners where no filter chain retains any virtual hosts are removed.
 //
 // If opts.HTTPRouteName is empty, snapshot is returned unchanged.
-func Filter(snapshot *model.EnvoySnapshot, opts FilterOptions) *model.EnvoySnapshot {
+func Filter(snapshot *model.EnvoySnapshot, opts Options) *model.EnvoySnapshot {
 	if opts.HTTPRouteName == "" {
 		return snapshot
 	}
@@ -68,7 +75,7 @@ func Filter(snapshot *model.EnvoySnapshot, opts FilterOptions) *model.EnvoySnaps
 
 // filterListener returns a copy of l containing only the virtual hosts that
 // match opts, or nil if no filter chain in the listener has any matches.
-func filterListener(l model.Listener, opts FilterOptions) *model.Listener {
+func filterListener(l model.Listener, opts Options) *model.Listener {
 	out := l
 	out.FilterChains = nil
 	for _, fc := range l.FilterChains {
@@ -87,7 +94,7 @@ func filterListener(l model.Listener, opts FilterOptions) *model.Listener {
 // hosts that have matching routes. When no VHs match, the HCM is preserved
 // (with an empty VirtualHosts slice) so callers can still display the HTTP
 // filter pipeline.
-func filterChain(fc model.NetworkFilterChain, opts FilterOptions) model.NetworkFilterChain {
+func filterChain(fc model.NetworkFilterChain, opts Options) model.NetworkFilterChain {
 	out := fc
 	if fc.HCM == nil || fc.HCM.RouteConfig == nil {
 		return out
@@ -107,7 +114,7 @@ func filterChain(fc model.NetworkFilterChain, opts FilterOptions) model.NetworkF
 
 // filterVirtualHost returns a copy of vh containing only the routes that match
 // opts, or nil if no routes match.
-func filterVirtualHost(vh model.VirtualHost, opts FilterOptions) *model.VirtualHost {
+func filterVirtualHost(vh model.VirtualHost, opts Options) *model.VirtualHost {
 	out := vh
 	out.Routes = nil
 	for _, r := range vh.Routes {
@@ -128,7 +135,7 @@ func filterVirtualHost(vh model.VirtualHost, opts FilterOptions) *model.VirtualH
 //	...-httproute-<name>-<namespace>-<rule_idx>-<backend_idx>-matcher-<matcher_idx>
 //
 // When opts.RuleIndex >= 0 the match is further narrowed to that rule index.
-func routeMatches(name string, opts FilterOptions) bool {
+func routeMatches(name string, opts Options) bool {
 	// Base marker: identifies the HTTPRoute by name and namespace.
 	// Example: "httproute-api-example-com-default-"
 	base := fmt.Sprintf("httproute-%s-%s-", opts.HTTPRouteName, opts.HTTPRouteNamespace)

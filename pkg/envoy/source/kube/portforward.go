@@ -1,10 +1,19 @@
-package envoy
+// Package kube provides [source.Source] implementations that reach a gateway
+// proxy's Envoy admin API through a Kubernetes port-forward.
+//
+// The tunnel opens inside ConfigDump and closes when the returned reader is
+// closed, or before ConfigDump returns an error. Callers never manage it.
+package kube
 
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"sync"
+
+	"github.com/DuncanDoyle/krp/pkg/envoy/source"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,52 +26,97 @@ import (
 
 const envoyAdminPort = 19000
 
-// PortForwardResult holds the local address and a stop function.
-type PortForwardResult struct {
-	LocalAddr string // e.g. "http://localhost:12345"
-	Stop      func() // Stop closes the port-forward tunnel; must be called when done.
+// Options selects the cluster to connect to.
+type Options struct {
+	// RESTConfig is used when set, so callers can reuse the config they already have.
+	RESTConfig *rest.Config
+	// KubeContext picks a kubeconfig context when RESTConfig is nil. Empty means
+	// the current context.
+	KubeContext string
 }
 
 // podFinder is a function that resolves a pod name to port-forward to.
 type podFinder func(ctx context.Context, kc kubernetes.Interface, namespace string) (string, error)
 
-// PortForwardToGateway finds a ready gateway-proxy pod by Gateway name and opens
-// a port-forward to the Envoy admin port. Caller must call Stop() when done.
-func PortForwardToGateway(ctx context.Context, gatewayName, namespace, kubeContext string) (*PortForwardResult, error) {
-	return portForward(ctx, namespace, kubeContext, func(ctx context.Context, kc kubernetes.Interface, namespace string) (string, error) {
-		return findGatewayProxyPod(ctx, kc, gatewayName, namespace)
-	})
+// opener opens a tunnel and returns the admin base URL and a function that closes it.
+type opener func(ctx context.Context) (baseURL string, stop func(), err error)
+
+// Gateway returns a [source.Source] that port-forwards to a ready proxy pod of
+// the named Gateway, selected by the gateway.networking.k8s.io/gateway-name label.
+func Gateway(name, namespace string, opts Options) source.Source {
+	return &kubeSource{open: func(ctx context.Context) (string, func(), error) {
+		return portForward(ctx, namespace, opts, func(ctx context.Context, kc kubernetes.Interface, namespace string) (string, error) {
+			return findGatewayProxyPod(ctx, kc, name, namespace)
+		})
+	}}
 }
 
-// PortForwardToDeployment finds a ready pod owned by the named Deployment and opens
-// a port-forward to the Envoy admin port. Caller must call Stop() when done.
-func PortForwardToDeployment(ctx context.Context, deploymentName, namespace, kubeContext string) (*PortForwardResult, error) {
-	return portForward(ctx, namespace, kubeContext, func(ctx context.Context, kc kubernetes.Interface, namespace string) (string, error) {
-		return findDeploymentPod(ctx, kc, deploymentName, namespace)
-	})
+// Deployment returns a [source.Source] that port-forwards to a ready pod of the
+// named Deployment.
+func Deployment(name, namespace string, opts Options) source.Source {
+	return &kubeSource{open: func(ctx context.Context) (string, func(), error) {
+		return portForward(ctx, namespace, opts, func(ctx context.Context, kc kubernetes.Interface, namespace string) (string, error) {
+			return findDeploymentPod(ctx, kc, name, namespace)
+		})
+	}}
+}
+
+type kubeSource struct {
+	open opener
+}
+
+// ConfigDump opens the tunnel, fetches the dump through it, and ties the
+// tunnel's lifetime to the returned reader.
+func (k *kubeSource) ConfigDump(ctx context.Context) (io.ReadCloser, error) {
+	baseURL, stop, err := k.open(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("cannot reach Envoy admin API: %w", err)
+	}
+	rc, err := source.Admin(baseURL).ConfigDump(ctx)
+	if err != nil {
+		stop()
+		return nil, fmt.Errorf("fetching config dump: %w", err)
+	}
+	return &tunnelReader{ReadCloser: rc, stop: stop}, nil
+}
+
+// tunnelReader closes the tunnel, once, when the body is closed.
+type tunnelReader struct {
+	io.ReadCloser
+	stop func()
+	once sync.Once
+}
+
+func (t *tunnelReader) Close() error {
+	err := t.ReadCloser.Close()
+	t.once.Do(t.stop)
+	return err
 }
 
 // portForward is the shared implementation: it builds a K8S client, resolves a pod
 // via the provided podFinder, and opens a port-forward to the Envoy admin port.
-func portForward(ctx context.Context, namespace, kubeContext string, finder podFinder) (*PortForwardResult, error) {
-	cfg, err := buildRestConfig(kubeContext)
-	if err != nil {
-		return nil, err
+func portForward(ctx context.Context, namespace string, opts Options, finder podFinder) (string, func(), error) {
+	cfg := opts.RESTConfig
+	if cfg == nil {
+		var err error
+		if cfg, err = buildRestConfig(opts.KubeContext); err != nil {
+			return "", nil, err
+		}
 	}
 
 	kc, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("creating kubernetes client: %w", err)
+		return "", nil, fmt.Errorf("creating kubernetes client: %w", err)
 	}
 
 	podName, err := finder(ctx, kc, namespace)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
 	localPort, err := freePort()
 	if err != nil {
-		return nil, fmt.Errorf("finding free local port: %w", err)
+		return "", nil, fmt.Errorf("finding free local port: %w", err)
 	}
 
 	stopCh := make(chan struct{})
@@ -71,7 +125,7 @@ func portForward(ctx context.Context, namespace, kubeContext string, finder podF
 
 	transport, upgrader, err := spdy.RoundTripperFor(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("creating SPDY transport: %w", err)
+		return "", nil, fmt.Errorf("creating SPDY transport: %w", err)
 	}
 
 	url := kc.CoreV1().RESTClient().Post().
@@ -85,7 +139,7 @@ func portForward(ctx context.Context, namespace, kubeContext string, finder podF
 
 	fw, err := portforward.New(dialer, ports, stopCh, readyCh, nil, nil)
 	if err != nil {
-		return nil, fmt.Errorf("creating port-forwarder: %w", err)
+		return "", nil, fmt.Errorf("creating port-forwarder: %w", err)
 	}
 
 	go func() {
@@ -95,16 +149,13 @@ func portForward(ctx context.Context, namespace, kubeContext string, finder podF
 	select {
 	case <-readyCh:
 	case err := <-errCh:
-		return nil, fmt.Errorf("port-forward failed: %w", err)
+		return "", nil, fmt.Errorf("port-forward failed: %w", err)
 	case <-ctx.Done():
 		close(stopCh)
-		return nil, ctx.Err()
+		return "", nil, ctx.Err()
 	}
 
-	return &PortForwardResult{
-		LocalAddr: fmt.Sprintf("http://localhost:%d", localPort),
-		Stop:      func() { close(stopCh) },
-	}, nil
+	return fmt.Sprintf("http://localhost:%d", localPort), func() { close(stopCh) }, nil
 }
 
 // buildRestConfig loads the kubeconfig from the default discovery chain

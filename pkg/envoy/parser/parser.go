@@ -1,5 +1,5 @@
 // Package parser converts a raw Envoy /config_dump JSON payload into the
-// domain model defined in internal/model. The Envoy config_dump is a heterogeneous
+// domain model defined in [model]. The Envoy config_dump is a heterogeneous
 // JSON array where each element has a "@type" discriminator; the parser dispatches
 // on that field to extract ListenersConfigDump and RoutesConfigDump sections, then
 // joins them into an [model.EnvoySnapshot].
@@ -7,32 +7,47 @@
 // Non-fatal errors (e.g. a single malformed section) are collected as warnings and
 // returned alongside the best-effort snapshot so the caller can surface them to the
 // user rather than silently dropping data.
+//
+// # Ownership
+//
+// The snapshot in a [Result] belongs to the caller. Treat it as read-only once
+// it is shared: [filter.Filter] returns views that share nested slices, maps and
+// pointers with it. Store derived data alongside a snapshot, not inside it.
+//
+// [filter.Filter]: https://pkg.go.dev/github.com/DuncanDoyle/krp/pkg/envoy/filter#Filter
 package parser
 
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"maps"
 
-	"github.com/DuncanDoyle/krp/internal/model"
+	"github.com/DuncanDoyle/krp/pkg/envoy/model"
 )
 
-// ParseResult holds the parsed [model.EnvoySnapshot] and any non-fatal warnings
+// Result holds the parsed [model.EnvoySnapshot] and any non-fatal warnings
 // collected during parsing (e.g. malformed config sections that were skipped).
 // Warnings are surfaced to the user so that silently dropped sections are visible.
-type ParseResult struct {
+type Result struct {
 	Snapshot *model.EnvoySnapshot
 	Warnings []string
 }
 
-// Parse takes raw Envoy /config_dump JSON bytes and returns a ParseResult.
+// Parse reads a complete Envoy /config_dump JSON document from r and returns a
+// [Result]. Trailing data after the document, or a read error, fails the parse.
 // Non-fatal errors (e.g. a single malformed config section) are collected as
 // warnings rather than aborting the parse, so the caller receives a best-effort
 // snapshot alongside a description of what was skipped.
-func Parse(data []byte) (ParseResult, error) {
+func Parse(r io.Reader) (Result, error) {
+	// ReadAll + Unmarshal (not a streaming Decoder) so trailing data is rejected.
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return Result{}, fmt.Errorf("reading config dump: %w", err)
+	}
 	var dump configDump
 	if err := json.Unmarshal(data, &dump); err != nil {
-		return ParseResult{}, fmt.Errorf("parsing config dump JSON: %w", err)
+		return Result{}, fmt.Errorf("parsing config dump JSON: %w", err)
 	}
 
 	// Parse each config section by @type, collecting warnings for any that fail.
@@ -76,7 +91,7 @@ func Parse(data []byte) (ParseResult, error) {
 		snapshot.Listeners = append(snapshot.Listeners, l)
 	}
 
-	return ParseResult{Snapshot: snapshot, Warnings: warnings}, nil
+	return Result{Snapshot: snapshot, Warnings: warnings}, nil
 }
 
 // parseListener converts a raw dynamic listener into the model.Listener,
@@ -399,7 +414,7 @@ type rawRoute struct {
 		Headers []struct {
 			Name        string `json:"name"`
 			StringMatch struct {
-				Exact    string `json:"exact"`
+				Exact     string `json:"exact"`
 				SafeRegex struct {
 					Regex string `json:"regex"`
 				} `json:"safe_regex"`
@@ -409,7 +424,7 @@ type rawRoute struct {
 		QueryParameters []struct {
 			Name        string `json:"name"`
 			StringMatch struct {
-				Exact    string `json:"exact"`
+				Exact     string `json:"exact"`
 				SafeRegex struct {
 					Regex string `json:"regex"`
 				} `json:"safe_regex"`

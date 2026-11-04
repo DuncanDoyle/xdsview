@@ -17,11 +17,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/DuncanDoyle/krp/internal/envoy"
-	"github.com/DuncanDoyle/krp/internal/filter"
-	"github.com/DuncanDoyle/krp/internal/parser"
 	"github.com/DuncanDoyle/krp/internal/renderer"
 	"github.com/DuncanDoyle/krp/internal/tui"
+	"github.com/DuncanDoyle/krp/pkg/envoy/filter"
+	"github.com/DuncanDoyle/krp/pkg/envoy/parser"
+	"github.com/DuncanDoyle/krp/pkg/envoy/source"
+	"github.com/DuncanDoyle/krp/pkg/envoy/source/kube"
 	"github.com/spf13/cobra"
 )
 
@@ -49,7 +50,7 @@ func main() {
 	// HTTPRoute namespace can differ from the Gateway namespace.
 	dump.Flags().String("route", "", "Filter output to routes belonging to this HTTPRoute name")
 	dump.Flags().String("route-ns", "", "Namespace of the HTTPRoute (required with --route; may differ from the Gateway namespace)")
-	dump.Flags().Int("rule", -1, "Zero-based rule index within the HTTPRoute (-1 = all rules, used with --route)")
+	dump.Flags().Int("rule", filter.AllRules, "Zero-based rule index within the HTTPRoute (-1 = all rules, used with --route)")
 
 	// Interactive mode — launches a bubbletea TUI instead of printing static output.
 	// Composes with --route/--route-ns/--rule: the filter is applied before the TUI launches.
@@ -105,38 +106,28 @@ func runDump(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--rule requires --route")
 	}
 
-	// Fetch the raw config dump bytes.
-	var data []byte
-	var err error
-
-	if file != "" {
-		data, err = os.ReadFile(file)
-		if err != nil {
-			return fmt.Errorf("reading file %s: %w", file, err)
-		}
-	} else {
+	// Pick the config dump source; live sources port-forward to the admin API.
+	var src source.Source
+	switch {
+	case file != "":
+		src = source.File(file)
+	case gateway != "":
+		src = kube.Gateway(gateway, namespace, kube.Options{KubeContext: kubeContext})
+	default:
+		src = kube.Deployment(deployment, namespace, kube.Options{KubeContext: kubeContext})
+	}
+	if file == "" {
 		fmt.Fprintln(os.Stderr, "Connecting to Envoy admin API...")
-		ctx := context.Background()
-
-		var pf *envoy.PortForwardResult
-		if gateway != "" {
-			pf, err = envoy.PortForwardToGateway(ctx, gateway, namespace, kubeContext)
-		} else {
-			pf, err = envoy.PortForwardToDeployment(ctx, deployment, namespace, kubeContext)
-		}
-		if err != nil {
-			return fmt.Errorf("cannot reach Envoy admin API: %w", err)
-		}
-		defer pf.Stop()
-
-		data, err = envoy.FetchConfigDump(pf.LocalAddr)
-		if err != nil {
-			return fmt.Errorf("fetching config dump: %w", err)
-		}
 	}
 
+	rc, err := src.ConfigDump(context.Background())
+	if err != nil {
+		return err
+	}
+	defer rc.Close()
+
 	// Parse the config dump into an EnvoySnapshot.
-	result, err := parser.Parse(data)
+	result, err := parser.Parse(rc)
 	if err != nil {
 		return err
 	}
@@ -149,7 +140,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 	// Apply the HTTPRoute filter when requested.
 	snapshot := result.Snapshot
 	if routeName != "" {
-		snapshot = filter.Filter(snapshot, filter.FilterOptions{
+		snapshot = filter.Filter(snapshot, filter.Options{
 			HTTPRouteName:      routeName,
 			HTTPRouteNamespace: routeNS,
 			RuleIndex:          ruleIndex,

@@ -4,7 +4,7 @@
 
 Kgateway translates Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/) resources (Gateway, HTTPRoute, TrafficPolicy, etc.) into Envoy configuration. Understanding the exact filter chain that processes your traffic — including filter ordering, applied policies, and backend routing — is difficult without digging through raw JSON config dumps. `krp` makes this visible.
 
-> **Status:** Active development — Phase 2 (HTTPRoute Selector) complete.
+> **Status:** Active development — Phases 1–3 complete; Phase 4 (library extraction) in progress. See [docs/roadmap.md](docs/roadmap.md).
 
 ---
 
@@ -130,16 +130,40 @@ No cluster access required — works fully offline.
 
 ```
 cmd/krp/          CLI entrypoint (cobra)
-internal/
+pkg/envoy/        Importable library (standard library only, except source/kube)
   model/          EnvoySnapshot data model
-  parser/         Envoy config dump JSON parser
-  envoy/          Admin API client + port-forwarder
-  renderer/       Terminal UI (lipgloss)
+  parser/         Envoy config dump JSON parser (io.Reader)
   filter/         HTTPRoute snapshot filter
+  source/         Config dump sources: File, Admin (HTTP)
+    kube/         Port-forward sources: Gateway, Deployment (client-go)
+internal/
+  renderer/       Terminal output (lipgloss)
+  tui/            Interactive TUI (bubbletea)
 docs/             Roadmap, phase status, decisions, per-phase docs (docs/phases/)
 testdata/
   scenarios/      Real K8S + Envoy config dump pairs for testing
 ```
+
+### Using krp as a library
+
+```go
+// Fetch, parse and narrow a config dump to one HTTPRoute.
+rc, err := kube.Gateway("gw", "kgateway-system", kube.Options{RESTConfig: cfg}).ConfigDump(ctx)
+if err != nil {
+	return err
+}
+defer rc.Close() // also closes the port-forward
+
+result, err := parser.Parse(rc)
+if err != nil {
+	return err
+}
+snap := filter.Filter(result.Snapshot, filter.Options{
+	HTTPRouteName: "api-example-com", HTTPRouteNamespace: "default", RuleIndex: filter.AllRules,
+})
+```
+
+Snapshots are read-only once shared: `filter.Filter` returns a view that shares data with its input.
 
 ---
 
@@ -169,4 +193,4 @@ This project is in early development. Contributions, bug reports, and feature su
 
 ## License
 
-Apache 2.0
+Apache 2.0 — see [LICENSE](LICENSE).

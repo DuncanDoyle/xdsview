@@ -7,7 +7,7 @@ package renderer
 import (
 	"testing"
 
-	"github.com/DuncanDoyle/krp/internal/model"
+	"github.com/DuncanDoyle/krp/pkg/envoy/model"
 )
 
 // TestResolveFilterConfig covers the config-resolution priority rules for
