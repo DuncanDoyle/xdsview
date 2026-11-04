@@ -84,7 +84,7 @@ The Kubernetes sources open the tunnel inside `ConfigDump` and close it when the
 }
 ```
 
-`snapshot` is the filtered model, serialised with its JSON tags. `warnings` is always an array, empty when there are none. Warnings still go to stderr as well. `schemaVersion` changes when a field is removed or renamed; adding a field doesn't change it.
+`snapshot` is the filtered model, serialised with its JSON tags. `warnings` and `snapshot.listeners` are always arrays, empty when there is nothing (a filter that matches no route gives `"listeners": []`). Warnings still go to stderr as well. `schemaVersion` changes when a field is removed or renamed; adding a field doesn't change it.
 
 Golden files under `testdata/golden/` hold the JSON for each scenario dump. They are the contract consumers test against. `go test ./... -update` rewrites them.
 

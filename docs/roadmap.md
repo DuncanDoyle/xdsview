@@ -40,7 +40,7 @@ Interactive mode (`--interactive`/`-i`): navigate filters, expand/collapse typed
 ---
 
 ### Phase 4 — Library Extraction
-**Status:** Not started
+**Status:** Complete (2026-11-04, `v0.1.0`) — `docs/phases/phase-4/phase-4-complete.md`
 **Docs:** `docs/phases/phase-4/`
 **Unblocks:** program edges E1 (CLI), E4 (kgateway-ui Phase 9), E6 (move into kgateway)
 
@@ -64,6 +64,7 @@ Turn krp's core into an importable, stable Go library without changing CLI behav
 
 Make the model faithful to what Envoy runs, and own the mapping back to Gateway API (program decision P-001).
 
+- Fix the kube source leaving a port-forward connection open when a call is cancelled mid-connect (Phase 4 Q9). Needed before kgateway-ui uses the kube source in its long-running backend.
 - Close #11 (`prefix_rewrite`), #13 (`weighted_clusters`), #15 (HTTPRoute filters), #17 (multi-route test dumps); consider #16.
 - Multi-listener and TLS scenarios (`03-multi-policy`, `04-multi-rule`, `05-multi-listener`).
 - Envoy name → Gateway API ref mapping (Gateway, listener, HTTPRoute, rule) as a library function, behind an interface so a consumer inside kgateway can use kgateway's own naming code. kgateway-ui's `computed.EnvoyNamer` delegates to it.

@@ -29,6 +29,12 @@ func writeJSON(w io.Writer, snap *model.EnvoySnapshot, warnings []string) error 
 	if warnings == nil {
 		warnings = []string{} // always an array, never null
 	}
+	if snap != nil && snap.Listeners == nil {
+		// A filter that matches nothing yields no listeners; emit [] rather than null.
+		empty := *snap
+		empty.Listeners = []model.Listener{}
+		snap = &empty
+	}
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(jsonEnvelope{SchemaVersion: schemaVersion, Snapshot: snap, Warnings: warnings})

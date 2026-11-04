@@ -123,6 +123,7 @@ func TestDumpJSON_Filtered(t *testing.T) {
 	}{
 		{".route", []string{"--route", "api-example-com", "--route-ns", "kgateway-system"}},
 		{".rule0", []string{"--route", "api-example-com", "--route-ns", "kgateway-system", "--rule", "0"}},
+		{".nomatch", []string{"--route", "does-not-exist", "--route-ns", "kgateway-system"}},
 	}
 	for _, c := range cases {
 		t.Run(c.suffix, func(t *testing.T) {
