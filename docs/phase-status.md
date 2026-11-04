@@ -23,7 +23,27 @@ Status: design + plan approved 2026-11-04; implementing. Phases 1–3 complete (
 - [ ] phase-4-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-none
+Sub-phase: 4.1 — Library move and API
+Kind: planned
+Base: 012c61e16ca3a136c1a5532b53274f13d504cbd5
+Brief: docs/phases/phase-4/phase-4.1-brief.md
+
+### Allowed work
+Features within the approved design (design.md § Package layout, API, Ownership).
+
+### Not allowed
+Design changes without a decisions.md entry and owner approval.
+
+### Queue
+- [ ] S1 Baseline CLI output from base binary ← CURRENT
+- [ ] S2 Move model/parser/filter to pkg/envoy; Parser io.Reader + Result; filter.Options + AllRules
+- [ ] S3 pkg/envoy/source (Source, File, Admin)
+- [ ] S4 pkg/envoy/source/kube with tunnel cleanup on every path
+- [ ] S5 CLI wiring; delete internal/envoy
+- [ ] S6 Import-boundary test
+- [ ] S7 client-go v0.36.2, go 1.26.0
+- [ ] S8 LICENSE + README
+- [ ] S9 External consumer check; byte comparison; tests/vet
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`)
