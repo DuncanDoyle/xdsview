@@ -1,14 +1,24 @@
 #!/usr/bin/env bash
-# record-dumps.sh <kgateway-version> [scenario ...]
+# record-dumps.sh [--values <file>] [--suffix <s>] <kgateway-version> [scenario ...]
 #
 # Records Envoy config dumps for the OSS test corpus on a throwaway kind cluster.
 # For each scenario in testdata/scenarios that has an HTTPRoute manifest (or the
-# named ones), it writes envoy/kgateway-<version>/config_dump.json and the
-# proxy's server_info.json. The cluster gets its own kubeconfig file, so
+# named ones), it writes envoy/kgateway-<version><suffix>/config_dump.json and the
+# proxy's server_info.json. --values passes a Helm values file to the kgateway
+# install, e.g. hack/route-source-values.yaml with --suffix -route-source.
+# The cluster gets its own kubeconfig file, so
 # ~/.kube/config is never read or changed, and it is deleted on exit.
 set -euo pipefail
 
-version=${1:?usage: $0 <kgateway-version> [scenario ...]}
+values=() suffix=
+while [ $# -gt 0 ]; do
+  case $1 in
+  --values) values=(-f "$2"); shift 2 ;;
+  --suffix) suffix=$2; shift 2 ;;
+  *) break ;;
+  esac
+done
+version=${1:?usage: $0 [--values <file>] [--suffix <s>] <kgateway-version> [scenario ...]}
 shift
 repo=$(cd "$(dirname "$0")/.." && pwd)
 # A per-run name, so concurrent runs and existing clusters are never touched.
@@ -44,7 +54,7 @@ k apply --server-side -f "https://github.com/kubernetes-sigs/gateway-api/release
 h upgrade -i kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
   --version "$version" -n kgateway-system --create-namespace --wait
 h upgrade -i kgateway oci://cr.kgateway.dev/kgateway-dev/charts/kgateway \
-  --version "$version" -n kgateway-system --wait --timeout 5m
+  --version "$version" -n kgateway-system ${values[@]+"${values[@]}"} --wait --timeout 5m
 
 if [ $# -gt 0 ]; then
   scenarios=("$@")
@@ -84,14 +94,19 @@ fetch_settled() {
     prev=$cur
     sleep 2
   done
-  echo "config_dump did not settle for $dir: markers present: $(has_all "$cur" "$markers" && echo yes || echo no), stable: $([ "$cur" = "$prev" ] && echo yes || echo no)" >&2
+  # Read once more so the two files show what changed between polls.
+  sleep 2
+  local last
+  last=$(curl -fsS "localhost:$port/config_dump" | jq . 2>/dev/null) || last=
+  echo "config_dump did not settle for $dir: markers present: $(has_all "$last" "$markers" && echo yes || echo no), stable: $([ "$last" = "$cur" ] && echo yes || echo no)" >&2
   printf '%s\n' "$cur" >"$out.unsettled"
+  printf '%s\n' "$last" >"$out.unsettled.next"
   return 1
 }
 
 for s in "${scenarios[@]}"; do
   dir=$repo/testdata/scenarios/$s
-  out=$dir/envoy/kgateway-$version
+  out=$dir/envoy/kgateway-$version$suffix
   echo "== $s"
   "$repo/hack/scenario.sh" up "$dir" "$kubeconfig" "$context"
 

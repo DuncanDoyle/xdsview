@@ -172,12 +172,15 @@ func parseHCM(raw json.RawMessage) *model.HCMConfig {
 }
 
 const (
-	routerType  = "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
-	matcherType = "type.googleapis.com/envoy.extensions.common.matching.v3.ExtensionWithMatcher"
+	routerType        = "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+	matcherType       = "type.googleapis.com/envoy.extensions.common.matching.v3.ExtensionWithMatcher"
+	compositeType     = "type.googleapis.com/envoy.extensions.filters.http.composite.v3.Composite"
+	executeActionType = "type.googleapis.com/envoy.extensions.filters.http.composite.v3.ExecuteFilterAction"
 )
 
 // parseHTTPFilter converts one http_filters entry. Type is the filter's own
-// @type, looking through an ExtensionWithMatcher wrapper.
+// @type, looking through an ExtensionWithMatcher wrapper and, when that wraps a
+// Composite filter whose actions all run one filter type, through to that type.
 func parseHTTPFilter(hf rawHTTPFilter) model.HTTPFilter {
 	filter := model.HTTPFilter{Name: hf.Name, Disabled: hf.Disabled}
 	if len(hf.TypedConfig) == 0 {
@@ -192,6 +195,11 @@ func parseHTTPFilter(hf rawHTTPFilter) model.HTTPFilter {
 		filter.Type = typed.Type
 		if typed.Type == matcherType && typed.ExtensionConfig.TypedConfig.Type != "" {
 			filter.Type = typed.ExtensionConfig.TypedConfig.Type
+		}
+		if filter.Type == compositeType {
+			if delegated := compositeDelegate(tc); delegated != "" {
+				filter.Type = delegated
+			}
 		}
 	}
 	return filter
@@ -403,6 +411,44 @@ type rawHTTPFilter struct {
 	Name        string          `json:"name"`
 	TypedConfig json.RawMessage `json:"typed_config"`
 	Disabled    bool            `json:"disabled"`
+}
+
+// compositeDelegate returns the filter type every ExecuteFilterAction in v
+// runs, or "" when there are none or they differ.
+func compositeDelegate(v any) string {
+	var found string
+	mixed := false
+	var walk func(any)
+	walk = func(v any) {
+		switch v := v.(type) {
+		case map[string]any:
+			if v["@type"] == executeActionType {
+				if inner, ok := v["typed_config"].(map[string]any); ok {
+					if tc, ok := inner["typed_config"].(map[string]any); ok {
+						if t, _ := tc["@type"].(string); t != "" {
+							if found != "" && found != t {
+								mixed = true
+							}
+							found = t
+						}
+					}
+				}
+				return
+			}
+			for _, child := range v {
+				walk(child)
+			}
+		case []any:
+			for _, child := range v {
+				walk(child)
+			}
+		}
+	}
+	walk(v)
+	if mixed {
+		return ""
+	}
+	return found
 }
 
 // rawFilterType reads a filter's @type and, for an ExtensionWithMatcher, the

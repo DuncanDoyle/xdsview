@@ -1,0 +1,2 @@
+# Helm values for recording with route-source metadata (dev.kgateway.route_source on every route).
+enableRouteSourceMetadata: true

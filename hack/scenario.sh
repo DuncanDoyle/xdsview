@@ -25,9 +25,15 @@ up)
   k create namespace httpbin --dry-run=client -o yaml | k apply -f -
   for hook in "$dir"/k8s/hook-*.sh; do [ -e "$hook" ] && bash "$hook" up "$kubeconfig" "$context"; done
   k apply -f "$dir/k8s"
-  k wait -n httpbin --for=condition=Ready pod -l app=httpbin --timeout=180s
+  # rollout status, not a label wait: right after apply there may be no pod to match yet.
+  k rollout status -n httpbin deployment/httpbin --timeout=180s
   k wait -n kgateway-system --for=condition=Programmed gateway/gw --timeout=180s
-  k wait -n kgateway-system --for=condition=Available deployment/gw --timeout=180s
+  # The first scenario on a fresh cluster also pulls the proxy image.
+  if ! k rollout status -n kgateway-system deployment/gw --timeout=300s; then
+    k get pods -n kgateway-system -o wide >&2
+    k describe pods -n kgateway-system -l gateway.networking.k8s.io/gateway-name=gw >&2
+    exit 1
+  fi
   accepted httproute .status.parents
   accepted trafficpolicy .status.ancestors
   ;;

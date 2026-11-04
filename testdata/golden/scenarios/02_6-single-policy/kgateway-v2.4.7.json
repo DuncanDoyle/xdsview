@@ -13,6 +13,7 @@
               "httpFilters": [
                 {
                   "name": "envoy.filters.http.cors",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors"
                   },
@@ -20,6 +21,7 @@
                 },
                 {
                   "name": "envoy.filters.http.router",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                   }

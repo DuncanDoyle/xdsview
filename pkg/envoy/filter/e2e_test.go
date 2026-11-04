@@ -1,6 +1,7 @@
 package filter_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -22,6 +23,12 @@ const (
 	httpsAPI       = "https-api~api_example_com-route-0-httproute-api-example-com-kgateway-system-0-0-matcher-0"
 	httpsDeveloper = "https-developer~developer_example_com-route-0-httproute-api-example-com-kgateway-system-0-0-matcher-0"
 )
+
+// route80 is the Envoy name of api-example-com's route at precedence position n
+// on the HTTP listener, with tail "<rule>-<match>[-<ruleName>]-matcher-<match>".
+func route80(n int, tail string) string {
+	return fmt.Sprintf("listener~80~api_example_com-route-%d-httproute-api-example-com-kgateway-system-%s", n, tail)
+}
 
 // httpRoute is one HTTPRoute of a scenario and the exact Envoy route names each
 // of its rules produces.
@@ -54,6 +61,22 @@ var scenarioRoutes = map[string][]httpRoute{
 	"02_6-single-policy": single(httpRoute0),
 	"02_7-single-policy": single(httpRoute0),
 	"02_8-single-policy": single(httpRoute0),
+	"03-multi-policy":    single(httpRoute0),
+	// <N> is the precedence order, not the rule index; rule 1 has two matches.
+	"04-multi-rule": {{"api-example-com", "kgateway-system", [][]string{
+		{route80(0, "0-0-matcher-0")},
+		{route80(1, "1-0-matcher-0"), route80(2, "1-1-matcher-1")},
+		{route80(3, "2-0-matcher-0")},
+	}}},
+	// One HTTPRoute attached to both listeners.
+	"05-multi-listener": {{"api-example-com", "kgateway-system", [][]string{{httpRoute0, httpsAPI}}}},
+	"07-traffic-split":  single(httpRoute0),
+	// Longer prefixes sort first; the rule name follows the match index.
+	"08-named-rules": {{"api-example-com", "kgateway-system", [][]string{
+		{route80(2, "0-0-a-matcher-0")},
+		{route80(1, "1-0-a-b-matcher-0")},
+		{route80(0, "2-0-a-matcher-b-matcher-0")},
+	}}},
 	// The second name extends the first, so a prefix-only match would keep both.
 	// Envoy orders the more specific /admin route first.
 	"06-multi-extproc": {
@@ -62,18 +85,23 @@ var scenarioRoutes = map[string][]httpRoute{
 	},
 }
 
-// enterpriseRoutes is scenarioRoutes for the enterprise corpus: its 00-simple
-// HTTPRoute lives in "default", and its 06 dump is Gloo Gateway v1, whose route
-// names carry no HTTPRoute identity to filter on.
+// enterpriseRoutes lists the enterprise corpus explicitly. Its 00-simple
+// HTTPRoute lives in "default". Its 06 dump is Gloo Gateway v1, whose route
+// names carry no HTTPRoute identity to filter on, so 06 is left out.
 func enterpriseRoutes() map[string][]httpRoute {
-	m := map[string][]httpRoute{}
-	for k, v := range scenarioRoutes {
-		m[k] = v
+	m := map[string][]httpRoute{
+		"00-simple": {{"api-example-com", "default", [][]string{{
+			"listener~80~api_example_com-route-0-httproute-api-example-com-default-0-0-matcher-0",
+		}}}},
 	}
-	m["00-simple"] = []httpRoute{{"api-example-com", "default", [][]string{{
-		"listener~80~api_example_com-route-0-httproute-api-example-com-default-0-0-matcher-0",
-	}}}}
-	delete(m, "06-multi-extproc")
+	for _, s := range []string{
+		"01_1-matchers", "01_2-matchers", "01_3-matchers", "01_4-matchers", "01_5-matchers",
+		"01_6-matchers", "01_7-matchers", "01_8-matchers", "01_9-matchers",
+		"02_1-single-policy", "02_2-single-policy", "02_3-single-policy", "02_4-single-policy",
+		"02_5-single-policy", "02_6-single-policy", "02_7-single-policy", "02_8-single-policy",
+	} {
+		m[s] = scenarioRoutes[s]
+	}
 	return m
 }
 

@@ -1,28 +1,32 @@
 # Scenario 04: Multiple Rules
 
-One HTTPRoute with multiple rules targeting different backends (e.g., path-based routing: `/api` → api-svc, `/web` → web-svc).
+One HTTPRoute with three rules and two Services:
 
-This scenario tests whether the tool can correctly represent and correlate multiple rules within a single HTTPRoute, each with its own match conditions and backend refs.
+| Rule | Matches | Backend |
+|---|---|---|
+| 0 | PathPrefix `/api` | `httpbin` |
+| 1 | PathPrefix `/web`; header `x-version: v2` (two matches) | `httpbin-v2` |
+| 2 | none (`/`) | `httpbin` |
 
 ## What to observe
 
-- How are multiple rules represented in the Envoy route config? Separate route entries in the same VirtualHost?
-- Do per-rule policies (if any) appear as per-route filter configs or as separate filter instances?
-- What is the naming pattern for clusters when multiple backends are involved?
-- How does the route match config (prefix, headers, etc.) map back to HTTPRoute rule matches?
+- Envoy route names carry `-<ruleIdx>-<matchIdx>-` after the namespace. The `-route-<N>-` position is the order after precedence sorting, not the rule index.
+- Rule 1 produces two Envoy routes, one per match.
 
 ## K8S resources
 
-- `k8s/gateway.yaml` — HTTP or HTTPS Gateway
-- `k8s/httproute.yaml` — Multiple rules with different matches and backends
+- `k8s/gateway.yaml`, `k8s/httpbin.yaml`, `k8s/httproute-kgateway-system_service-httpbin-rg.yaml`: as in 02_7
+- `k8s/httpbin-v2-svc.yaml`: a second Service for the httpbin pods
+- `k8s/api-example-com-httproute.yaml`: the three rules
 
 ## Envoy dump
 
-- `envoy/kgateway-<version>/config_dump.json` — `/config_dump` per kgateway version, with `server_info.json`
+- `envoy/kgateway-<version>/`: default install
+- `envoy/kgateway-<version>-route-source/`: recorded with `enableRouteSourceMetadata: true` (`hack/route-source-values.yaml`), so every route carries `dev.kgateway.route_source` metadata
 
 ## How to collect
 
 ```bash
-# Record this scenario on a throwaway kind cluster (envoy/kgateway-<version>/)
 hack/record-dumps.sh v2.5.0 04-multi-rule
+hack/record-dumps.sh --values hack/route-source-values.yaml --suffix -route-source v2.5.0 04-multi-rule
 ```

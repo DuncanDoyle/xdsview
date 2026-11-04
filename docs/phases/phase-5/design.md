@@ -123,7 +123,7 @@ func Annotate(snap *model.EnvoySnapshot, m Mapper) *model.EnvoySnapshot
 
 **Route resolution order:** `route_source` metadata (Exact), then name parsing. When the name splits more than one way, `Known` picks the one that exists (Inferred); otherwise the result is Ambiguous with every split. Forward selection in `filter` never needs this.
 
-**HTTP filter kind** comes from `typed_config.@type`, unwrapping `ExtensionWithMatcher`, not from the name. The name's `<ns>/<name>` suffix gives the GatewayExtension. `global_disable/*` is reported as a helper.
+**HTTP filter kind** comes from `HTTPFilter.Type` (see § Model), not from the name. The name's `<ns>/<name>` suffix gives the GatewayExtension. `global_disable/*` is reported as a helper.
 
 **UI adapter.** The UI's `EnvoyNamer.Object(envoyName string) (objects.Ref, bool)` works on bare names: route config and cluster names from proxy stats. `origin.ObjectForName(m Mapper, name string) (Ref, bool)` covers that case. It only dispatches through the mapper, so a replacement mapper changes it too: it tries `m.Cluster`, then `m.RouteConfig`, and returns the first Inferred or Exact result, otherwise `false`. A route config name such as `listener~80` or `https-api` holds no Gateway identity. It maps to the Gateway in `KgatewayOptions.Gateway`, and is Unknown when that isn't set. The UI builds the mapper with the Gateway whose proxy it is reading. The UI keeps its own pinned rule set and calls it.
 
@@ -146,7 +146,7 @@ These changes are additive. JSON stays `v1alpha1` (D-005), and the golden diffs 
 | `Route.Rewrite.Prefix` | `route.prefix_rewrite` | #11 |
 | `Route.WeightedClusters []WeightedCluster{Name, Weight}` | `route.weighted_clusters.clusters` | #13 |
 | `HCMConfig.UpstreamFilters []HTTPFilter` | router `typed_config.upstream_http_filters` | #15 |
-| `HTTPFilter.Type` | `typed_config.@type`, unwrapped from `ExtensionWithMatcher` | mapping |
+| `HTTPFilter.Type` | `typed_config.@type`, unwrapped from `ExtensionWithMatcher`. When that wraps a `Composite` filter whose `ExecuteFilterAction`s all run one type, that type: kgateway's ext_proc filters have this shape. | mapping |
 | `Route.Origin`, `Route.Policies`, `VirtualHost.Origin`, `HTTPFilter.Origin`, `Listener.Origin` | set only by `origin.Annotate`; omitted from JSON when empty | E5 |
 
 `parser.Parse` doesn't annotate. The CLI does: `krp dump` annotates by default, and the origins show in text and JSON. The kube source passes the Gateway it connected to as `KgatewayOptions.Gateway`.

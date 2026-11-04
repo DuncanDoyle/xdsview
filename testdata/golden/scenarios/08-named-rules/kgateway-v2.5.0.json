@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "v1alpha1",
+  "snapshot": {
+    "listeners": [
+      {
+        "name": "listener~80",
+        "address": ":::80",
+        "filterChains": [
+          {
+            "name": "listener~80",
+            "hcm": {
+              "routeConfigName": "listener~80",
+              "httpFilters": [
+                {
+                  "name": "envoy.filters.http.router",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  }
+                }
+              ],
+              "routeConfig": {
+                "name": "listener~80",
+                "virtualHosts": [
+                  {
+                    "name": "listener~80~api_example_com",
+                    "domains": [
+                      "api.example.com"
+                    ],
+                    "routes": [
+                      {
+                        "name": "listener~80~api_example_com-route-0-httproute-api-example-com-kgateway-system-2-0-a-matcher-b-matcher-0",
+                        "match": {
+                          "pathSeparatedPrefix": "/amb"
+                        },
+                        "cluster": "kube_httpbin_httpbin_8000"
+                      },
+                      {
+                        "name": "listener~80~api_example_com-route-1-httproute-api-example-com-kgateway-system-1-0-a-b-matcher-0",
+                        "match": {
+                          "pathSeparatedPrefix": "/ab"
+                        },
+                        "cluster": "kube_httpbin_httpbin_8000"
+                      },
+                      {
+                        "name": "listener~80~api_example_com-route-2-httproute-api-example-com-kgateway-system-0-0-a-matcher-0",
+                        "match": {
+                          "pathSeparatedPrefix": "/a"
+                        },
+                        "cluster": "kube_httpbin_httpbin_8000"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "warnings": []
+}

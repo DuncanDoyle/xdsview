@@ -1,0 +1,168 @@
+{
+  "schemaVersion": "v1alpha1",
+  "snapshot": {
+    "listeners": [
+      {
+        "name": "listener~80",
+        "address": ":::80",
+        "filterChains": [
+          {
+            "name": "listener~80",
+            "hcm": {
+              "routeConfigName": "listener~80",
+              "httpFilters": [
+                {
+                  "name": "global_disable/ext_auth",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.set_metadata.v3.Config",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.set_metadata.v3.Config",
+                    "metadata": [
+                      {
+                        "metadata_namespace": "dev.kgateway.disable_ext_auth",
+                        "value": {
+                          "disable": true
+                        }
+                      }
+                    ]
+                  },
+                  "disabled": true
+                },
+                {
+                  "name": "envoy.filters.http.cors",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors"
+                  },
+                  "disabled": true
+                },
+                {
+                  "name": "ext_auth/kgateway-system/ext-authz",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
+                    "emit_filter_state_stats": true,
+                    "filter_enabled_metadata": {
+                      "filter": "dev.kgateway.disable_ext_auth",
+                      "invert": true,
+                      "path": [
+                        {
+                          "key": "disable"
+                        }
+                      ],
+                      "value": {
+                        "bool_match": true
+                      }
+                    },
+                    "grpc_service": {
+                      "envoy_grpc": {
+                        "cluster_name": "kube_kgateway-system_ext-authz_4444"
+                      }
+                    },
+                    "status_on_error": {
+                      "code": "Forbidden"
+                    }
+                  },
+                  "disabled": true
+                },
+                {
+                  "name": "ratelimit/kgateway-system/ratelimit",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit",
+                    "domain": "api-example-com",
+                    "rate_limit_service": {
+                      "grpc_service": {
+                        "envoy_grpc": {
+                          "cluster_name": "kube_kgateway-system_ratelimit_4444"
+                        }
+                      },
+                      "transport_api_version": "V3"
+                    },
+                    "timeout": "0.100s"
+                  },
+                  "disabled": true
+                },
+                {
+                  "name": "envoy.filters.http.router",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  }
+                }
+              ],
+              "routeConfig": {
+                "name": "listener~80",
+                "virtualHosts": [
+                  {
+                    "name": "listener~80~api_example_com",
+                    "domains": [
+                      "api.example.com"
+                    ],
+                    "routes": [
+                      {
+                        "name": "listener~80~api_example_com-route-0-httproute-api-example-com-kgateway-system-0-0-matcher-0",
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "cluster": "kube_httpbin_httpbin_8000",
+                        "typedPerFilterConfig": {
+                          "envoy.filters.http.cors": {
+                            "@type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.CorsPolicy",
+                            "allow_credentials": true,
+                            "allow_headers": "content-type, authorization, x-request-id",
+                            "allow_methods": "GET, POST, PUT, DELETE, OPTIONS",
+                            "allow_origin_string_match": [
+                              {
+                                "exact": "https://app.example.com"
+                              }
+                            ],
+                            "expose_headers": "x-request-id",
+                            "forward_not_matching_preflights": false,
+                            "max_age": "86400"
+                          },
+                          "ext_auth/kgateway-system/ext-authz": {
+                            "@type": "type.googleapis.com/envoy.config.route.v3.FilterConfig",
+                            "config": {}
+                          },
+                          "ratelimit/kgateway-system/ratelimit": {
+                            "@type": "type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimitPerRoute",
+                            "rate_limits": [
+                              {
+                                "actions": [
+                                  {
+                                    "request_headers": {
+                                      "descriptor_key": "X-Custom",
+                                      "header_name": "X-Custom"
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        "metadata": {
+                          "merge.TrafficPolicy.gateway.kgateway.dev": {
+                            "cors": [
+                              "gateway.kgateway.dev/TrafficPolicy/kgateway-system/cors"
+                            ],
+                            "extAuth": [
+                              "gateway.kgateway.dev/TrafficPolicy/kgateway-system/ext-auth"
+                            ],
+                            "rateLimit.global": [
+                              "gateway.kgateway.dev/TrafficPolicy/kgateway-system/rate-limit"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "warnings": []
+}

@@ -13,6 +13,7 @@
               "httpFilters": [
                 {
                   "name": "ratelimit/kgateway-system/ratelimit",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit",
                     "domain": "api-example-com",
@@ -30,6 +31,7 @@
                 },
                 {
                   "name": "envoy.filters.http.router",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                   }

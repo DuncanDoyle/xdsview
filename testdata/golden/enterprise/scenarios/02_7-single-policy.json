@@ -13,6 +13,7 @@
               "httpFilters": [
                 {
                   "name": "global_disable/ext_auth",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.set_metadata.v3.Config",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.set_metadata.v3.Config",
                     "metadata": [
@@ -28,6 +29,7 @@
                 },
                 {
                   "name": "extauth_ee/default",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
                     "filter_enabled_metadata": {
@@ -56,6 +58,7 @@
                 },
                 {
                   "name": "envoy.filters.http.router",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
                   }

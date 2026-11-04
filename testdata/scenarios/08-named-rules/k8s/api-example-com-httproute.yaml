@@ -1,0 +1,39 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: api-example-com
+  namespace: kgateway-system
+spec:
+  parentRefs:
+    - name: gw
+      namespace: kgateway-system
+  hostnames:
+    - "api.example.com"
+  rules:
+  - name: a
+    matches:
+    - path:
+        type: PathPrefix
+        value: /a
+    backendRefs:
+    - name: httpbin
+      namespace: httpbin
+      port: 8000
+  - name: a-b
+    matches:
+    - path:
+        type: PathPrefix
+        value: /ab
+    backendRefs:
+    - name: httpbin
+      namespace: httpbin
+      port: 8000
+  - name: a-matcher-b
+    matches:
+    - path:
+        type: PathPrefix
+        value: /amb
+    backendRefs:
+    - name: httpbin
+      namespace: httpbin
+      port: 8000

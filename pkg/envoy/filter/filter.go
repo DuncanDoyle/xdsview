@@ -4,7 +4,10 @@
 // Kgateway encodes the HTTPRoute identity in each Envoy route name using the
 // convention:
 //
-//	<listener>-route-<N>-httproute-<name>-<namespace>-<rule>-<backend>-matcher-<M>
+//	<vhost>-route-<N>-httproute-<name>-<namespace>-<rule>-<match>[-<ruleName>]-matcher-<match>
+//
+// <N> is the route's position in the virtual host after precedence sorting, not
+// the rule index.
 //
 // [Filter] uses substring matching on that segment to select routes without
 // making any Kubernetes API calls. Listeners and virtual hosts that contain no
@@ -132,7 +135,7 @@ func filterVirtualHost(vh model.VirtualHost, opts Options) *model.VirtualHost {
 // identity from opts, using substring matching on the kgateway naming
 // convention:
 //
-//	...-httproute-<name>-<namespace>-<rule_idx>-<backend_idx>-matcher-<matcher_idx>
+//	...-httproute-<name>-<namespace>-<rule_idx>-<match_idx>[-<rule_name>]-matcher-<match_idx>
 //
 // When opts.RuleIndex >= 0 the match is further narrowed to that rule index.
 func routeMatches(name string, opts Options) bool {
