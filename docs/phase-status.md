@@ -2,19 +2,22 @@
 
 ## Phase
 Phase: 4 — Library Extraction
-Base: n/a (record at phase start)
+Base: e1c5666890cfc0f05321aabaa537f0f042f350ce
 Docs: docs/phases/phase-4/
-Status: not started. Phases 1–3 complete (`docs/phases/phase-3/phase-3-complete.md`); roadmap restructured and workflow moved to agentic-engineering-sdlc on 2026-11-04 (D-001, D-002).
+Status: design + plan approved 2026-11-04; implementing. Phases 1–3 complete (`docs/phases/phase-3/phase-3-complete.md`); roadmap restructured and workflow moved to agentic-engineering-sdlc on 2026-11-04 (D-001, D-002).
 
 ### Queue
-- [ ] Q1 Phase 4 design (`design.md`) ← CURRENT
-- [ ] Q2 Phase 4 implementation plan (`implementation-plan.md`)
-- [ ] Q3 Cross-model review of design + plan, triage, owner approval
+- [x] Q1 Phase 4 design (`design.md`)
+- [x] Q2 Phase 4 implementation plan (`implementation-plan.md`) — planned sub-phases 4.1, 4.2, 4.3
+- [x] Q3 Cross-model review of design + plan (7 accepted: reviews/design-codex.md), owner approved 2026-11-04
+- [ ] Q4 Sub-phase 4.1 — library move and API ← CURRENT
+- [ ] Q5 Sub-phase 4.2 — `-o json` and golden files
+- [ ] Q6 Sub-phase 4.3 — OSS corpus on v2.4.7 + v2.5.0, enterprise corpus moved
 
 ### Exit gates
 - [ ] tests/vet pass (observed)
 - [ ] all queue items done or deferred
-- [ ] design+plan cross-model review + triage: docs/phases/phase-4/reviews/design-codex.md
+- [x] design+plan cross-model review + triage: docs/phases/phase-4/reviews/design-codex.md
 - [ ] phase cross-model review + triage: docs/phases/phase-4/reviews/phase-codex.md
 - [ ] decisions.md / design / plan in sync with code
 - [ ] phase-4-complete.md written, roadmap updated, tracked items closed
@@ -24,7 +27,7 @@ none
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`)
-Waiting on: none
+Waiting on: none (program file checked 2026-11-04 at `908a199`; no open `cross-repo` issues in krp)
 Consumers: E1 (kgwctl Phase 2), E4 (kgateway-ui Phase 9), E6 (move into kgateway) — Phase 4 delivers `v0.1.0`; E5 (mapping) is Phase 5
 
 ## Carry-over (deferred to later phases)
