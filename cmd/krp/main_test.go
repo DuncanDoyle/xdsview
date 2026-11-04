@@ -173,6 +173,7 @@ func TestDumpOutput_Rejected(t *testing.T) {
 	}{
 		{"json with interactive", "--interactive", []string{"-o", "json", "--interactive"}},
 		{"unknown format", "text, json", []string{"-o", "yaml"}},
+		{"negative rule", "rule index >= 0", []string{"--route", "r", "--route-ns", "n", "--rule=-2"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
