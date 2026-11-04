@@ -414,7 +414,7 @@ type rawHTTPFilter struct {
 }
 
 // compositeDelegate returns the filter type every ExecuteFilterAction in v
-// runs, or "" when there are none or they differ.
+// runs, or "" when there are none, they differ, or one has no static type.
 func compositeDelegate(v any) string {
 	var found string
 	mixed := false
@@ -423,16 +423,17 @@ func compositeDelegate(v any) string {
 		switch v := v.(type) {
 		case map[string]any:
 			if v["@type"] == executeActionType {
+				// An action without a static type (e.g. dynamic_config) could run anything.
+				t := ""
 				if inner, ok := v["typed_config"].(map[string]any); ok {
 					if tc, ok := inner["typed_config"].(map[string]any); ok {
-						if t, _ := tc["@type"].(string); t != "" {
-							if found != "" && found != t {
-								mixed = true
-							}
-							found = t
-						}
+						t, _ = tc["@type"].(string)
 					}
 				}
+				if t == "" || (found != "" && found != t) {
+					mixed = true
+				}
+				found = t
 				return
 			}
 			for _, child := range v {

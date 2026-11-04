@@ -105,3 +105,67 @@ func TestRoute_RuleNameWithDigits(t *testing.T) {
 		t.Errorf("got %v %v, want inferred %v", got.Certainty, got.Candidates, want)
 	}
 }
+
+// TestRoute_MetadataWithoutNameConvention reads both versions' route_source
+// shapes on a route whose name follows no convention: the metadata alone
+// gives the indices.
+func TestRoute_MetadataWithoutNameConvention(t *testing.T) {
+	ref := model.Ref{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute", Namespace: "ns", Name: "web"}
+	md := func(fields map[string]any) map[string]any {
+		base := map[string]any{"kind": "HTTPRoute", "group": "gateway.networking.k8s.io", "namespace": "ns", "name": "web"}
+		for k, v := range fields {
+			base[k] = v
+		}
+		return map[string]any{"dev.kgateway.route_source": base}
+	}
+	cases := []struct {
+		name string
+		meta map[string]any
+		want model.RouteOrigin
+	}{
+		{"v2.4", md(map[string]any{"rule": "httproute-web-ns-2-1"}), model.RouteOrigin{Route: ref, RuleIndex: 2, MatchIndex: 1}},
+		{"v2.5 index", md(map[string]any{"rule": "_rule-2", "match": "_match-1"}), model.RouteOrigin{Route: ref, RuleIndex: 2, MatchIndex: 1}},
+		{"v2.5 name", md(map[string]any{"rule": "api", "match": "_match-0"}), model.RouteOrigin{Route: ref, RuleIndex: -1, RuleName: "api", MatchIndex: 0}},
+	}
+	m := origin.Kgateway(origin.KgatewayOptions{})
+	for _, c := range cases {
+		got := m.Route(model.Route{Name: "custom", Metadata: c.meta})
+		if got.Certainty != model.Exact || !reflect.DeepEqual(got.Candidates, []model.RouteOrigin{c.want}) {
+			t.Errorf("%s: got %v %v, want exact %v", c.name, got.Certainty, got.Candidates, c.want)
+		}
+	}
+}
+
+// TestRoute_Ambiguity checks the full candidate set of a name with several
+// readings, and how Known narrows it.
+func TestRoute_Ambiguity(t *testing.T) {
+	ref := func(ns, name string) model.Ref {
+		return model.Ref{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute", Namespace: ns, Name: name}
+	}
+	const name = "listener~80~*-route-0-httproute-a-b-c-0-0-matcher-0"
+	want := []model.RouteOrigin{
+		{Route: ref("b-c", "a"), RuleIndex: 0, MatchIndex: 0},
+		{Route: ref("c", "a-b"), RuleIndex: 0, MatchIndex: 0},
+	}
+	cases := []struct {
+		label     string
+		known     []model.Ref
+		certainty model.Certainty
+		cands     []model.RouteOrigin
+	}{
+		{"nothing known", nil, model.Ambiguous, want},
+		{"one reading known", []model.Ref{ref("c", "a-b")}, model.Inferred, want[1:]},
+		{"both known", []model.Ref{ref("c", "a-b"), ref("b-c", "a")}, model.Ambiguous, want},
+		{"unrelated known", []model.Ref{ref("x", "y")}, model.Ambiguous, want},
+	}
+	for _, c := range cases {
+		got := origin.Kgateway(origin.KgatewayOptions{Known: c.known}).Route(model.Route{Name: name})
+		if got.Certainty != c.certainty || !reflect.DeepEqual(got.Candidates, c.cands) {
+			t.Errorf("%s: got %v %v, want %v %v", c.label, got.Certainty, got.Candidates, c.certainty, c.cands)
+		}
+	}
+	// One reading only: no "-" to split on.
+	if got := origin.Kgateway(origin.KgatewayOptions{}).Route(model.Route{Name: "v~*-route-0-httproute-web-shop-1-0-matcher-0"}); got.Certainty != model.Inferred {
+		t.Errorf("single reading: certainty %v, want inferred", got.Certainty)
+	}
+}

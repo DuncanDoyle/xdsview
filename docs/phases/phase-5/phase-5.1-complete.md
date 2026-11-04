@@ -4,7 +4,7 @@
 **Range:** 3e7d671..a0c7cc9 (branch `duncandoyle/phase5`, pending design approval)
 
 ## Summary
-Cancelling `kube.Gateway(...).ConfigDump(ctx)` while the port-forward is still connecting now stops the connection attempt. The call returns `context.Canceled`, the forwarder goroutine has exited, and the API server sees the connection close. Long-running consumers such as the kgateway-ui backend no longer leak a goroutine and a connection per cancelled call.
+Cancelling `kube.Gateway(...).ConfigDump(ctx)` while the port-forward is still connecting now stops the connection attempt. The call returns `context.Canceled`, the forwarder goroutine has exited, and the API server sees the connection close. Long-running consumers such as the kgateway-ui backend no longer leak a goroutine and a connection per cancelled call, unless an HTTP or SOCKS proxy sits in front of the API server (Q10). The phase review found and fixed three follow-ups: TLS verification, the cancel error and hook release (`reviews/phase-codex.md` #1, #2, #9).
 
 ## Sub-phases (phase record only)
 n/a

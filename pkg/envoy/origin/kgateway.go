@@ -175,9 +175,20 @@ func routeFromMetadata(r model.Route) (model.RouteOrigin, bool) {
 	}
 	o := model.RouteOrigin{Route: ref, RuleIndex: -1, MatchIndex: -1}
 	rule, match := str("rule"), str("match")
+	legacy := strings.ToLower(ref.Kind) + "-" + ref.Name + "-" + ref.Namespace + "-"
 	if idx, ok := strings.CutPrefix(rule, "_rule-"); ok {
 		o.RuleIndex, _ = strconv.Atoi(idx)
-	} else if !strings.HasPrefix(rule, strings.ToLower(ref.Kind)+"-") {
+	} else if rest, ok := strings.CutPrefix(rule, legacy); ok {
+		// v2.4: "<kind>-<name>-<ns>-<rule>-<match>".
+		if r, m, ok := strings.Cut(rest, "-"); ok {
+			if ri, err := strconv.Atoi(r); err == nil {
+				o.RuleIndex = ri
+			}
+			if mi, err := strconv.Atoi(m); err == nil {
+				o.MatchIndex = mi
+			}
+		}
+	} else {
 		o.RuleName = rule
 	}
 	if idx, ok := strings.CutPrefix(match, "_match-"); ok {

@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -191,7 +194,7 @@ func TestConfigDump_CancelDuringUpgrade(t *testing.T) {
 	select {
 	case <-received:
 	case <-time.After(5 * time.Second):
-		t.Fatalf("API server never received the upgrade request (ConfigDump: %v)", <-errc)
+		t.Fatal("API server never received the upgrade request")
 	}
 	cancel()
 
@@ -212,5 +215,78 @@ func TestConfigDump_CancelDuringUpgrade(t *testing.T) {
 	case <-clientGone:
 	case <-time.After(time.Second):
 		t.Error("API server still holds the connection 1s after ConfigDump returned")
+	}
+}
+
+// TestConfigDump_VerifiesServerCertificate connects to an API server whose
+// certificate isn't trusted, with no TLS options set: the connect must fail
+// verification, not fall back to an unverified connection.
+func TestConfigDump_VerifiesServerCertificate(t *testing.T) {
+	reached := make(chan struct{}, 1)
+	apiServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reached <- struct{}{}
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer apiServer.Close()
+	apiServer.Config.ErrorLog = log.New(io.Discard, "", 0) // the rejected handshake is expected
+
+	cfg := &rest.Config{Host: apiServer.URL, Proxy: func(*http.Request) (*url.URL, error) { return nil, nil }}
+	finder := func(context.Context, kubernetes.Interface, string) (string, error) { return "gw-0", nil }
+	_, _, err := portForward(context.Background(), "ns", Options{RESTConfig: cfg}, finder)
+	if err == nil || !strings.Contains(err.Error(), "certificate") {
+		t.Errorf("err = %v, want a certificate verification error", err)
+	}
+	select {
+	case <-reached:
+		t.Error("the request reached a server with an untrusted certificate")
+	default:
+	}
+}
+
+// TestCancelHooks_Release checks that a released hook no longer closes its
+// connection when the context ends, so a long-lived context holds nothing.
+func TestCancelHooks_Release(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			defer c.Close()
+		}
+	}()
+
+	for _, release := range []bool{false, true} {
+		ctx, cancel := context.WithCancel(context.Background())
+		hooks := &cancelHooks{}
+		conn, err := hooks.dial(ctx, "tcp", ln.Addr().String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if release {
+			hooks.release()
+		}
+		cancel()
+		if release {
+			// Absence can't be awaited: give a registered hook ample time to fire.
+			time.Sleep(100 * time.Millisecond)
+			if _, err := conn.Write([]byte("x")); err != nil {
+				t.Errorf("released hook still closed the connection: %v", err)
+			}
+		} else {
+			deadline := time.Now().Add(2 * time.Second)
+			for _, err := conn.Write([]byte("x")); err == nil; _, err = conn.Write([]byte("x")) {
+				if time.Now().After(deadline) {
+					t.Fatal("cancel did not close the connection")
+				}
+				time.Sleep(5 * time.Millisecond)
+			}
+		}
+		conn.Close()
 	}
 }

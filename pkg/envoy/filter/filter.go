@@ -10,7 +10,8 @@
 // the rule index.
 //
 // [Filter] uses substring matching on that segment to select routes without
-// making any Kubernetes API calls. Listeners and virtual hosts that contain no
+// making any Kubernetes API calls. A route with kgateway's route_source
+// metadata is selected by that metadata instead. Listeners and virtual hosts that contain no
 // matching routes are pruned from the returned snapshot.
 //
 // # Known limitation
@@ -32,6 +33,7 @@ import (
 	"strings"
 
 	"github.com/DuncanDoyle/krp/pkg/envoy/model"
+	"github.com/DuncanDoyle/krp/pkg/envoy/origin"
 )
 
 // Options controls which routes [Filter] retains from a snapshot.
@@ -123,7 +125,7 @@ func filterVirtualHost(vh model.VirtualHost, opts Options) *model.VirtualHost {
 	out := vh
 	out.Routes = nil
 	for _, r := range vh.Routes {
-		if routeMatches(r.Name, opts) {
+		if selected(r, opts) {
 			out.Routes = append(out.Routes, r)
 		}
 	}
@@ -131,6 +133,24 @@ func filterVirtualHost(vh model.VirtualHost, opts Options) *model.VirtualHost {
 		return nil
 	}
 	return &out
+}
+
+// metadataMapper reads kgateway's route_source metadata.
+var metadataMapper = origin.Kgateway(origin.KgatewayOptions{})
+
+// selected reports whether r belongs to the HTTPRoute (and rule) in opts. A
+// route with route_source metadata is judged by it; others by their name.
+func selected(r model.Route, opts Options) bool {
+	if _, ok := r.Metadata["dev.kgateway.route_source"]; ok {
+		if a := metadataMapper.Route(r); a.Certainty == model.Exact {
+			o := a.Candidates[0]
+			return o.Route.Kind == "HTTPRoute" && o.Route.Name == opts.HTTPRouteName &&
+				o.Route.Namespace == opts.HTTPRouteNamespace &&
+				(opts.RuleIndex < 0 || o.RuleIndex == opts.RuleIndex) &&
+				(opts.RuleName == "" || o.RuleName == opts.RuleName)
+		}
+	}
+	return routeMatches(r.Name, opts)
 }
 
 // routeMatches reports whether the Envoy route name encodes the HTTPRoute

@@ -130,9 +130,12 @@ func TestParse_SharedRouteConfigIsolated(t *testing.T) {
 func compositeFilter(name string, actionTypes ...string) string {
 	var matchers []string
 	for _, t := range actionTypes {
+		inner := `"typed_config": {"name": "x", "typed_config": {"@type": "` + t + `"}}`
+		if t == "dynamic" { // the delegate comes from ECDS, so its type isn't in the dump
+			inner = `"dynamic_config": {"name": "x", "config_discovery": {}}`
+		}
 		matchers = append(matchers, `{"on_match": {"action": {"typed_config": {
-			"@type": "type.googleapis.com/envoy.extensions.filters.http.composite.v3.ExecuteFilterAction",
-			"typed_config": {"name": "x", "typed_config": {"@type": "`+t+`"}}}}}}`)
+			"@type": "type.googleapis.com/envoy.extensions.filters.http.composite.v3.ExecuteFilterAction", `+inner+`}}}}`)
 	}
 	return `{"name": "` + name + `", "typed_config": {
 		"@type": "type.googleapis.com/envoy.extensions.common.matching.v3.ExtensionWithMatcher",
@@ -148,7 +151,8 @@ func TestParse_CompositeFilterType(t *testing.T) {
 	dump := `{"configs": [{"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump", "dynamic_listeners": [
 	 {"name": "l", "active_state": {"listener": {"name": "l", "filter_chains": [{"filters": [
 	  {"name": "envoy.filters.network.http_connection_manager", "typed_config": {"http_filters": [` +
-		compositeFilter("same", extProc, extProc) + `,` + compositeFilter("mixed", extProc, extAuthz) + `]}}]}]}}}]}]}`
+		compositeFilter("same", extProc, extProc) + `,` + compositeFilter("mixed", extProc, extAuthz) + `,` +
+		compositeFilter("dynamic", extProc, "dynamic") + `]}}]}]}}}]}]}`
 	result, err := parser.Parse(strings.NewReader(dump))
 	if err != nil {
 		t.Fatal(err)
@@ -157,7 +161,11 @@ func TestParse_CompositeFilterType(t *testing.T) {
 	if filters[0].Type != extProc {
 		t.Errorf("same-type composite: Type = %q, want %q", filters[0].Type, extProc)
 	}
-	if want := "type.googleapis.com/envoy.extensions.filters.http.composite.v3.Composite"; filters[1].Type != want {
-		t.Errorf("mixed composite: Type = %q, want %q", filters[1].Type, want)
+	const composite = "type.googleapis.com/envoy.extensions.filters.http.composite.v3.Composite"
+	if filters[1].Type != composite {
+		t.Errorf("mixed composite: Type = %q, want %q", filters[1].Type, composite)
+	}
+	if filters[2].Type != composite {
+		t.Errorf("composite with a dynamic action: Type = %q, want %q", filters[2].Type, composite)
 	}
 }

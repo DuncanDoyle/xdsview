@@ -183,3 +183,42 @@ func snapshotWithTwoListeners(route1, route2 string) *model.EnvoySnapshot {
 		},
 	}
 }
+
+// TestFilter_RouteSourceMetadata selects routes by their route_source metadata
+// when their names follow no convention.
+func TestFilter_RouteSourceMetadata(t *testing.T) {
+	md := func(rule string) map[string]any {
+		return map[string]any{"dev.kgateway.route_source": map[string]any{
+			"kind": "HTTPRoute", "group": "gateway.networking.k8s.io", "namespace": "shop", "name": "web",
+			"rule": rule, "match": "_match-0",
+		}}
+	}
+	snap := &model.EnvoySnapshot{Listeners: []model.Listener{{Name: "l", FilterChains: []model.NetworkFilterChain{
+		{HCM: &model.HCMConfig{RouteConfig: &model.RouteConfig{VirtualHosts: []model.VirtualHost{{Name: "vh", Routes: []model.Route{
+			{Name: "named", Metadata: md("api")},
+			{Name: "indexed", Metadata: md("_rule-1")},
+		}}}}}},
+	}}}}
+	cases := []struct {
+		opts filter.Options
+		want []string
+	}{
+		{filter.Options{HTTPRouteName: "web", HTTPRouteNamespace: "shop", RuleIndex: filter.AllRules}, []string{"named", "indexed"}},
+		{filter.Options{HTTPRouteName: "web", HTTPRouteNamespace: "shop", RuleIndex: filter.AllRules, RuleName: "api"}, []string{"named"}},
+		{filter.Options{HTTPRouteName: "web", HTTPRouteNamespace: "shop", RuleIndex: 1}, []string{"indexed"}},
+		{filter.Options{HTTPRouteName: "web", HTTPRouteNamespace: "other", RuleIndex: filter.AllRules}, nil},
+	}
+	for _, c := range cases {
+		var got []string
+		for _, l := range filter.Filter(snap, c.opts).Listeners {
+			for _, vh := range l.FilterChains[0].HCM.RouteConfig.VirtualHosts {
+				for _, r := range vh.Routes {
+					got = append(got, r.Name)
+				}
+			}
+		}
+		if fmt.Sprint(got) != fmt.Sprint(c.want) {
+			t.Errorf("%+v: kept %v, want %v", c.opts, got, c.want)
+		}
+	}
+}

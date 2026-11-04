@@ -7,6 +7,7 @@ package kube
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -139,7 +140,7 @@ func portForward(ctx context.Context, namespace string, opts Options, finder pod
 		Name(podName).
 		SubResource("portforward").URL()
 
-	dialer, err := newDialer(ctx, cfg, url)
+	dialer, release, err := newDialer(ctx, cfg, url)
 	if err != nil {
 		return "", nil, fmt.Errorf("creating SPDY transport: %w", err)
 	}
@@ -147,6 +148,7 @@ func portForward(ctx context.Context, namespace string, opts Options, finder pod
 
 	fw, err := portforward.New(dialer, ports, stopCh, readyCh, nil, nil)
 	if err != nil {
+		release()
 		return "", nil, fmt.Errorf("creating port-forwarder: %w", err)
 	}
 
@@ -159,6 +161,11 @@ func portForward(ctx context.Context, namespace string, opts Options, finder pod
 	select {
 	case <-readyCh:
 	case err := <-errCh:
+		release()
+		// A cancel closes the connection, so the dial can fail first; report the cancel.
+		if ctx.Err() != nil {
+			return "", nil, ctx.Err()
+		}
 		return "", nil, fmt.Errorf("port-forward failed: %w", err)
 	case <-ctx.Done():
 		close(stopCh)
@@ -168,10 +175,11 @@ func portForward(ctx context.Context, namespace string, opts Options, finder pod
 		case <-errCh:
 		case <-time.After(cancelGrace):
 		}
+		release()
 		return "", nil, ctx.Err()
 	}
 
-	return fmt.Sprintf("http://localhost:%d", localPort), func() { close(stopCh) }, nil
+	return fmt.Sprintf("http://localhost:%d", localPort), func() { close(stopCh); release() }, nil
 }
 
 // newDialer returns a port-forward dialer whose connect honours ctx.
@@ -182,43 +190,71 @@ func portForward(ctx context.Context, namespace string, opts Options, finder pod
 // connection once ctx is done, so an unanswered upgrade can't hold the call.
 // Through a proxy, the connect and TLS handshake honour ctx but the response
 // read doesn't, because client-go's upgrade transport hook bypasses proxies.
-func newDialer(ctx context.Context, cfg *rest.Config, u *url.URL) (httpstream.Dialer, error) {
+//
+// release unregisters the close-on-cancel hooks; call it once the tunnel is
+// done, or they stay on ctx until it ends.
+func newDialer(ctx context.Context, cfg *rest.Config, u *url.URL) (d httpstream.Dialer, release func(), err error) {
 	tlsConfig, err := rest.TLSConfigFor(cfg)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	proxy := http.ProxyFromEnvironment
 	if cfg.Proxy != nil {
 		proxy = cfg.Proxy
 	}
 	rtConfig := spdystream.RoundTripperConfig{TLS: tlsConfig, Proxier: proxy, PingPeriod: 5 * time.Second}
+	hooks := &cancelHooks{}
 	if p, err := proxy(&http.Request{URL: u}); err == nil && p == nil {
+		// client-go's upgrade transport skips verification when its TLS config
+		// is nil, which rest.TLSConfigFor returns for system roots. Pass an
+		// empty config instead: it verifies against the system roots.
+		if tlsConfig == nil {
+			tlsConfig = &tls.Config{}
+		}
 		// UpgradeTransport excludes TLS and Proxier; it carries the TLS config itself.
 		rtConfig = spdystream.RoundTripperConfig{
 			PingPeriod:       5 * time.Second,
-			UpgradeTransport: &http.Transport{TLSClientConfig: tlsConfig, DialContext: dialClosingOnCancel},
+			UpgradeTransport: &http.Transport{TLSClientConfig: tlsConfig, DialContext: hooks.dial},
 		}
 	}
 	upgrader, err := spdystream.NewRoundTripperWithConfig(rtConfig)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	wrapped, err := rest.HTTPWrappersForConfig(cfg, upgrader)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return &ctxDialer{ctx: ctx, upgrader: upgrader, client: &http.Client{Transport: wrapped}, url: u}, nil
+	return &ctxDialer{ctx: ctx, upgrader: upgrader, client: &http.Client{Transport: wrapped}, url: u}, hooks.release, nil
 }
 
-// dialClosingOnCancel dials addr and closes the connection when ctx is done.
-func dialClosingOnCancel(ctx context.Context, network, addr string) (net.Conn, error) {
+// cancelHooks dials connections that close when the dial's ctx is done, and
+// can unregister those hooks.
+type cancelHooks struct {
+	mu    sync.Mutex
+	stops []func() bool
+}
+
+func (h *cancelHooks) dial(ctx context.Context, network, addr string) (net.Conn, error) {
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, network, addr)
 	if err != nil {
 		return nil, err
 	}
-	context.AfterFunc(ctx, func() { _ = conn.Close() })
+	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	h.mu.Lock()
+	h.stops = append(h.stops, stop)
+	h.mu.Unlock()
 	return conn, nil
+}
+
+func (h *cancelHooks) release() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for _, stop := range h.stops {
+		stop()
+	}
+	h.stops = nil
 }
 
 // ctxDialer is spdy.NewDialer with the upgrade request bound to ctx.
