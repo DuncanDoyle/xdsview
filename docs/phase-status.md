@@ -13,14 +13,15 @@ Status: design + plan approved 2026-11-04; implementing. Phases 1–3 complete (
 - [x] Q4 Sub-phase 4.1 — library move and API (`d672ef8`, phase-4.1-complete.md)
 - [x] Q5 Sub-phase 4.2 — `-o json` and golden files (`1ef9633`, phase-4.2-complete.md)
 - [x] Q6 Sub-phase 4.3 — OSS corpus on v2.4.7 + v2.5.0, enterprise corpus moved (`c0853ef`, phase-4.3-complete.md)
-- [ ] Q7 Phase review (cross-model) + triage ← CURRENT
-- [ ] Q8 Phase close: tag v0.1.0, program file, cross-repo notices
+- [x] Q7 Phase review (cross-model) + triage — reviews/phase-codex.md: 4 findings, 3 fixed, 1 deferred (Q9)
+- [ ] Q9 (P2) kube source: cancelled ctx leaves an in-flight SPDY dial running — src: reviews/phase-codex.md#2; GitHub issue to file (owner approval)
+- [ ] Q8 Phase close: tag v0.1.0, program file, cross-repo notices ← CURRENT
 
 ### Exit gates
-- [ ] tests/vet pass (observed)
+- [x] tests/vet pass (observed)
 - [ ] all queue items done or deferred
 - [x] design+plan cross-model review + triage: docs/phases/phase-4/reviews/design-codex.md
-- [ ] phase cross-model review + triage: docs/phases/phase-4/reviews/phase-codex.md
+- [x] phase cross-model review + triage: docs/phases/phase-4/reviews/phase-codex.md
 - [ ] decisions.md / design / plan in sync with code
 - [ ] phase-4-complete.md written, roadmap updated, tracked items closed
 

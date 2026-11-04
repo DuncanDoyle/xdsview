@@ -11,14 +11,17 @@ set -euo pipefail
 version=${1:?usage: $0 <kgateway-version> [scenario ...]}
 shift
 repo=$(cd "$(dirname "$0")/.." && pwd)
-cluster=krp-record
+# A per-run name, so concurrent runs and existing clusters are never touched.
+cluster=krp-record-$$
 context=kind-$cluster
 kubeconfig=$(mktemp)
 pf_pid=
+created=
 
 cleanup() {
   [ -n "$pf_pid" ] && kill "$pf_pid" 2>/dev/null || true
-  kind delete cluster --name "$cluster" --kubeconfig "$kubeconfig" >/dev/null 2>&1 || true
+  # Delete only a cluster this run created.
+  [ -n "$created" ] && kind delete cluster --name "$cluster" --kubeconfig "$kubeconfig" >/dev/null 2>&1 || true
   rm -f "$kubeconfig"
 }
 trap cleanup EXIT
@@ -31,7 +34,12 @@ gwapi=$(curl -fsSL "https://raw.githubusercontent.com/kgateway-dev/kgateway/$ver
   awk '$1 == "sigs.k8s.io/gateway-api" {print $2}')
 echo "kgateway $version, Gateway API $gwapi"
 
+if kind get clusters 2>/dev/null | grep -qx "$cluster"; then
+  echo "kind cluster $cluster already exists; not touching it" >&2
+  exit 1
+fi
 kind create cluster --name "$cluster" --kubeconfig "$kubeconfig" --wait 120s
+created=1
 k apply --server-side -f "https://github.com/kubernetes-sigs/gateway-api/releases/download/$gwapi/experimental-install.yaml"
 h upgrade -i kgateway-crds oci://cr.kgateway.dev/kgateway-dev/charts/kgateway-crds \
   --version "$version" -n kgateway-system --create-namespace --wait

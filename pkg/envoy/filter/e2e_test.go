@@ -15,39 +15,66 @@ import (
 // ossVersions are the kgateway versions every OSS scenario is recorded on.
 var ossVersions = []string{"kgateway-v2.4.7", "kgateway-v2.5.0"}
 
-// httpRoute is one HTTPRoute of a scenario and the number of Envoy routes each of
-// its rules produces, counted from the scenario's manifests: matches per rule
-// times the virtual hosts (listener hostnames) the route attaches to.
+// Envoy route names kgateway generates for the scenarios. They are written out
+// from the manifests, not computed with the filter's own naming logic.
+const (
+	httpRoute0     = "listener~80~api_example_com-route-0-httproute-api-example-com-kgateway-system-0-0-matcher-0"
+	httpsAPI       = "https-api~api_example_com-route-0-httproute-api-example-com-kgateway-system-0-0-matcher-0"
+	httpsDeveloper = "https-developer~developer_example_com-route-0-httproute-api-example-com-kgateway-system-0-0-matcher-0"
+)
+
+// httpRoute is one HTTPRoute of a scenario and the exact Envoy route names each
+// of its rules produces.
 type httpRoute struct {
 	name, namespace string
-	routesPerRule   []int
+	rules           [][]string
+}
+
+func single(name string) []httpRoute {
+	return []httpRoute{{"api-example-com", "kgateway-system", [][]string{{name}}}}
 }
 
 // scenarioRoutes lists the HTTPRoutes of every recorded OSS scenario.
 var scenarioRoutes = map[string][]httpRoute{
-	"00-simple":          {{"api-example-com", "kgateway-system", []int{1}}},
-	"01_1-matchers":      {{"api-example-com", "kgateway-system", []int{1}}},
-	"01_2-matchers":      {{"api-example-com", "kgateway-system", []int{1}}},
-	"01_3-matchers":      {{"api-example-com", "kgateway-system", []int{1}}},
-	"01_4-matchers":      {{"api-example-com", "kgateway-system", []int{1}}},
-	"01_5-matchers":      {{"api-example-com", "kgateway-system", []int{1}}},
-	"01_6-matchers":      {{"api-example-com", "kgateway-system", []int{1}}},
-	"01_7-matchers":      {{"api-example-com", "kgateway-system", []int{1}}},
-	"01_8-matchers":      {{"api-example-com", "kgateway-system", []int{1}}},
-	"01_9-matchers":      {{"api-example-com", "kgateway-system", []int{1}}},
-	"02_1-single-policy": {{"api-example-com", "kgateway-system", []int{2}}}, // two HTTPS hostnames
-	"02_2-single-policy": {{"api-example-com", "kgateway-system", []int{1}}},
-	"02_3-single-policy": {{"api-example-com", "kgateway-system", []int{1}}},
-	"02_4-single-policy": {{"api-example-com", "kgateway-system", []int{1}}},
-	"02_5-single-policy": {{"api-example-com", "kgateway-system", []int{1}}},
-	"02_6-single-policy": {{"api-example-com", "kgateway-system", []int{1}}},
-	"02_7-single-policy": {{"api-example-com", "kgateway-system", []int{1}}},
-	"02_8-single-policy": {{"api-example-com", "kgateway-system", []int{1}}},
+	"00-simple":          single(httpRoute0),
+	"01_1-matchers":      single(httpRoute0),
+	"01_2-matchers":      single(httpRoute0),
+	"01_3-matchers":      single(httpRoute0),
+	"01_4-matchers":      single(httpRoute0),
+	"01_5-matchers":      single(httpRoute0),
+	"01_6-matchers":      single(httpRoute0),
+	"01_7-matchers":      single(httpRoute0),
+	"01_8-matchers":      single(httpRoute0),
+	"01_9-matchers":      single(httpRoute0),
+	"02_1-single-policy": {{"api-example-com", "kgateway-system", [][]string{{httpsAPI, httpsDeveloper}}}}, // two HTTPS hostnames
+	"02_2-single-policy": single(httpRoute0),
+	"02_3-single-policy": single(httpRoute0),
+	"02_4-single-policy": single(httpRoute0),
+	"02_5-single-policy": single(httpRoute0),
+	"02_6-single-policy": single(httpRoute0),
+	"02_7-single-policy": single(httpRoute0),
+	"02_8-single-policy": single(httpRoute0),
 	// The second name extends the first, so a prefix-only match would keep both.
+	// Envoy orders the more specific /admin route first.
 	"06-multi-extproc": {
-		{"api-example-com", "kgateway-system", []int{1}},
-		{"api-example-com-admin", "kgateway-system", []int{1}},
+		{"api-example-com", "kgateway-system", [][]string{{"listener~80~api_example_com-route-1-httproute-api-example-com-kgateway-system-0-0-matcher-0"}}},
+		{"api-example-com-admin", "kgateway-system", [][]string{{"listener~80~api_example_com-route-0-httproute-api-example-com-admin-kgateway-system-0-0-matcher-0"}}},
 	},
+}
+
+// enterpriseRoutes is scenarioRoutes for the enterprise corpus: its 00-simple
+// HTTPRoute lives in "default", and its 06 dump is Gloo Gateway v1, whose route
+// names carry no HTTPRoute identity to filter on.
+func enterpriseRoutes() map[string][]httpRoute {
+	m := map[string][]httpRoute{}
+	for k, v := range scenarioRoutes {
+		m[k] = v
+	}
+	m["00-simple"] = []httpRoute{{"api-example-com", "default", [][]string{{
+		"listener~80~api_example_com-route-0-httproute-api-example-com-default-0-0-matcher-0",
+	}}}}
+	delete(m, "06-multi-extproc")
+	return m
 }
 
 func parseDump(t *testing.T, path string) *model.EnvoySnapshot {
@@ -82,56 +109,56 @@ func routeNames(snap *model.EnvoySnapshot) []string {
 	return names
 }
 
-// TestFilter_E2E_OSSScenarios checks, for every OSS scenario and kgateway
-// version, that filtering keeps exactly the routes each HTTPRoute (and rule)
-// produces and nothing from other HTTPRoutes. Passing on every version shows the
-// route naming convention still holds there.
+// checkScenario asserts that filtering snap keeps exactly the expected route
+// names for each HTTPRoute, for all rules and for each rule, and nothing for a
+// rule index past the last one.
+func checkScenario(t *testing.T, snap *model.EnvoySnapshot, routes []httpRoute) {
+	t.Helper()
+	keep := func(hr httpRoute, rule int) []string {
+		names := routeNames(filter.Filter(snap, filter.Options{
+			HTTPRouteName: hr.name, HTTPRouteNamespace: hr.namespace, RuleIndex: rule,
+		}))
+		slices.Sort(names)
+		return names
+	}
+	for _, hr := range routes {
+		var want []string
+		for rule, names := range hr.rules {
+			want = append(want, names...)
+			ruleWant := slices.Sorted(slices.Values(names))
+			if got := keep(hr, rule); !slices.Equal(got, ruleWant) {
+				t.Errorf("%s rule %d: kept %v, want %v", hr.name, rule, got, ruleWant)
+			}
+		}
+		slices.Sort(want)
+		if got := keep(hr, filter.AllRules); !slices.Equal(got, want) {
+			t.Errorf("%s: kept %v, want %v", hr.name, got, want)
+		}
+		if got := keep(hr, len(hr.rules)); len(got) != 0 {
+			t.Errorf("%s rule %d (no such rule): kept %v", hr.name, len(hr.rules), got)
+		}
+	}
+}
+
+// TestFilter_E2E_OSSScenarios runs checkScenario on every OSS scenario and
+// kgateway version. Passing on every version shows the route naming convention
+// still holds there.
 func TestFilter_E2E_OSSScenarios(t *testing.T) {
 	for scenario, routes := range scenarioRoutes {
 		for _, version := range ossVersions {
 			t.Run(scenario+"/"+version, func(t *testing.T) {
-				snap := parseDump(t, filepath.Join("../../../testdata/scenarios", scenario, "envoy", version, "config_dump.json"))
-				all := routeNames(snap)
-
-				for _, hr := range routes {
-					marker := "httproute-" + hr.name + "-" + hr.namespace + "-"
-					want := 0
-					for _, n := range hr.routesPerRule {
-						want += n
-					}
-
-					kept := routeNames(filter.Filter(snap, filter.Options{
-						HTTPRouteName: hr.name, HTTPRouteNamespace: hr.namespace, RuleIndex: filter.AllRules,
-					}))
-					if len(kept) != want {
-						t.Errorf("%s: kept %d routes, want %d: %v", hr.name, len(kept), want, kept)
-					}
-					for _, name := range kept {
-						if !strings.Contains(name, marker) {
-							t.Errorf("%s: kept a route of another HTTPRoute: %s", hr.name, name)
-						}
-						if !slices.Contains(all, name) {
-							t.Errorf("%s: kept route %s is not in the dump", hr.name, name)
-						}
-					}
-
-					for rule, n := range hr.routesPerRule {
-						byRule := routeNames(filter.Filter(snap, filter.Options{
-							HTTPRouteName: hr.name, HTTPRouteNamespace: hr.namespace, RuleIndex: rule,
-						}))
-						if len(byRule) != n {
-							t.Errorf("%s rule %d: kept %d routes, want %d: %v", hr.name, rule, len(byRule), n, byRule)
-						}
-					}
-					outOfRange := filter.Filter(snap, filter.Options{
-						HTTPRouteName: hr.name, HTTPRouteNamespace: hr.namespace, RuleIndex: len(hr.routesPerRule),
-					})
-					if names := routeNames(outOfRange); len(names) != 0 {
-						t.Errorf("%s rule %d (no such rule): kept %v", hr.name, len(hr.routesPerRule), names)
-					}
-				}
+				checkScenario(t, parseDump(t, filepath.Join("../../../testdata/scenarios", scenario, "envoy", version, "config_dump.json")), routes)
 			})
 		}
+	}
+}
+
+// TestFilter_E2E_EnterpriseScenarios runs checkScenario on the enterprise corpus.
+func TestFilter_E2E_EnterpriseScenarios(t *testing.T) {
+	for scenario, routes := range enterpriseRoutes() {
+		t.Run(scenario, func(t *testing.T) {
+			checkScenario(t, parseDump(t, filepath.Join("../../../testdata/enterprise/scenarios", scenario, "envoy", "config_dump.json")), routes)
+		})
 	}
 }
 
@@ -162,20 +189,11 @@ func TestFilter_E2E_OSSCorpusComplete(t *testing.T) {
 	}
 }
 
-// TestFilter_E2E_Enterprise keeps the enterprise 00-simple check, whose HTTPRoute
-// lives in namespace "default".
-func TestFilter_E2E_Enterprise(t *testing.T) {
-	snap := parseDump(t, "../../../testdata/enterprise/scenarios/00-simple/envoy/config_dump.json")
-	kept := routeNames(filter.Filter(snap, filter.Options{
-		HTTPRouteName: "api-example-com", HTTPRouteNamespace: "default", RuleIndex: filter.AllRules,
-	}))
-	want := []string{"listener~80~api_example_com-route-0-httproute-api-example-com-default-0-0-matcher-0"}
-	if !slices.Equal(kept, want) {
-		t.Errorf("kept %v, want %v", kept, want)
-	}
-
+// TestFilter_E2E_NoMatch verifies that an unknown HTTPRoute yields no listeners.
+func TestFilter_E2E_NoMatch(t *testing.T) {
+	snap := parseDump(t, "../../../testdata/scenarios/00-simple/envoy/kgateway-v2.5.0/config_dump.json")
 	none := filter.Filter(snap, filter.Options{
-		HTTPRouteName: "does-not-exist", HTTPRouteNamespace: "default", RuleIndex: filter.AllRules,
+		HTTPRouteName: "does-not-exist", HTTPRouteNamespace: "kgateway-system", RuleIndex: filter.AllRules,
 	})
 	if len(none.Listeners) != 0 {
 		t.Errorf("expected empty snapshot, got %d listeners", len(none.Listeners))
