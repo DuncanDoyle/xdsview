@@ -15,6 +15,7 @@ Status: design in progress (2026-11-04). Phase 4 complete 2026-11-04, tag `v0.1.
 - [x] Q6 Sub-phase 5.3: `pkg/envoy/origin` (E5) and `--rule` by name in `filter` (#16) (`accf3a7`, phase-5.3-complete.md)
 - [x] Q7 Sub-phase 5.4: CLI origins, `--rule <name>`, golden files (`5822cb4`, `96ec2a2`, phase-5.4-complete.md)
 - [x] Q8 Phase review (cross-model) and triage: reviews/phase-codex.md, 9 findings: 8 accepted (fixed), 1 deferred (Q10)
+- [x] Q11 Fix-round review (cross-model): reviews/fixes-codex.md, 3 findings, all fixed (`2ba9c6e`, `6a2c352`); live kind check passed after each round
 - [ ] Q10 (P2) kube source: #25 cancellation through an HTTP/SOCKS proxy (client-go's hook bypasses proxies) — src: reviews/phase-codex.md#4
 - [ ] Q9 Phase close: `v0.2.0`, program file, cross-repo notices ← CURRENT (needs owner: design approval, merge, tag)
 
