@@ -18,10 +18,9 @@ Phase close: cross-model phase review, tag `v0.2.0`, program file (E5 available,
 
 ## 5.1 — Cancellation (#25)
 
-1. **Failing test first.** In `pkg/envoy/source/kube`, start a local TLS listener that accepts the connection and never answers the upgrade. Build a `rest.Config` pointing at it, and run the real `portForward` path with a fake pod finder. Then cancel ctx after the connection is accepted. Assert three things, each within 2s of `ConfigDump` returning:
-   1. `ConfigDump` returns `context.Canceled`.
-   2. The server sees the connection closed.
-   3. `ForwardPorts` has returned, observed through a test hook on the goroutine's exit and not through goroutine counts.
+1. **Failing test first.** In `pkg/envoy/source/kube`, start a local TLS listener that accepts the connection and never answers the upgrade. Build a `rest.Config` pointing at it, and run the real `portForward` path with a fake pod finder. Then cancel ctx after the connection is accepted. Assert, with every deadline measured from the cancel:
+   1. `ConfigDump` returns `context.Canceled` within 2s. The test runs it in a goroutine, so a hang fails on the deadline instead of blocking.
+   2. By the time `ConfigDump` returns, the server has seen the connection close and `ForwardPorts` has returned. The `ForwardPorts` exit is observed through a test hook on the goroutine, not through goroutine counts.
 
    Run it before the fix and record that it fails.
 2. **Fix.** Make the connect honour ctx. Prefer an upgrade request built with ctx (`NewRequestWithContext` through a small dialer that implements `httpstream.Dialer`). If client-go makes that impractical, close the underlying connection on `ctx.Done()`. Whichever approach is used, write down the reason in the sub-phase record.
@@ -31,7 +30,7 @@ Phase close: cross-model phase review, tag `v0.2.0`, program file (E5 available,
 
 1. **Parser fields, test first.** Write synthetic fixtures for each field, then implement:
    - `prefix_rewrite` → `Route.Rewrite.Prefix`. `Rewrite` is non-nil when either rewrite is set.
-   - `weighted_clusters.clusters[]` → `Route.WeightedClusters`. `Cluster` stays empty for split routes.
+   - `weighted_clusters.clusters[]` → `Route.WeightedClusters`. `Cluster` stays empty for split routes. `cloneRouteConfig` deep-copies the new slice. A parser test shared one RDS config between two HCMs, mutated one copy's `WeightedClusters` and `Rewrite`, and asserted the other was unchanged.
    - router `upstream_http_filters` → `HCMConfig.UpstreamFilters`, parsed like `http_filters`.
    - `typed_config.@type` → `HTTPFilter.Type`. For `ExtensionWithMatcher`, use the inner `extension_config.typed_config.@type`.
 2. **Renderer.** Show the prefix rewrite, the weighted backends as `name (weight)`, and an "upstream filters" block after the router. Add renderer unit tests for each.
@@ -46,18 +45,18 @@ Phase close: cross-model phase review, tag `v0.2.0`, program file (E5 available,
    2. 04 again with `enableRouteSourceMetadata: true` into `kgateway-<version>-route-source`.
 
    If a scenario can't be expressed in OSS, write that in its README and skip it.
-5. **Filter e2e.** Extend `scenarioRoutes` with literal names for the new scenarios, including per-rule expectations for 04 and the multi-listener case in 05. `TestFilter_E2E_OSSCorpusComplete` already requires them.
-6. **Parser e2e.** It covers the new dumps automatically. Add assertions that 07 yields `WeightedClusters` and that the policy filters have the expected `Type`.
+5. **Filter e2e.** Extend `scenarioRoutes` with literal names for the new scenarios, including per-rule expectations for 04 and the multi-listener case in 05. `TestFilter_E2E_OSSCorpusComplete` already requires them. `enterpriseRoutes()` changes from copying `scenarioRoutes` minus exclusions to an explicit list of the enterprise scenarios, so new OSS scenarios don't create enterprise expectations.
+6. **Parser e2e.** It covers the new dumps automatically. Add assertions that 07 yields `WeightedClusters` and that the policy filters have the expected `Type`. The enterprise 06 dump yields `UpstreamFilters` named `envoy.filters.http.late_ext_proc`, then `envoy.filters.http.upstream_codec`, and the renderer shows both in that order.
 7. Fix the "backend index" wording in `filter`'s package doc and `routeMatches` to "match index".
 8. Regenerate the golden files. The diff should contain only additions: `type` on filters, plus the new scenarios.
 
 ## 5.3 — `pkg/envoy/origin`
 
-1. **Types and interface** as in the design. Doc comments cover how certainty is decided and which versions are verified.
+1. **Types and interface** as in the design. The value types go in `model` and the `Mapper` in `origin`, which avoids an import cycle. `RouteConfig(name)` is on the interface, and `ObjectForName` dispatches through the mapper only. Doc comments cover how certainty is decided and which versions are verified.
 2. **Kgateway mapper**, test first, against literal per-version tables:
    - `Listener`: `listener~<port>` gives the port and the Gateway from options.
    - `VirtualHost`: split on the last `~`, map `_` back to `.`, and treat the prefix as the chain or section name.
-   - `Route`: `route_source` metadata first. Otherwise locate `-httproute-` after the vhost prefix and `-matcher-<n>` at the end, then enumerate every split of the middle into `<name>-<ns>-<ruleIdx>-<matchIdx>[-<ruleName>]` that gives valid DNS-1123 names. One split is Inferred. Several splits are resolved against `Known`, and stay Ambiguous otherwise.
+   - `Route`: `route_source` metadata first. Rule-name matching anchors on the trailing `-matcher-<matchIdx>`. Otherwise locate `-httproute-` after the vhost prefix and `-matcher-<n>` at the end, then enumerate every split of the middle into `<name>-<ns>-<ruleIdx>-<matchIdx>[-<ruleName>]` that gives valid DNS-1123 names. One split is Inferred. Several splits are resolved against `Known`, and stay Ambiguous otherwise.
    - `Cluster`: `kube_<ns>_<svc>_<port>` gives a Service. Other prefixes return Unknown in this phase.
    - `HTTPFilter`: the kind from `Type`, the extension from the `<kind>/<ns>/<name>` suffix, and `global_disable/*` as a helper.
    - `Policies`: every `merge.*` key, with entries parsed as `<group>/<Kind>/<ns>/<name>`.
@@ -65,11 +64,11 @@ Phase close: cross-model phase review, tag `v0.2.0`, program file (E5 available,
 4. **Model origin fields.** They are pointer or slice fields with `omitempty`, and only `Annotate` sets them.
 5. **Tests:**
    - per-version e2e tables over the OSS corpus;
-   - Inferred equals Exact on the `route_source` recordings;
+   - on the `route_source` recordings, the candidates contain the Exact origin without `Known`, and with `Known` (a literal list from the manifests) they equal it;
    - synthetic ambiguity cases;
-   - the plugin-seam test on the enterprise corpus;
+   - the plugin-seam test on a synthetic dump, checked through `Annotate`;
    - `origin` added to the boundary test.
-6. **Filter.** Add `Options.RuleName`. It matches on the route origin's `RuleName` when the route has `route_source` metadata, and on the exact `-<ruleIdx>-<matchIdx>-<ruleName>-matcher-` segment otherwise. Setting `RuleIndex` and `RuleName` together is the caller's error, and `Filter` documents it. E2e on 08 checks that `a` doesn't select `a-b`.
+6. **Filter.** Add `Options.RuleName`. It matches on the route origin's `RuleName` when the route has `route_source` metadata, and on the exact `-<ruleIdx>-<matchIdx>-<ruleName>-matcher-` segment otherwise. Setting `RuleIndex` and `RuleName` together is the caller's error, and `Filter` documents it. E2e on 08 checks that `a` selects neither `a-b` nor `a-matcher-b`.
 
 ## 5.4 — CLI
 

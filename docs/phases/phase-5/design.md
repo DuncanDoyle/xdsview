@@ -64,10 +64,12 @@ pkg/envoy/source/kube  #25 fix
 
 `origin` is standard-library only, like the rest of the core. The boundary test covers it.
 
+The origin **value types** (`Ref`, `RouteOrigin`, `Certainty` and the other `*Origin` types) live in `model`, so the snapshot can carry them without an import cycle. `origin` holds the `Mapper` interface, the implementations and `Annotate`, and imports `model`.
+
 ## API
 
 ```go
-package origin
+package model // value types; origin uses them
 
 // Ref names a Kubernetes object. Group is empty for the core group.
 type Ref struct{ Group, Kind, Namespace, Name string }
@@ -90,10 +92,13 @@ const (
 	Exact                      // read from metadata
 )
 
+package origin
+
 // Mapper maps Envoy objects to the Gateway API objects that produced them.
 // Every method is pure and safe for concurrent use.
 type Mapper interface {
 	Listener(l model.Listener) (ListenerOrigin, Certainty)            // port; Gateway when known
+	RouteConfig(name string) (ListenerOrigin, Certainty)              // route config / filter chain name: port or section; Gateway when known
 	VirtualHost(vh model.VirtualHost) (VirtualHostOrigin, Certainty)  // listener section, hostname
 	Route(r model.Route) ([]RouteOrigin, Certainty)                   // >1 only when Ambiguous
 	Cluster(name string) (BackendOrigin, Certainty)                   // backend ref + port
@@ -120,7 +125,7 @@ func Annotate(snap *model.EnvoySnapshot, m Mapper) *model.EnvoySnapshot
 
 **HTTP filter kind** comes from `typed_config.@type`, unwrapping `ExtensionWithMatcher`, not from the name. The name's `<ns>/<name>` suffix gives the GatewayExtension. `global_disable/*` is reported as a helper.
 
-**UI adapter.** The UI's `EnvoyNamer.Object(envoyName string) (objects.Ref, bool)` works on bare names: route config and cluster names from proxy stats. `origin.ObjectForName(m Mapper, name string) (Ref, bool)` covers that case: it recognises a cluster or a route config name, returns `false` for anything else, and `false` unless the result is Inferred or Exact. The UI keeps its own pinned rule set and calls it.
+**UI adapter.** The UI's `EnvoyNamer.Object(envoyName string) (objects.Ref, bool)` works on bare names: route config and cluster names from proxy stats. `origin.ObjectForName(m Mapper, name string) (Ref, bool)` covers that case. It only dispatches through the mapper, so a replacement mapper changes it too: it tries `m.Cluster`, then `m.RouteConfig`, and returns the first Inferred or Exact result, otherwise `false`. A route config name such as `listener~80` or `https-api` holds no Gateway identity. It maps to the Gateway in `KgatewayOptions.Gateway`, and is Unknown when that isn't set. The UI builds the mapper with the Gateway whose proxy it is reading. The UI keeps its own pinned rule set and calls it.
 
 ## Plugin seam (P-002)
 
@@ -130,7 +135,7 @@ The core is generic in two ways:
 - it reads any `merge.<Kind>.<group>` key, so a vendor policy Kind shows up as a `PolicyRef` without a plugin;
 - it classifies filters by Envoy `@type`, not by vendor names.
 
-The tests prove the seam on the enterprise corpus. A test-only mapper in `_test.go` recognises one non-OSS filter name, and the test shows that `Chain` prefers it and falls back to the OSS mapper. The test lives in `origin_test` and ships nothing.
+The test proves what a consumer sees. A test-only mapper in `origin_test` recognises one made-up filter name in a small synthetic dump, a fixture that doesn't depend on `testdata/enterprise/` (removed before E6). After `Annotate(snap, Chain(test, Kgateway(...)))`, that filter carries the plugin's origin, and the OSS filters in the same dump carry the OSS origins. The CLI golden test also renders one plugin origin, through a test-only hook in `cmd/krp`.
 
 ## Model
 
@@ -148,7 +153,7 @@ These changes are additive. JSON stays `v1alpha1` (D-005), and the golden diffs 
 
 ## `--rule` by name (#16)
 
-`--rule` takes an integer index or a rule name. `filter.Options` gets `RuleName string`, and `RuleIndex` stays. A route matches a name when its origin's `RuleName` equals it (from `route_source`), or when its name contains `httproute-<name>-<ns>-<ruleIdx>-<matchIdx>-<ruleName>-matcher-`. Matching that segment exactly avoids the prefix trap: rule `a` must not select rule `a-b`.
+`--rule` takes an integer index or a rule name. `filter.Options` gets `RuleName string`, and `RuleIndex` stays. A route matches a name when its origin's `RuleName` equals it (from `route_source`), or when its name **ends with** `httproute-<name>-<ns>-<ruleIdx>-<matchIdx>-<ruleName>-matcher-<matchIdx>`, with the same match index in both places. Anchoring to the end matters, because rule names may contain `-matcher-`. Rule `a` must select neither `a-b` nor `a-matcher-b`.
 
 ## #25 cancellation
 
@@ -166,10 +171,10 @@ The approach (a context-aware upgrade request versus a dial timeout) is the plan
 | 04-multi-rule | One HTTPRoute, 3 rules (one with 2 matches) to 2 Services | rule and match indices; `<i>` ≠ rule index |
 | 05-multi-listener | HTTP + HTTPS listeners, one HTTPRoute attached to both | pruning across listeners, HTTPS vhost names |
 | 07-traffic-split | One rule, two weighted backendRefs | `weighted_clusters` (#13) |
-| 08-named-rules | Rules named `a` and `a-b` | `--rule <name>`, the prefix trap |
+| 08-named-rules | Rules named `a`, `a-b` and `a-matcher-b` | `--rule <name>`, the prefix trap |
 | 04 + `route_source` | 04 recorded again with `enableRouteSourceMetadata=true` | Exact origins; Inferred and Exact must agree |
 
-Each scenario is recorded on v2.4.7 and v2.5.0 with `hack/record-dumps.sh`, which gains a Helm values option for the `route_source` variant. `prefix_rewrite` (#11) and `upstream_http_filters` (#15) aren't emitted by kgateway OSS, so they're tested with synthetic parser fixtures.
+Each scenario is recorded on v2.4.7 and v2.5.0 with `hack/record-dumps.sh`, which gains a Helm values option for the `route_source` variant. `prefix_rewrite` (#11) and `upstream_http_filters` (#15) aren't emitted by kgateway OSS, so they're tested with synthetic parser fixtures. The enterprise 06 dump has real upstream filters (`envoy.filters.http.late_ext_proc`, then `envoy.filters.http.upstream_codec`), and gets explicit parse and render expectations while it's in the repo.
 
 ## Testing
 
@@ -177,13 +182,17 @@ Each scenario is recorded on v2.4.7 and v2.5.0 with `hack/record-dumps.sh`, whic
 |---|---|
 | Parser | New fields from synthetic fixtures and from the 07 dump |
 | `origin` on real dumps | Per scenario and version, a literal table: every route's origin, every policy filter's extension ref and kind, every `merge.*` policy ref. Written from the manifests, not computed. |
-| Inferred vs Exact | On the `route_source` recordings, name-parsed origins equal metadata origins for every route |
+| Inferred vs Exact | On the `route_source` recordings, for every route: without `Known`, the name-parsed candidates contain the metadata origin. With `Known` taken from the scenario's manifests (a literal list in the test), the result is that one origin, Inferred. |
 | Ambiguity | Synthetic route names with dashes in name and namespace: Ambiguous without `Known`, resolved with it |
-| Seam | Test-only plugin on the enterprise corpus, as in § Plugin seam |
+| Seam | Test-only plugin on a synthetic dump, observed through `Annotate`, as in § Plugin seam |
 | Filter | Phase 4 e2e tables, plus 04 per rule and 08 by name (`a` doesn't select `a-b`) |
 | CLI | Golden files regenerated; the diff contains only additions |
 | #25 | As in § #25 |
 | Boundary | `origin` in the stdlib-only import test |
+
+## Phase 6 boundary
+
+Origins and certainty describe the mapping, not Envoy. They depend on the mapper, `Known`, `Gateway` and metadata. The Phase 6 comparison of intended and accepted config ignores the origin fields; they only label the differences it finds.
 
 ## Compatibility
 

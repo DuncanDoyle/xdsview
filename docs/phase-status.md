@@ -9,7 +9,7 @@ Status: design in progress (2026-11-04). Phase 4 complete 2026-11-04, tag `v0.1.
 ### Queue
 - [x] Q1 Phase 5 design (`design.md`)
 - [x] Q2 Phase 5 implementation plan (`implementation-plan.md`): planned sub-phases 5.1–5.4
-- [ ] Q3 Cross-model review of design + plan, triage, owner approval ← CURRENT
+- [ ] Q3 Cross-model review of design + plan (10 accepted: reviews/design-codex.md), owner approval ← CURRENT
 - [ ] Q4 Sub-phase 5.1: #25 cancellation
 - [ ] Q5 Sub-phase 5.2: model accuracy (#11, #13, #15) and corpus (#17)
 - [ ] Q6 Sub-phase 5.3: `pkg/envoy/origin` (E5) and `--rule` by name in `filter` (#16)
