@@ -11,12 +11,16 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"sync"
+	"time"
 
 	"github.com/DuncanDoyle/krp/pkg/envoy/source"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/httpstream"
+	spdystream "k8s.io/apimachinery/pkg/util/httpstream/spdy"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -25,6 +29,12 @@ import (
 )
 
 const envoyAdminPort = 19000
+
+// cancelGrace bounds how long a cancelled call waits for the forwarder to stop.
+const cancelGrace = time.Second
+
+// forwardExited runs when a forwarder goroutine's ForwardPorts returns. Tests replace it.
+var forwardExited = func() {}
 
 // Options selects the cluster to connect to.
 type Options struct {
@@ -123,18 +133,16 @@ func portForward(ctx context.Context, namespace string, opts Options, finder pod
 	readyCh := make(chan struct{})
 	errCh := make(chan error, 1)
 
-	transport, upgrader, err := spdy.RoundTripperFor(cfg)
-	if err != nil {
-		return "", nil, fmt.Errorf("creating SPDY transport: %w", err)
-	}
-
 	url := kc.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Namespace(namespace).
 		Name(podName).
 		SubResource("portforward").URL()
 
-	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", url)
+	dialer, err := newDialer(ctx, cfg, url)
+	if err != nil {
+		return "", nil, fmt.Errorf("creating SPDY transport: %w", err)
+	}
 	ports := []string{fmt.Sprintf("%d:%d", localPort, envoyAdminPort)}
 
 	fw, err := portforward.New(dialer, ports, stopCh, readyCh, nil, nil)
@@ -143,7 +151,9 @@ func portForward(ctx context.Context, namespace string, opts Options, finder pod
 	}
 
 	go func() {
-		errCh <- fw.ForwardPorts()
+		err := fw.ForwardPorts()
+		forwardExited()
+		errCh <- err
 	}()
 
 	select {
@@ -152,10 +162,79 @@ func portForward(ctx context.Context, namespace string, opts Options, finder pod
 		return "", nil, fmt.Errorf("port-forward failed: %w", err)
 	case <-ctx.Done():
 		close(stopCh)
+		// The dialer closes its connection on cancel, so ForwardPorts returns
+		// promptly; wait for it, bounded, so no goroutine outlives the call.
+		select {
+		case <-errCh:
+		case <-time.After(cancelGrace):
+		}
 		return "", nil, ctx.Err()
 	}
 
 	return fmt.Sprintf("http://localhost:%d", localPort), func() { close(stopCh) }, nil
+}
+
+// newDialer returns a port-forward dialer whose connect honours ctx.
+//
+// client-go's SPDY dialer sends the upgrade request without a context and reads
+// the response with no deadline (#25). This one sends it with ctx. When no
+// proxy applies, it also dials through its own transport, which closes the
+// connection once ctx is done, so an unanswered upgrade can't hold the call.
+// Through a proxy, the connect and TLS handshake honour ctx but the response
+// read doesn't, because client-go's upgrade transport hook bypasses proxies.
+func newDialer(ctx context.Context, cfg *rest.Config, u *url.URL) (httpstream.Dialer, error) {
+	tlsConfig, err := rest.TLSConfigFor(cfg)
+	if err != nil {
+		return nil, err
+	}
+	proxy := http.ProxyFromEnvironment
+	if cfg.Proxy != nil {
+		proxy = cfg.Proxy
+	}
+	rtConfig := spdystream.RoundTripperConfig{TLS: tlsConfig, Proxier: proxy, PingPeriod: 5 * time.Second}
+	if p, err := proxy(&http.Request{URL: u}); err == nil && p == nil {
+		// UpgradeTransport excludes TLS and Proxier; it carries the TLS config itself.
+		rtConfig = spdystream.RoundTripperConfig{
+			PingPeriod:       5 * time.Second,
+			UpgradeTransport: &http.Transport{TLSClientConfig: tlsConfig, DialContext: dialClosingOnCancel},
+		}
+	}
+	upgrader, err := spdystream.NewRoundTripperWithConfig(rtConfig)
+	if err != nil {
+		return nil, err
+	}
+	wrapped, err := rest.HTTPWrappersForConfig(cfg, upgrader)
+	if err != nil {
+		return nil, err
+	}
+	return &ctxDialer{ctx: ctx, upgrader: upgrader, client: &http.Client{Transport: wrapped}, url: u}, nil
+}
+
+// dialClosingOnCancel dials addr and closes the connection when ctx is done.
+func dialClosingOnCancel(ctx context.Context, network, addr string) (net.Conn, error) {
+	var d net.Dialer
+	conn, err := d.DialContext(ctx, network, addr)
+	if err != nil {
+		return nil, err
+	}
+	context.AfterFunc(ctx, func() { _ = conn.Close() })
+	return conn, nil
+}
+
+// ctxDialer is spdy.NewDialer with the upgrade request bound to ctx.
+type ctxDialer struct {
+	ctx      context.Context
+	upgrader spdy.Upgrader
+	client   *http.Client
+	url      *url.URL
+}
+
+func (d *ctxDialer) Dial(protocols ...string) (httpstream.Connection, string, error) {
+	req, err := http.NewRequestWithContext(d.ctx, http.MethodPost, d.url.String(), nil)
+	if err != nil {
+		return nil, "", fmt.Errorf("creating upgrade request: %w", err)
+	}
+	return spdy.Negotiate(d.upgrader, d.client, req, protocols...)
 }
 
 // buildRestConfig loads the kubeconfig from the default discovery chain

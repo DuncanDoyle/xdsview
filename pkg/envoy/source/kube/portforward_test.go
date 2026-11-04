@@ -6,12 +6,17 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"sync"
 	"testing"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
 )
 
 // fakeTunnel stands in for a port-forward: it points at baseURL and counts stops.
@@ -138,5 +143,74 @@ func TestFindDeploymentPod(t *testing.T) {
 	}
 	if _, err := findDeploymentPod(context.Background(), kc, "missing", "ns"); err == nil {
 		t.Error("expected an error for a missing Deployment")
+	}
+}
+
+// TestConfigDump_CancelDuringUpgrade cancels while the API server holds the
+// port-forward upgrade unanswered (#25).
+func TestConfigDump_CancelDuringUpgrade(t *testing.T) {
+	received := make(chan struct{})
+	clientGone := make(chan struct{})
+	release := make(chan struct{})
+	var once sync.Once
+	apiServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		once.Do(func() { close(received) })
+		select {
+		case <-r.Context().Done(): // the client closed the connection
+			close(clientGone)
+		case <-release:
+		}
+	}))
+	defer apiServer.Close()
+	defer close(release) // runs first, so Close doesn't wait on a held handler
+
+	exited := make(chan struct{})
+	forwardExited = func() { close(exited) }
+	defer func() { forwardExited = func() {} }()
+
+	cfg := &rest.Config{
+		Host:            apiServer.URL,
+		TLSClientConfig: rest.TLSClientConfig{Insecure: true},
+		Proxy:           func(*http.Request) (*url.URL, error) { return nil, nil },
+	}
+	finder := func(context.Context, kubernetes.Interface, string) (string, error) { return "gw-0", nil }
+	src := &kubeSource{open: func(ctx context.Context) (string, func(), error) {
+		return portForward(ctx, "ns", Options{RESTConfig: cfg}, finder)
+	}}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errc := make(chan error, 1)
+	go func() {
+		rc, err := src.ConfigDump(ctx)
+		if rc != nil {
+			rc.Close()
+		}
+		errc <- err
+	}()
+
+	select {
+	case <-received:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("API server never received the upgrade request (ConfigDump: %v)", <-errc)
+	}
+	cancel()
+
+	select {
+	case err := <-errc:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("ConfigDump error = %v, want context.Canceled", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("ConfigDump did not return within 2s of cancel")
+	}
+	select {
+	case <-exited:
+	default:
+		t.Error("forwarder goroutine still running when ConfigDump returned")
+	}
+	select {
+	case <-clientGone:
+	case <-time.After(time.Second):
+		t.Error("API server still holds the connection 1s after ConfigDump returned")
 	}
 }
