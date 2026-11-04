@@ -12,7 +12,7 @@ const modulePrefix = "github.com/DuncanDoyle/krp/pkg/envoy/"
 
 // core packages may import only the standard library and each other, so that
 // consumers such as kgateway-ui's client-go-free core can use them.
-var core = []string{"model", "parser", "filter", "source"}
+var core = []string{"model", "parser", "filter", "source", "origin"}
 
 func TestCoreImportsOnlyStdlib(t *testing.T) {
 	for _, pkg := range core {

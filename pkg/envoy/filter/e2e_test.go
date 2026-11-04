@@ -217,6 +217,28 @@ func TestFilter_E2E_OSSCorpusComplete(t *testing.T) {
 	}
 }
 
+// TestFilter_E2E_RuleName selects the named rules of 08 by name (#16). Rule
+// "a" is a prefix of the other two names.
+func TestFilter_E2E_RuleName(t *testing.T) {
+	want := map[string]string{
+		"a":           route80(2, "0-0-a-matcher-0"),
+		"a-b":         route80(1, "1-0-a-b-matcher-0"),
+		"a-matcher-b": route80(0, "2-0-a-matcher-b-matcher-0"),
+	}
+	for _, version := range ossVersions {
+		snap := parseDump(t, filepath.Join("../../../testdata/scenarios/08-named-rules/envoy", version, "config_dump.json"))
+		for ruleName, route := range want {
+			got := routeNames(filter.Filter(snap, filter.Options{
+				HTTPRouteName: "api-example-com", HTTPRouteNamespace: "kgateway-system",
+				RuleIndex: filter.AllRules, RuleName: ruleName,
+			}))
+			if !slices.Equal(got, []string{route}) {
+				t.Errorf("%s rule %q: kept %v, want [%s]", version, ruleName, got, route)
+			}
+		}
+	}
+}
+
 // TestFilter_E2E_NoMatch verifies that an unknown HTTPRoute yields no listeners.
 func TestFilter_E2E_NoMatch(t *testing.T) {
 	snap := parseDump(t, "../../../testdata/scenarios/00-simple/envoy/kgateway-v2.5.0/config_dump.json")

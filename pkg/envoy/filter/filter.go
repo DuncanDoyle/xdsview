@@ -43,10 +43,12 @@ import (
 //
 // RuleIndex narrows the selection to one rule within the HTTPRoute. Use
 // [AllRules] to include routes from all rules; the zero value selects rule 0.
+// RuleName selects a named rule instead; set RuleIndex to AllRules with it.
 type Options struct {
 	HTTPRouteName      string // HTTPRoute resource name, e.g. "api-example-com"
 	HTTPRouteNamespace string // HTTPRoute resource namespace, e.g. "default"
 	RuleIndex          int    // zero-based rule index within the HTTPRoute, or AllRules
+	RuleName           string // rule name (spec.rules[].name), or empty
 }
 
 // AllRules is the [Options.RuleIndex] value that keeps routes from every rule.
@@ -149,7 +151,39 @@ func routeMatches(name string, opts Options) bool {
 	// Example: "httproute-api-example-com-default-1-"
 	if opts.RuleIndex >= 0 {
 		ruleMarker := fmt.Sprintf("%s%d-", base, opts.RuleIndex)
-		return strings.Contains(name, ruleMarker)
+		if !strings.Contains(name, ruleMarker) {
+			return false
+		}
+	}
+	if opts.RuleName != "" {
+		return hasRuleName(name, base, opts.RuleName)
+	}
+	return true
+}
+
+// hasRuleName reports whether name ends with
+// "<base><rule>-<match>-<ruleName>-matcher-<match>". Anchoring at the end, with
+// the same match index twice, keeps rule "a" from selecting "a-b" or "a-matcher-b".
+func hasRuleName(name, base, ruleName string) bool {
+	i := strings.LastIndex(name, base)
+	if i < 0 {
+		return false
+	}
+	parts := strings.SplitN(name[i+len(base):], "-", 3) // rule, match, rest
+	if len(parts) != 3 || !isDigits(parts[0]) || !isDigits(parts[1]) {
+		return false
+	}
+	return parts[2] == ruleName+"-matcher-"+parts[1]
+}
+
+func isDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
 	}
 	return true
 }

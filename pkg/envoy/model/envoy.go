@@ -17,6 +17,7 @@ type Listener struct {
 	Name         string               `json:"name"`
 	Address      string               `json:"address"` // e.g. "0.0.0.0:80"
 	FilterChains []NetworkFilterChain `json:"filterChains"`
+	Origin       *ListenerOrigin      `json:"origin,omitempty"` // set by origin.Annotate
 }
 
 // NetworkFilterChain is a network-level filter chain within a listener.
@@ -46,6 +47,7 @@ type HTTPFilter struct {
 	Type        string         `json:"type,omitempty"`        // typed_config @type; the inner type for an ExtensionWithMatcher
 	TypedConfig map[string]any `json:"typedConfig,omitempty"` // raw typed config; displayed in interactive mode (Phase 3)
 	Disabled    bool           `json:"disabled,omitempty"`    // filter disabled at HCM level, enabled per-route
+	Origin      *FilterOrigin  `json:"origin,omitempty"`      // set by origin.Annotate
 }
 
 // RouteConfig is an Envoy route configuration (from RDS).
@@ -56,9 +58,10 @@ type RouteConfig struct {
 
 // VirtualHost is an Envoy virtual host within a route config.
 type VirtualHost struct {
-	Name    string   `json:"name"`    // e.g. "listener~80~api_example_com"
-	Domains []string `json:"domains"` // e.g. ["api.example.com"]
-	Routes  []Route  `json:"routes"`
+	Name    string             `json:"name"`    // e.g. "listener~80~api_example_com"
+	Domains []string           `json:"domains"` // e.g. ["api.example.com"]
+	Routes  []Route            `json:"routes"`
+	Origin  *VirtualHostOrigin `json:"origin,omitempty"` // set by origin.Annotate
 }
 
 // Route is an Envoy route within a virtual host.
@@ -74,6 +77,8 @@ type Route struct {
 	ResponseHeadersToRemove []string          `json:"responseHeadersToRemove,omitempty"` // response_headers_to_remove
 	TypedPerFilterConfig    map[string]any    `json:"typedPerFilterConfig,omitempty"`    // per-route filter config (Phase 2)
 	Metadata                map[string]any    `json:"metadata,omitempty"`                // filter_metadata (Phase 4)
+	Origin                  *RouteAnnotation  `json:"origin,omitempty"`                  // set by origin.Annotate
+	Policies                []PolicyRef       `json:"policies,omitempty"`                // set by origin.Annotate
 }
 
 // RouteRewrite captures path rewrite configuration on a route action.
