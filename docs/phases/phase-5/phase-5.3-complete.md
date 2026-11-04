@@ -26,7 +26,7 @@ none
 
 | Brief row | Evidence |
 |---|---|
-| Route origins on every OSS recording | `TestKgateway_RouteOrigins`: 26 scenario × version runs (19 scenarios + the new ones, plus `-route-source`). Every route must be in the literal table, and every table entry must be in the dump. |
+| Route origins on every OSS recording | `TestKgateway_RouteOrigins`: 50 runs (24 scenarios × 2 versions, plus the two `-route-source` recordings). Every route must be in the literal table, and every table entry must be in the dump. |
 | Metadata vs name | `TestKgateway_ExactMatchesInferred` on both `-route-source` recordings |
 | Filters, policies, vhosts, clusters | `TestKgateway_PolicyFilters`, `TestKgateway_Policies`, `TestKgateway_VirtualHostsAndClusters` |
 | Plugin seam, `ObjectForName`, rule name with digits | `origin_test.go` (synthetic dump, independent of `testdata/enterprise`) |
