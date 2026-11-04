@@ -34,14 +34,16 @@ type TLSContext struct {
 
 // HCMConfig represents the HTTP Connection Manager configuration.
 type HCMConfig struct {
-	RouteConfigName string       `json:"routeConfigName"`       // rds.route_config_name
-	HTTPFilters     []HTTPFilter `json:"httpFilters"`           // the HTTP filter pipeline
-	RouteConfig     *RouteConfig `json:"routeConfig,omitempty"` // joined from RDS section
+	RouteConfigName string       `json:"routeConfigName"`           // rds.route_config_name
+	HTTPFilters     []HTTPFilter `json:"httpFilters"`               // the HTTP filter pipeline
+	UpstreamFilters []HTTPFilter `json:"upstreamFilters,omitempty"` // router upstream_http_filters, run per upstream request
+	RouteConfig     *RouteConfig `json:"routeConfig,omitempty"`     // joined from RDS section
 }
 
 // HTTPFilter is a single filter in the HTTP filter pipeline.
 type HTTPFilter struct {
-	Name        string         `json:"name"`                  // e.g. "io.solo.transformation"
+	Name        string         `json:"name"`                  // label chosen by the control plane, e.g. "ext_auth/ns/name"
+	Type        string         `json:"type,omitempty"`        // typed_config @type; the inner type for an ExtensionWithMatcher
 	TypedConfig map[string]any `json:"typedConfig,omitempty"` // raw typed config; displayed in interactive mode (Phase 3)
 	Disabled    bool           `json:"disabled,omitempty"`    // filter disabled at HCM level, enabled per-route
 }
@@ -63,7 +65,8 @@ type VirtualHost struct {
 type Route struct {
 	Name                    string            `json:"name"`
 	Match                   RouteMatch        `json:"match"`
-	Cluster                 string            `json:"cluster"`                           // backend cluster name
+	Cluster                 string            `json:"cluster"`                           // backend cluster name; empty for a traffic split
+	WeightedClusters        []WeightedCluster `json:"weightedClusters,omitempty"`        // weighted_clusters (traffic split)
 	Rewrite                 *RouteRewrite     `json:"rewrite,omitempty"`                 // path rewrite (URLRewrite HTTPRouteFilter)
 	MirrorClusters          []string          `json:"mirrorClusters,omitempty"`          // request_mirror_policies cluster names
 	RequestHeadersToAdd     []HeaderOperation `json:"requestHeadersToAdd,omitempty"`     // request_headers_to_add
@@ -76,8 +79,15 @@ type Route struct {
 // RouteRewrite captures path rewrite configuration on a route action.
 // Kgateway expresses URLRewrite HTTPRouteFilters as a regex_rewrite in the Envoy route action.
 type RouteRewrite struct {
-	RegexPattern string `json:"regexPattern"` // regex_rewrite.pattern.regex
-	Substitution string `json:"substitution"` // regex_rewrite.substitution
+	RegexPattern string `json:"regexPattern"`     // regex_rewrite.pattern.regex
+	Substitution string `json:"substitution"`     // regex_rewrite.substitution
+	Prefix       string `json:"prefix,omitempty"` // prefix_rewrite
+}
+
+// WeightedCluster is one backend of a traffic-split route.
+type WeightedCluster struct {
+	Name   string `json:"name"`
+	Weight int    `json:"weight"`
 }
 
 // HeaderOperation is a key/value header to add to a request or response.

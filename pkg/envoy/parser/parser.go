@@ -156,21 +156,45 @@ func parseHCM(raw json.RawMessage) *model.HCMConfig {
 	}
 
 	for _, hf := range hcm.HTTPFilters {
-		filter := model.HTTPFilter{
-			Name:     hf.Name,
-			Disabled: hf.Disabled,
-		}
-		// Store the raw typed config for later phases
-		if len(hf.TypedConfig) > 0 {
-			var tc map[string]any
-			if err := json.Unmarshal(hf.TypedConfig, &tc); err == nil {
-				filter.TypedConfig = tc
+		filter := parseHTTPFilter(hf)
+		result.HTTPFilters = append(result.HTTPFilters, filter)
+		if filter.Type == routerType {
+			var router rawRouter
+			if err := json.Unmarshal(hf.TypedConfig, &router); err == nil {
+				for _, uf := range router.UpstreamHTTPFilters {
+					result.UpstreamFilters = append(result.UpstreamFilters, parseHTTPFilter(uf))
+				}
 			}
 		}
-		result.HTTPFilters = append(result.HTTPFilters, filter)
 	}
 
 	return result
+}
+
+const (
+	routerType  = "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+	matcherType = "type.googleapis.com/envoy.extensions.common.matching.v3.ExtensionWithMatcher"
+)
+
+// parseHTTPFilter converts one http_filters entry. Type is the filter's own
+// @type, looking through an ExtensionWithMatcher wrapper.
+func parseHTTPFilter(hf rawHTTPFilter) model.HTTPFilter {
+	filter := model.HTTPFilter{Name: hf.Name, Disabled: hf.Disabled}
+	if len(hf.TypedConfig) == 0 {
+		return filter
+	}
+	var tc map[string]any
+	if err := json.Unmarshal(hf.TypedConfig, &tc); err == nil {
+		filter.TypedConfig = tc // raw config, shown in interactive mode
+	}
+	var typed rawFilterType
+	if err := json.Unmarshal(hf.TypedConfig, &typed); err == nil {
+		filter.Type = typed.Type
+		if typed.Type == matcherType && typed.ExtensionConfig.TypedConfig.Type != "" {
+			filter.Type = typed.ExtensionConfig.TypedConfig.Type
+		}
+	}
+	return filter
 }
 
 // parseRouteConfig converts a raw route config into the model.
@@ -200,12 +224,16 @@ func parseRouteConfig(raw rawRouteConfig) *model.RouteConfig {
 			if rr.Route.Cluster != "" {
 				route.Cluster = rr.Route.Cluster
 			}
+			for _, wc := range rr.Route.WeightedClusters.Clusters {
+				route.WeightedClusters = append(route.WeightedClusters, model.WeightedCluster{Name: wc.Name, Weight: wc.Weight})
+			}
 
 			// Extract URLRewrite from regex_rewrite on the route action
-			if rr.Route.RegexRewrite.Pattern.Regex != "" {
+			if rr.Route.RegexRewrite.Pattern.Regex != "" || rr.Route.PrefixRewrite != "" {
 				route.Rewrite = &model.RouteRewrite{
 					RegexPattern: rr.Route.RegexRewrite.Pattern.Regex,
 					Substitution: rr.Route.RegexRewrite.Substitution,
+					Prefix:       rr.Route.PrefixRewrite,
 				}
 			}
 
@@ -377,6 +405,22 @@ type rawHTTPFilter struct {
 	Disabled    bool            `json:"disabled"`
 }
 
+// rawFilterType reads a filter's @type and, for an ExtensionWithMatcher, the
+// wrapped filter's @type.
+type rawFilterType struct {
+	Type            string `json:"@type"`
+	ExtensionConfig struct {
+		TypedConfig struct {
+			Type string `json:"@type"`
+		} `json:"typed_config"`
+	} `json:"extension_config"`
+}
+
+// rawRouter reads the router filter's upstream HTTP filters.
+type rawRouter struct {
+	UpstreamHTTPFilters []rawHTTPFilter `json:"upstream_http_filters"`
+}
+
 // Routes
 
 // routesConfigDump corresponds to type.googleapis.com/envoy.admin.v3.RoutesConfigDump.
@@ -432,8 +476,14 @@ type rawRoute struct {
 		} `json:"query_parameters"`
 	} `json:"match"`
 	Route struct {
-		Cluster string `json:"cluster"`
-		// TODO: handle weighted_clusters for traffic-split routes (Phase 1 scope: direct cluster only)
+		Cluster          string `json:"cluster"`
+		WeightedClusters struct {
+			Clusters []struct {
+				Name   string `json:"name"`
+				Weight int    `json:"weight"`
+			} `json:"clusters"`
+		} `json:"weighted_clusters"`
+		PrefixRewrite         string `json:"prefix_rewrite"`
 		RequestMirrorPolicies []struct {
 			Cluster string `json:"cluster"`
 		} `json:"request_mirror_policies"`
@@ -486,6 +536,7 @@ func cloneRouteConfig(rc *model.RouteConfig) *model.RouteConfig {
 			cloneRoute := r // copy all scalar fields
 			// Deep-copy slice fields
 			cloneRoute.MirrorClusters = append([]string(nil), r.MirrorClusters...)
+			cloneRoute.WeightedClusters = append([]model.WeightedCluster(nil), r.WeightedClusters...)
 			cloneRoute.RequestHeadersToAdd = append([]model.HeaderOperation(nil), r.RequestHeadersToAdd...)
 			cloneRoute.ResponseHeadersToAdd = append([]model.HeaderOperation(nil), r.ResponseHeadersToAdd...)
 			cloneRoute.ResponseHeadersToRemove = append([]string(nil), r.ResponseHeadersToRemove...)
