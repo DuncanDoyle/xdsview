@@ -36,5 +36,5 @@ krp's Envoy core is now an importable Go library that kgwctl and kgateway-ui can
 - The no-match warning ("no routes found for HTTPRoute ...") goes to stderr only, not into the JSON `warnings`.
 
 ## Deferred / open
-- Q9 (P2): kube source keeps a port-forward connection open when a call is cancelled mid-connect — Phase 5, GitHub issue to file
+- #25 (Q9, P2): kube source keeps a port-forward connection open when a call is cancelled mid-connect — Phase 5
 - #11, #13, #15, #16, #17 — Phase 5, unchanged

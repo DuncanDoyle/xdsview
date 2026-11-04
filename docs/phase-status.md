@@ -26,7 +26,7 @@ Waiting on: to be checked at phase start
 Consumers: E5 (Envoy → Gateway API mapping); E4 needs the Q9 fix before kgateway-ui's backend uses the kube source
 
 ## Carry-over (deferred to later phases)
-- Q9 (P2) kube source keeps a port-forward connection open when a call is cancelled mid-connect — from Phase 4 review (waiver in phase-4-complete.md); fix before kgateway-ui's backend uses the kube source
+- #25 (Q9, P2) kube source keeps a port-forward connection open when a call is cancelled mid-connect — from Phase 4 review (waiver in phase-4-complete.md); fix before kgateway-ui's backend uses the kube source
 - #11 (P2) `prefix_rewrite` route action not captured
 - #13 (P3) `weighted_clusters` not captured (traffic splitting)
 - #15 Support HTTPRoute filters
