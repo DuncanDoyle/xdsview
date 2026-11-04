@@ -1,17 +1,39 @@
-Current Phase: Phase 4 — Library Extraction (NOT STARTED)
+# Phase status
 
-Phase 3 and sub-phases 3.1–3.5 are complete (`docs/plans/phase-3-complete.md`, `docs/plans/phase-3.5-complete.md`). The roadmap was restructured on 2026-11-04: krp is the Envoy data-plane library of the kgateway tooling program (`docs/plans/krp-roadmap.md`).
+## Phase
+Phase: 4 — Library Extraction
+Base: n/a (record at phase start)
+Docs: docs/phases/phase-4/
+Status: not started. Phases 1–3 complete (`docs/phases/phase-3/phase-3-complete.md`); roadmap restructured and workflow moved to agentic-engineering-sdlc on 2026-11-04 (D-001, D-002).
+
+### Queue
+- [ ] Q1 Phase 4 design (`design.md`) ← CURRENT
+- [ ] Q2 Phase 4 implementation plan (`implementation-plan.md`)
+- [ ] Q3 Cross-model review of design + plan, triage, owner approval
+
+### Exit gates
+- [ ] tests/vet pass (observed)
+- [ ] all queue items done or deferred
+- [ ] design+plan cross-model review + triage: docs/phases/phase-4/reviews/design-codex.md
+- [ ] phase cross-model review + triage: docs/phases/phase-4/reviews/phase-codex.md
+- [ ] decisions.md / design / plan in sync with code
+- [ ] phase-4-complete.md written, roadmap updated, tracked items closed
+
+## Sub-phase
+none
 
 ## Program
-- Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling/program.md`)
-- Waiting on: nothing
-- Consumers: kgateway CLI (edge E1), kgateway-ui Phase 9 (E4), Envoy → Gateway API mapping (E5), move into kgateway (E6)
+Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`)
+Waiting on: none
+Consumers: E1 (kgwctl Phase 2), E4 (kgateway-ui Phase 9), E6 (move into kgateway) — Phase 4 delivers `v0.1.0`; E5 (mapping) is Phase 5
 
-## Issues
+## Carry-over (deferred to later phases)
+- #11 (P2) `prefix_rewrite` route action not captured — Phase 5
+- #13 (P3) `weighted_clusters` not captured (traffic splitting) — Phase 5
+- #15 Support HTTPRoute filters — Phase 5
+- #16 RFE: `--rule <name>` when the HTTPRoute rule name reaches the standard channel — Phase 5, if promoted
+- #17 Collect multi-route config dumps for E2E filter tests — Phase 5
 
-### Carry-over (open issues, planned for Phase 5)
-- **#11** (P2) — `prefix_rewrite` route action not captured
-- **#13** (P3) — `weighted_clusters` not captured (traffic splitting)
-- **#15** — Support HTTPRoute filters
-- **#16** — RFE: `--rule <name>` when HTTPRoute rule name promoted to standard channel
-- **#17** — Collect multi-route config dumps for E2E filter tests
+## Notes
+- Phases 1–3 predate the workflow: no base SHAs, no cross-model review files, and no `-complete` records for 1.1 and 3.1–3.4 (summarised in `phase-3-complete.md`). Not backfilled.
+- Phase records keep their original `docs/plans/...` paths in the text; D-001 maps them to the new layout.

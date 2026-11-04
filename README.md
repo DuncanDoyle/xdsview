@@ -136,7 +136,7 @@ internal/
   envoy/          Admin API client + port-forwarder
   renderer/       Terminal UI (lipgloss)
   filter/         HTTPRoute snapshot filter
-docs/plans/       Design documents and implementation plans
+docs/             Roadmap, phase status, decisions, per-phase docs (docs/phases/)
 testdata/
   scenarios/      Real K8S + Envoy config dump pairs for testing
 ```
