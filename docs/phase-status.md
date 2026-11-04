@@ -2,12 +2,20 @@
 
 ## Phase
 Phase: 5 — Data-Plane Accuracy and Mapping
-Base: n/a (recorded at phase start)
+Base: badf0abb9481f4b8d80b63184093f6b434bc9ecf
 Docs: docs/phases/phase-5/
-Status: not started. Phase 4 complete 2026-11-04, tag `v0.1.0` (`docs/phases/phase-4/phase-4-complete.md`).
+Status: design in progress (2026-11-04). Phase 4 complete 2026-11-04, tag `v0.1.0` (`docs/phases/phase-4/phase-4-complete.md`).
 
 ### Queue
-- [ ] Q1 Phase 5 design (`design.md`) ← CURRENT
+- [x] Q1 Phase 5 design (`design.md`)
+- [x] Q2 Phase 5 implementation plan (`implementation-plan.md`): planned sub-phases 5.1–5.4
+- [ ] Q3 Cross-model review of design + plan, triage, owner approval ← CURRENT
+- [ ] Q4 Sub-phase 5.1: #25 cancellation
+- [ ] Q5 Sub-phase 5.2: model accuracy (#11, #13, #15) and corpus (#17)
+- [ ] Q6 Sub-phase 5.3: `pkg/envoy/origin` (E5) and `--rule` by name in `filter` (#16)
+- [ ] Q7 Sub-phase 5.4: CLI origins, `--rule <name>`, golden files
+- [ ] Q8 Phase review (cross-model) and triage
+- [ ] Q9 Phase close: `v0.2.0`, program file, cross-repo notices
 
 ### Exit gates
 - [ ] tests/vet pass (observed)
@@ -22,7 +30,7 @@ none
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`)
-Waiting on: to be checked at phase start
+Waiting on: none (program file checked 2026-11-04 at `ece05e7`; no open `cross-repo` issues in krp)
 Consumers: E5 (Envoy → Gateway API mapping); E4 needs the Q9 fix before kgateway-ui's backend uses the kube source
 
 ## Carry-over (deferred to later phases)
