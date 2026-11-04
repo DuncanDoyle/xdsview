@@ -189,11 +189,19 @@ func renderHCMContent(b *strings.Builder, hcm *model.HCMConfig, indent string, c
 
 			filterIndent := routeIndent + routeChildPrefix + "  "
 			renderHTTPFilters(b, hcm.HTTPFilters, route.TypedPerFilterConfig, filterIndent, ctx)
+			renderUpstreamFilters(b, hcm.UpstreamFilters, filterIndent)
 			renderRoutePolicies(b, route, filterIndent)
 
 			if route.Cluster != "" {
 				b.WriteString(fmt.Sprintf("%sBackend: %s\n",
 					filterIndent, clusterStyle.Render(route.Cluster)))
+			}
+			if len(route.WeightedClusters) > 0 {
+				var parts []string
+				for _, wc := range route.WeightedClusters {
+					parts = append(parts, fmt.Sprintf("%s (%d)", clusterStyle.Render(wc.Name), wc.Weight))
+				}
+				b.WriteString(fmt.Sprintf("%sBackends: %s\n", filterIndent, strings.Join(parts, ", ")))
 			}
 		}
 	}
@@ -264,6 +272,22 @@ func renderHTTPFilters(b *strings.Builder, filters []model.HTTPFilter, typedPerF
 	}
 }
 
+// renderUpstreamFilters renders the router's upstream HTTP filters, which run
+// per upstream request after the HCM filters. They aren't cursor targets.
+func renderUpstreamFilters(b *strings.Builder, filters []model.HTTPFilter, indent string) {
+	if len(filters) == 0 {
+		return
+	}
+	b.WriteString(fmt.Sprintf("%sUpstream Filters:\n", indent))
+	for i, f := range filters {
+		prefix := treeT
+		if i == len(filters)-1 {
+			prefix = treeL
+		}
+		b.WriteString(fmt.Sprintf("%s%s [%d] %s\n", indent, prefix, i+1, filterStyle.Render(f.Name)))
+	}
+}
+
 // renderRoutePolicies renders route-level policy configurations that come from
 // HTTPRouteFilters (header modifiers, request mirroring) rather than HCM filters.
 func renderRoutePolicies(b *strings.Builder, route model.Route, indent string) {
@@ -288,10 +312,14 @@ func renderRoutePolicies(b *strings.Builder, route model.Route, indent string) {
 			clusterStyle.Render(cluster))})
 	}
 	// URLRewrite HTTPRouteFilter — expressed as regex_rewrite in Envoy route action
-	if route.Rewrite != nil {
+	if route.Rewrite != nil && route.Rewrite.RegexPattern != "" {
 		lines = append(lines, policyLine{fmt.Sprintf("rewrite: %s → %s",
 			filterStyle.Render(route.Rewrite.RegexPattern),
 			domainStyle.Render(route.Rewrite.Substitution))})
+	}
+	if route.Rewrite != nil && route.Rewrite.Prefix != "" {
+		lines = append(lines, policyLine{fmt.Sprintf("rewrite-prefix: %s",
+			domainStyle.Render(route.Rewrite.Prefix))})
 	}
 
 	if len(lines) == 0 {
