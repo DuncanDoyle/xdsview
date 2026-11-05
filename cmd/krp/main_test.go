@@ -2,10 +2,14 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"github.com/DuncanDoyle/krp/pkg/envoy/model"
 	"github.com/DuncanDoyle/krp/pkg/envoy/origin"
+	"github.com/DuncanDoyle/krp/pkg/envoy/source"
+	"github.com/DuncanDoyle/krp/pkg/envoy/source/kube"
 	"os"
 	"path/filepath"
 	"strings"
@@ -253,5 +257,47 @@ func TestDumpJSON_PluginOrigin(t *testing.T) {
 	checkGolden(t, goldenPath(t, dump, ".plugin"), out)
 	if !strings.Contains(out, `"WafPolicy"`) || !strings.Contains(out, `"set_metadata"`) {
 		t.Error("expected the plugin origin and an OSS filter origin in the output")
+	}
+}
+
+// TestDumpLive_ListsHTTPRoutes runs the live path with the cluster replaced:
+// the HTTPRoutes listed from it resolve route origins without --route, and a
+// listing error only costs the origins (D-006).
+func TestDumpLive_ListsHTTPRoutes(t *testing.T) {
+	dump := filepath.Join(testdataDir, "scenarios", "04-multi-rule", "envoy", "kgateway-v2.5.0", "config_dump.json")
+	defer func(g func(string, string, kube.Options) source.Source, h func(context.Context, kube.Options) ([]model.Ref, error)) {
+		kubeGateway, kubeHTTPRoutes = g, h
+	}(kubeGateway, kubeHTTPRoutes)
+	kubeGateway = func(string, string, kube.Options) source.Source { return source.File(dump) }
+
+	kubeHTTPRoutes = func(context.Context, kube.Options) ([]model.Ref, error) {
+		return []model.Ref{{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute", Namespace: "kgateway-system", Name: "api-example-com"}}, nil
+	}
+	out, _, err := runKrp(t, "dump", "--gateway", "gw", "-n", "kgateway-system")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"HTTPRoute kgateway-system/api-example-com · rule 0 · match 0",
+		"HTTPRoute kgateway-system/api-example-com · rule 1 · match 1",
+		"HTTPRoute kgateway-system/api-example-com · rule 2 · match 0",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+
+	kubeHTTPRoutes = func(context.Context, kube.Options) ([]model.Ref, error) {
+		return nil, errors.New(`httproutes.gateway.networking.k8s.io is forbidden`)
+	}
+	out, stderr, err := runKrp(t, "dump", "--gateway", "gw", "-n", "kgateway-system")
+	if err != nil {
+		t.Fatalf("a listing error must not fail the dump: %v", err)
+	}
+	if !strings.Contains(stderr, "warning: route origins unavailable") {
+		t.Errorf("stderr lacks the warning: %q", stderr)
+	}
+	if strings.Contains(out, "HTTPRoute ") || !strings.Contains(out, "Route: ") {
+		t.Errorf("want routes without origins, got:\n%s", out)
 	}
 }

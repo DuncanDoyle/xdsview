@@ -78,15 +78,23 @@ func newRootCmd() *cobra.Command {
 // extraMappers run before the kgateway mapper. Tests use it to plug in a mapper.
 var extraMappers []origin.Mapper
 
-// mapper builds the origin mapper from what the flags say: the Gateway behind
-// --gateway, and the HTTPRoute behind --route, which resolves its route names.
-func mapper(gateway, namespace, routeName, routeNS string) origin.Mapper {
-	var opts origin.KgatewayOptions
+// The kube entry points, replaced in tests to run the live path without a cluster.
+var (
+	kubeGateway    = kube.Gateway
+	kubeDeployment = kube.Deployment
+	kubeHTTPRoutes = kube.HTTPRoutes
+)
+
+// mapper builds the origin mapper from what the CLI knows: the Gateway behind
+// --gateway, and the HTTPRoutes listed from the cluster or named by --route,
+// which resolve route names.
+func mapper(gateway, namespace, routeName, routeNS string, known []model.Ref) origin.Mapper {
+	opts := origin.KgatewayOptions{Known: known}
 	if gateway != "" {
 		opts.Gateway = &model.Ref{Group: "gateway.networking.k8s.io", Kind: "Gateway", Namespace: namespace, Name: gateway}
 	}
 	if routeName != "" {
-		opts.Known = []model.Ref{{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute", Namespace: routeNS, Name: routeName}}
+		opts.Known = append(opts.Known, model.Ref{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute", Namespace: routeNS, Name: routeName})
 	}
 	return origin.Chain(append(append([]origin.Mapper(nil), extraMappers...), origin.Kgateway(opts))...)
 }
@@ -164,9 +172,9 @@ func runDump(cmd *cobra.Command, args []string) error {
 	case file != "":
 		src = source.File(file)
 	case gateway != "":
-		src = kube.Gateway(gateway, namespace, kube.Options{KubeContext: kubeContext})
+		src = kubeGateway(gateway, namespace, kube.Options{KubeContext: kubeContext})
 	default:
-		src = kube.Deployment(deployment, namespace, kube.Options{KubeContext: kubeContext})
+		src = kubeDeployment(deployment, namespace, kube.Options{KubeContext: kubeContext})
 	}
 	if file == "" {
 		fmt.Fprintln(cmd.ErrOrStderr(), "Connecting to Envoy admin API...")
@@ -205,7 +213,15 @@ func runDump(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	snapshot = origin.Annotate(snapshot, mapper(gateway, namespace, routeName, routeNS))
+	// In live mode, the cluster's HTTPRoutes resolve route names with several
+	// readings (D-006). Without them the output only lacks route origins.
+	var known []model.Ref
+	if file == "" {
+		if known, err = kubeHTTPRoutes(context.Background(), kube.Options{KubeContext: kubeContext}); err != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "warning: route origins unavailable: %v\n", err)
+		}
+	}
+	snapshot = origin.Annotate(snapshot, mapper(gateway, namespace, routeName, routeNS, known))
 
 	// Render and print — or launch the interactive TUI.
 	switch {

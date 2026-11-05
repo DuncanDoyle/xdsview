@@ -31,3 +31,13 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 **Decision:** `krp dump -o json` prints `{schemaVersion: "v1alpha1", snapshot, warnings}`. The envelope lives in `cmd/krp`; golden files in `testdata/golden/` pin the shape. `schemaVersion` changes only on removals or renames.
 **Alternatives:** Envelope type in `pkg/envoy/model` — rejected: library consumers don't need it.
 **Consequences:** Golden diffs in a PR are contract changes and get reviewed as such.
+
+## D-006 — The CLI lists HTTPRoutes in live mode (2026-11-05, after phase 5)
+**Context:** Most kgateway route names can be read several ways, because HTTPRoute names and namespaces both allow `-`. `origin.Kgateway` resolves them only with `Known` HTTPRoutes or route-source metadata, so `krp dump` showed no route origins without `--route`. The Phase 5 design's non-goal "reading Kubernetes objects" was extrapolated from D-002, not an owner decision.
+**Decision:** With `--gateway` or `--deployment`, `krp dump` lists HTTPRoutes (names and namespaces) through its existing Kubernetes connection and passes them as `Known`. The listing lives in `pkg/envoy/source/kube` (client-go is already there); the stdlib-only core is unchanged. If listing fails (for example RBAC), krp warns and continues without it. The README also documents `enableRouteSourceMetadata` (option E).
+**Alternatives:**
+- Leave as is (A).
+- Guess from namespaces seen in the dump (C): rejected, it can be wrong.
+- Print all readings (D): rejected, too noisy.
+- Documentation only (E): kept as an addition, not a replacement.
+**Consequences:** Live mode needs `list httproutes` (cluster-wide) for route origins; without it, output is as before. `--file` is unchanged. This doesn't build the Gateway API graph D-002 assigns to the UI and the CLI: it reads names only.
