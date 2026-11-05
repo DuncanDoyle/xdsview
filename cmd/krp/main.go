@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/DuncanDoyle/krp/internal/renderer"
 	"github.com/DuncanDoyle/krp/internal/tui"
@@ -77,6 +78,18 @@ func newRootCmd() *cobra.Command {
 
 // extraMappers run before the kgateway mapper. Tests use it to plug in a mapper.
 var extraMappers []origin.Mapper
+
+// listTimeout bounds the optional HTTPRoute listing, so a slow API server can't
+// hold back a dump that's already fetched.
+var listTimeout = 10 * time.Second
+
+// cmdContext is the command's context, or Background when it has none.
+func cmdContext(cmd *cobra.Command) context.Context {
+	if ctx := cmd.Context(); ctx != nil {
+		return ctx
+	}
+	return context.Background()
+}
 
 // The kube entry points, replaced in tests to run the live path without a cluster.
 var (
@@ -214,10 +227,14 @@ func runDump(cmd *cobra.Command, args []string) error {
 	}
 
 	// In live mode, the cluster's HTTPRoutes resolve route names with several
-	// readings (D-006). Without them the output only lacks route origins.
+	// readings (D-006). --route names the HTTPRoute itself, so it skips the
+	// listing; a failed or slow listing only costs route origins.
 	var known []model.Ref
-	if file == "" {
-		if known, err = kubeHTTPRoutes(context.Background(), kube.Options{KubeContext: kubeContext}); err != nil {
+	if file == "" && routeName == "" {
+		ctx, cancel := context.WithTimeout(cmdContext(cmd), listTimeout)
+		known, err = kubeHTTPRoutes(ctx, kube.Options{KubeContext: kubeContext})
+		cancel()
+		if err != nil {
 			fmt.Fprintf(cmd.ErrOrStderr(), "warning: route origins unavailable: %v\n", err)
 		}
 	}

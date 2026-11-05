@@ -29,13 +29,6 @@ Consumers: E4 (kgateway-ui Phase 9, second half)
 - #26 (P2) kube source: cancellation through an API-server proxy — deferred, not a requirement (owner, 2026-11-05)
 
 ## Notes
-- **Owner decision open (from Phase 5).** How should `krp dump` show route origins without `--route`? Most route names have several readings. Options:
-  - A. leave as is
-  - B. in live mode, list HTTPRoutes through the existing connection (recommended, CLI-only)
-  - C. guess from namespaces seen in the dump
-  - D. print all readings
-  - E. document `enableRouteSourceMetadata`
-
-  B and E can be combined.
+- 2026-11-05: route origins without `--route` decided as option B (D-006): live mode lists HTTPRoutes. Shipped in `v0.2.1`; review in `docs/phases/phase-5/reviews/d006-codex.md`, live kind check on 04 passed (4 of 4 routes inferred).
 - Phases 1–3 predate the workflow: no base SHAs, no cross-model review files, and no `-complete` records for 1.1 and 3.1–3.4 (summarised in `phase-3-complete.md`). Not backfilled.
 - Phase records keep their original `docs/plans/...` paths in the text; D-001 maps them to the new layout.

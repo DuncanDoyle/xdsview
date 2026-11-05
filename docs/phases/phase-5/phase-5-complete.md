@@ -42,4 +42,4 @@
 
 ## Deferred / open
 - #26 (P2): cancellation through an API-server proxy. Not a requirement for now (owner, 2026-11-05).
-- Owner decision carried into Phase 6: how the CLI shows route origins without `--route` (options A–E in phase-status Notes).
+- Route origins without `--route`: decided after close as D-006 (live mode lists HTTPRoutes), shipped in `v0.2.1`.

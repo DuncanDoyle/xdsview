@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 var update = flag.Bool("update", false, "rewrite the golden files in testdata/golden")
@@ -299,5 +300,39 @@ func TestDumpLive_ListsHTTPRoutes(t *testing.T) {
 	}
 	if strings.Contains(out, "HTTPRoute ") || !strings.Contains(out, "Route: ") {
 		t.Errorf("want routes without origins, got:\n%s", out)
+	}
+
+	// A listing that never answers is cut off, and the dump still prints.
+	defer func(d time.Duration) { listTimeout = d }(listTimeout)
+	listTimeout = 50 * time.Millisecond
+	kubeHTTPRoutes = func(ctx context.Context, _ kube.Options) ([]model.Ref, error) {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	out, stderr, err = runKrp(t, "dump", "--gateway", "gw", "-n", "kgateway-system")
+	if err != nil || !strings.Contains(out, "Route: ") || !strings.Contains(stderr, "deadline exceeded") {
+		t.Errorf("stalled listing: err=%v stderr=%q", err, stderr)
+	}
+}
+
+// TestDumpLive_RouteSkipsListing checks that --route names the HTTPRoute itself:
+// no listing, and a lookalike HTTPRoute in the cluster can't make it ambiguous.
+func TestDumpLive_RouteSkipsListing(t *testing.T) {
+	dump := filepath.Join(testdataDir, "scenarios", "04-multi-rule", "envoy", "kgateway-v2.5.0", "config_dump.json")
+	defer func(d func(string, string, kube.Options) source.Source, h func(context.Context, kube.Options) ([]model.Ref, error)) {
+		kubeDeployment, kubeHTTPRoutes = d, h
+	}(kubeDeployment, kubeHTTPRoutes)
+	kubeDeployment = func(string, string, kube.Options) source.Source { return source.File(dump) }
+	kubeHTTPRoutes = func(context.Context, kube.Options) ([]model.Ref, error) {
+		t.Error("HTTPRoutes listed despite --route")
+		return nil, nil
+	}
+	out, _, err := runKrp(t, "dump", "--deployment", "gw", "-n", "kgateway-system",
+		"--route", "api-example-com", "--route-ns", "kgateway-system")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "HTTPRoute kgateway-system/api-example-com · rule 1 · match 1") {
+		t.Errorf("missing route origin in:\n%s", out)
 	}
 }

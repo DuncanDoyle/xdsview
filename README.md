@@ -95,7 +95,7 @@ krp dump --file config_dump.json --route my-route --route-ns default --rule api
 A route name can be read several ways, because HTTPRoute names and namespaces may both contain `-`. krp shows a route's HTTPRoute only when there's one reading. Three things settle it:
 
 1. In live mode (`--gateway`, `--deployment`), krp lists the cluster's HTTPRoutes.
-2. `--route`/`--route-ns` names one.
+2. `--route`/`--route-ns` names one. It takes the place of the listing.
 3. kgateway runs with `enableRouteSourceMetadata: true` (Helm), which writes each route's source into Envoy's config. kgateway marks it experimental.
 
 With `--file` and none of these, routes print without their HTTPRoute. `-o json` lists every reading, with a `certainty` of `exact`, `inferred` or `ambiguous`.
@@ -126,7 +126,7 @@ kill %1
 
 - A running Kubernetes cluster with Kgateway installed
 - RBAC: `get pods` and `create pods/portforward` in the Gateway namespace
-- Optional RBAC: `list httproutes.gateway.networking.k8s.io` in all namespaces, for route origins. Without it krp warns and prints routes without their HTTPRoute.
+- Optional RBAC: `list httproutes.gateway.networking.k8s.io` in all namespaces, for route origins. Without it krp warns, and routes whose names read several ways print without their HTTPRoute.
 - Your kubeconfig context pointing at the target cluster
 
 ### File mode (`--file`)

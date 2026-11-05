@@ -3,16 +3,19 @@ package kube
 import (
 	"cmp"
 	"context"
+	"errors"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/DuncanDoyle/krp/pkg/envoy/model"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
+	k8stesting "k8s.io/client-go/testing"
 )
 
 func httpRouteObj(ns, name string) *unstructured.Unstructured {
@@ -41,5 +44,17 @@ func TestListHTTPRoutes(t *testing.T) {
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+// TestListHTTPRoutes_Error returns the API error, e.g. RBAC, to the caller.
+func TestListHTTPRoutes_Error(t *testing.T) {
+	dc := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{httpRouteGVR: "HTTPRouteList"})
+	dc.PrependReactor("list", "httproutes", func(k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, apierrors.NewForbidden(httpRouteGVR.GroupResource(), "", errors.New("no list permission"))
+	})
+	if _, err := listHTTPRoutes(context.Background(), dc); !apierrors.IsForbidden(err) {
+		t.Errorf("err = %v, want Forbidden", err)
 	}
 }
