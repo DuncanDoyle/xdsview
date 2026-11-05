@@ -16,7 +16,7 @@ Status: implemented and reviewed; design approved 2026-11-05; close pending (tag
 - [x] Q7 Sub-phase 5.4: CLI origins, `--rule <name>`, golden files (`5822cb4`, `96ec2a2`, phase-5.4-complete.md)
 - [x] Q8 Phase review (cross-model) and triage: reviews/phase-codex.md, 9 findings: 8 accepted (fixed), 1 deferred (Q10)
 - [x] Q11 Fix-round review (cross-model): reviews/fixes-codex.md, 3 findings, all fixed (`2ba9c6e`, `6a2c352`); live kind check passed after each round
-- [ ] Q10 (P2) kube source: #25 cancellation through an HTTP/SOCKS proxy (client-go's hook bypasses proxies) — src: reviews/phase-codex.md#4
+- [ ] Q10 (P2) #26 kube source: #25 cancellation through an HTTP/SOCKS proxy — deferred, not a requirement (owner, 2026-11-05)
 - [ ] Q9 Phase close: `v0.2.0`, program file, cross-repo notices ← CURRENT (needs owner: design approval, merge, tag)
 
 ### Exit gates
