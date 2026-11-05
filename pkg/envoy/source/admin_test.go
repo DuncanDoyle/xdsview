@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DuncanDoyle/krp/pkg/envoy/source"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/source"
 )
 
 const dumpBody = `{"configs": []}`

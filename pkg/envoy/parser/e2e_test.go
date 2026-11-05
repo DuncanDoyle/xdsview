@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/DuncanDoyle/krp/internal/renderer"
-	"github.com/DuncanDoyle/krp/pkg/envoy/model"
-	"github.com/DuncanDoyle/krp/pkg/envoy/parser"
+	"github.com/DuncanDoyle/xdsview/internal/renderer"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/parser"
 )
 
 // dumpsOf returns every config dump of scenario across the OSS corpus (one per

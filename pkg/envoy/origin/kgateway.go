@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/DuncanDoyle/krp/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 )
 
 // KgatewayOptions is the context a caller knows and the Envoy names don't carry.

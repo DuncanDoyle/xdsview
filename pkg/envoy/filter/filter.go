@@ -32,8 +32,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DuncanDoyle/krp/pkg/envoy/model"
-	"github.com/DuncanDoyle/krp/pkg/envoy/origin"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/origin"
 )
 
 // Options controls which routes [Filter] retains from a snapshot.

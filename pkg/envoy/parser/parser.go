@@ -14,7 +14,7 @@
 // it is shared: [filter.Filter] returns views that share nested slices, maps and
 // pointers with it. Store derived data alongside a snapshot, not inside it.
 //
-// [filter.Filter]: https://pkg.go.dev/github.com/DuncanDoyle/krp/pkg/envoy/filter#Filter
+// [filter.Filter]: https://pkg.go.dev/github.com/DuncanDoyle/xdsview/pkg/envoy/filter#Filter
 package parser
 
 import (
@@ -23,7 +23,7 @@ import (
 	"io"
 	"maps"
 
-	"github.com/DuncanDoyle/krp/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 )
 
 // Result holds the parsed [model.EnvoySnapshot] and any non-fatal warnings

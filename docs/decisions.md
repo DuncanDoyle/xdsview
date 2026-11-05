@@ -41,3 +41,9 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 - Print all readings (D): rejected, too noisy.
 - Documentation only (E): kept as an addition, not a replacement.
 **Consequences:** Live mode needs `list httproutes` (cluster-wide) for route origins; without it, output is as before. `--file` is unchanged. This doesn't build the Gateway API graph D-002 assigns to the UI and the CLI: it reads names only.
+
+## D-007 — The library is `xdsview`; the CLI stays `krp` (2026-11-05, after phase 5)
+**Context:** Since Phase 4 the repo's main product is a library that kgwctl and kgateway-ui import to fetch, parse and explain Envoy config. "Kgateway Route Printer" names only the CLI.
+**Decision:** Rename the repo and Go module to `github.com/DuncanDoyle/xdsview`, tagged from `v0.3.0`. Package paths under `pkg/envoy/...` and the `krp` binary in `cmd/krp` are unchanged.
+**Alternatives:** Keep `krp` (rejected: misnames the library); `xdsviewer` (rejected: Go favours short noun module names, and "viewer" reads as the app).
+**Consequences:** Consumers import the new path; nothing imported the old one. GitHub redirects old repo URLs. Phase docs keep the old path as history.

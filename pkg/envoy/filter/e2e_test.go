@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DuncanDoyle/krp/pkg/envoy/filter"
-	"github.com/DuncanDoyle/krp/pkg/envoy/model"
-	"github.com/DuncanDoyle/krp/pkg/envoy/parser"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/filter"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/parser"
 )
 
 // ossVersions are the kgateway versions every OSS scenario is recorded on.

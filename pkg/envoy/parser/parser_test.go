@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DuncanDoyle/krp/pkg/envoy/parser"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/parser"
 )
 
 // testdataPath returns the path to a file of an enterprise-corpus scenario. The

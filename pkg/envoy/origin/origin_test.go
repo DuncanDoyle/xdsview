@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DuncanDoyle/krp/pkg/envoy/model"
-	"github.com/DuncanDoyle/krp/pkg/envoy/origin"
-	"github.com/DuncanDoyle/krp/pkg/envoy/parser"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/origin"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/parser"
 )
 
 // pluginDump has one made-up vendor filter and one OSS ext auth filter.

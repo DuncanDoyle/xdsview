@@ -3,7 +3,7 @@ package parser
 import (
 	"testing"
 
-	"github.com/DuncanDoyle/krp/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 )
 
 // TestCloneRouteConfig_MapsAreIndependent verifies that TypedPerFilterConfig and Metadata

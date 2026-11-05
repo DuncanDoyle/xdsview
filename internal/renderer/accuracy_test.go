@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DuncanDoyle/krp/internal/renderer"
-	"github.com/DuncanDoyle/krp/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/internal/renderer"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 )
 
 var ansi = regexp.MustCompile(`\x1b\[[0-9;]*m`)

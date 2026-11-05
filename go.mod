@@ -1,4 +1,4 @@
-module github.com/DuncanDoyle/krp
+module github.com/DuncanDoyle/xdsview
 
 go 1.26.0
 

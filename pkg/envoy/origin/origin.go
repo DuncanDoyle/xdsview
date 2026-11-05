@@ -14,7 +14,7 @@
 // answers into a copy of a snapshot.
 package origin
 
-import "github.com/DuncanDoyle/krp/pkg/envoy/model"
+import "github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 
 // Mapper maps Envoy objects to the Gateway API objects that produced them.
 // Implementations are pure and safe for concurrent use.

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/DuncanDoyle/krp/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"

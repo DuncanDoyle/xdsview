@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DuncanDoyle/krp/pkg/envoy/model"
-	"github.com/DuncanDoyle/krp/pkg/envoy/parser"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/parser"
 )
 
 // accuracyDump has two listeners sharing route config "rc", a router with

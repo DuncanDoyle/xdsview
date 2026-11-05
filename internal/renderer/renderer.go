@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/DuncanDoyle/krp/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 	"github.com/charmbracelet/lipgloss"
 )
 

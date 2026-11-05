@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/DuncanDoyle/krp/pkg/envoy/source"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/source"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

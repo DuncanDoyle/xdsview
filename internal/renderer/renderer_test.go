@@ -8,8 +8,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 
-	"github.com/DuncanDoyle/krp/pkg/envoy/model"
-	"github.com/DuncanDoyle/krp/internal/renderer"
+	"github.com/DuncanDoyle/xdsview/internal/renderer"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 )
 
 // TestMain forces ANSI color output for all renderer tests. Without this,
@@ -160,8 +160,8 @@ func TestRender_RoutePolicies_HeaderModifier(t *testing.T) {
 										Domains: []string{"api.example.com"},
 										Routes: []model.Route{
 											{
-												Match:   model.RouteMatch{Prefix: "/"},
-												Cluster: "kube_httpbin_httpbin_8000",
+												Match:                   model.RouteMatch{Prefix: "/"},
+												Cluster:                 "kube_httpbin_httpbin_8000",
 												RequestHeadersToAdd:     []model.HeaderOperation{{Key: "x-holiday", Value: "christmas"}},
 												ResponseHeadersToAdd:    []model.HeaderOperation{{Key: "x-powered-by", Value: "kgateway"}},
 												ResponseHeadersToRemove: []string{"server"},

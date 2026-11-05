@@ -21,14 +21,14 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/DuncanDoyle/krp/internal/renderer"
-	"github.com/DuncanDoyle/krp/internal/tui"
-	"github.com/DuncanDoyle/krp/pkg/envoy/filter"
-	"github.com/DuncanDoyle/krp/pkg/envoy/model"
-	"github.com/DuncanDoyle/krp/pkg/envoy/origin"
-	"github.com/DuncanDoyle/krp/pkg/envoy/parser"
-	"github.com/DuncanDoyle/krp/pkg/envoy/source"
-	"github.com/DuncanDoyle/krp/pkg/envoy/source/kube"
+	"github.com/DuncanDoyle/xdsview/internal/renderer"
+	"github.com/DuncanDoyle/xdsview/internal/tui"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/filter"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/origin"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/parser"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/source"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/source/kube"
 	"github.com/spf13/cobra"
 )
 

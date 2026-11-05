@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/DuncanDoyle/krp/pkg/envoy/filter"
-	"github.com/DuncanDoyle/krp/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/filter"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 )
 
 // routeName builds a realistic Envoy route name for test cases, following the

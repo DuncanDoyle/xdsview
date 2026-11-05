@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DuncanDoyle/krp/pkg/envoy/model"
-	"github.com/DuncanDoyle/krp/pkg/envoy/origin"
-	"github.com/DuncanDoyle/krp/pkg/envoy/parser"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/origin"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/parser"
 )
 
 // Expectations are written from the scenario manifests, not computed.

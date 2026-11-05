@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	envoymodel "github.com/DuncanDoyle/krp/pkg/envoy/model"
-	"github.com/DuncanDoyle/krp/internal/renderer"
+	"github.com/DuncanDoyle/xdsview/internal/renderer"
+	envoymodel "github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DuncanDoyle/krp/internal/renderer"
-	"github.com/DuncanDoyle/krp/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/internal/renderer"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 )
 
 // TestE2E_TrafficSplit checks the weighted backends of 07 on every version (#13).

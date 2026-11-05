@@ -1,10 +1,12 @@
-# krp — Kgateway Route Printer
+# xdsview
 
-`krp` is a CLI tool that visualizes the [Envoy](https://www.envoyproxy.io/) route configuration for [Kgateway](https://github.com/kgateway-dev/kgateway) API Gateway deployments.
+`xdsview` is a Go library that fetches, parses and explains the Envoy config of a [Kgateway](https://github.com/kgateway-dev/kgateway) proxy: it labels Envoy objects with the Gateway API objects that produced them. Import it from `github.com/DuncanDoyle/xdsview/pkg/envoy/...`.
+
+The repo also ships `krp` (Kgateway Route Printer), a CLI built on the library. `krp` is a CLI tool that visualizes the [Envoy](https://www.envoyproxy.io/) route configuration for [Kgateway](https://github.com/kgateway-dev/kgateway) API Gateway deployments.
 
 Kgateway translates Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/) resources (Gateway, HTTPRoute, TrafficPolicy, etc.) into Envoy configuration. Understanding the exact filter chain that processes your traffic — including filter ordering, applied policies, and backend routing — is difficult without digging through raw JSON config dumps. `krp` makes this visible.
 
-> **Status:** Active development — Phases 1–3 complete; Phase 4 (library extraction) in progress. See [docs/roadmap.md](docs/roadmap.md).
+> **Status:** Active development — Phases 1–5 complete. See [docs/roadmap.md](docs/roadmap.md).
 
 ---
 
@@ -35,8 +37,8 @@ Kgateway translates Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/) r
 Build from source:
 
 ```bash
-git clone https://github.com/DuncanDoyle/krp.git
-cd krp
+git clone https://github.com/DuncanDoyle/xdsview.git
+cd xdsview
 go build -o krp ./cmd/krp
 ```
 
@@ -183,7 +185,7 @@ testdata/
   scenarios/      Real K8S + Envoy config dump pairs for testing
 ```
 
-### Using krp as a library
+### Using xdsview as a library
 
 ```go
 // Fetch, parse and narrow a config dump to one HTTPRoute.
