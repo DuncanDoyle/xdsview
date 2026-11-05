@@ -58,7 +58,7 @@ Turn krp's core into an importable, stable Go library without changing CLI behav
 **Packages (after):** `pkg/envoy/{model,parser,filter,source}`; `internal/{renderer,tui}` stay internal.
 
 ### Phase 5 — Data-Plane Accuracy and Mapping
-**Status:** In progress: 5.1–5.4 implemented on branch `duncandoyle/phase5`, awaiting design approval and the phase review
+**Status:** Complete (2026-11-05, `v0.2.0`) — `docs/phases/phase-5/phase-5-complete.md`
 **Docs:** `docs/phases/phase-5/`
 **Unblocks:** program edge E5
 
