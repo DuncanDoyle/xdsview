@@ -47,3 +47,11 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 **Decision:** Rename the repo and Go module to `github.com/DuncanDoyle/xdsview`, tagged from `v0.3.0`. Package paths under `pkg/envoy/...` and the `krp` binary in `cmd/krp` are unchanged.
 **Alternatives:** Keep `krp` (rejected: misnames the library); `xdsviewer` (rejected: Go favours short noun module names, and "viewer" reads as the app).
 **Consequences:** Consumers import the new path; nothing imported the old one. GitHub redirects old repo URLs. Phase docs keep the old path as history.
+
+## D-008 — Phase 6 is the route view for consumers; intended vs accepted moves to Phase 7 (2026-11-20, phase 6)
+**Context:** kgwctl Phase 3 (`proxy routes`, edge E11, #27) needs xdsview's tree, the effective filter chain per route, and listener state. Snellius Phase 12 (E4) reads the same model. The owner agreed this belongs in xdsview, and on 2026-11-20 he started the phase.
+**Decision:** Phase 6 delivers E11: `pkg/envoy/chain`, listener state, and the stdlib-only `pkg/envoy/render`, which the `krp` CLI and TUI style. Intended vs accepted becomes Phase 7.
+**Alternatives:**
+- kgwctl writes its own view (rejected: two views drift).
+- The effective chain as a `filter.Filter` option (rejected: filtering narrows a snapshot, the chain is a per-route answer, and Snellius needs it without narrowing).
+**Consequences:** `krp`'s text layout follows the shared shape. Golden `.txt` files make the plain text a reviewed contract.

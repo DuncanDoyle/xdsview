@@ -70,10 +70,17 @@ Make the model faithful to what Envoy runs, and own the mapping back to Gateway 
 - Envoy name → Gateway API ref mapping (Gateway, listener, HTTPRoute, rule) as a library function, behind an interface so a consumer inside kgateway can use kgateway's own naming code. kgateway-ui's `computed.EnvoyNamer` delegates to it.
 - Policy provenance from Envoy metadata (e.g. `filter_metadata` merge keys) where present, through a plugin seam. Vendor-specific policy kinds live outside the core (program decision P-002).
 
-### Phase 6 — Intended vs Accepted Configuration
-**Status:** Not started
+### Phase 6 — Route View for Consumers
+**Status:** Design (started 2026-11-20)
 **Docs:** `docs/phases/phase-6/`
-**Unblocks:** program edge E4 (kgateway-ui Phase 9, second half)
+**Unblocks:** program edge E11 (kgwctl Phase 3.2 `proxy routes`, #27), and the same model for E4 (Snellius Phase 12)
+
+The effective HTTP filter chain per route (request and response order, and what turned each filter on or off), listener state (warming, draining, rejected), and an exported stdlib-only text renderer that the `krp` CLI and TUI style. See D-008.
+
+### Phase 7 — Intended vs Accepted Configuration
+**Status:** Not started (was Phase 6 until D-008)
+**Docs:** `docs/phases/phase-7/`
+**Unblocks:** program edge E4 (Snellius Phase 12, second half)
 
 Compare the controller's intended xDS (kgateway admin `/snapshots/xds`) with what Envoy accepted (`/config_dump`), and report differences per route and filter. Covers the "Config Mismatches" TODO: a filter the controller produced that Envoy does not run, or the reverse.
 

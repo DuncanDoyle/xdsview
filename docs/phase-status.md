@@ -1,13 +1,19 @@
 # Phase status
 
 ## Phase
-Phase: 6 — Intended vs Accepted Configuration
-Base: n/a (recorded at phase start)
+Phase: 6 — Route View for Consumers
+Base: 40a5863
 Docs: docs/phases/phase-6/
-Status: not started. Phase 5 complete 2026-11-05, tag `v0.2.0` (`docs/phases/phase-5/phase-5-complete.md`).
+Status: design written 2026-11-20; awaiting cross-model review, then owner approval.
 
 ### Queue
-- [ ] Q1 Phase 6 design (`design.md`) ← CURRENT
+- [x] Q1 Phase 6 design + plan (`design.md`, `implementation-plan.md`)
+- [ ] Q2 Design + plan cross-model review and triage ← CURRENT
+- [ ] Q3 Owner approval of design
+- [ ] Q4 6.1 Model and parser
+- [ ] Q5 6.2 `pkg/envoy/chain`
+- [ ] Q6 6.3 `pkg/envoy/render` and krp
+- [ ] Q7 Phase review, `v0.4.0`, program file, #27, notices
 
 ### Exit gates
 - [ ] tests/vet pass (observed)
@@ -21,15 +27,16 @@ Status: not started. Phase 5 complete 2026-11-05, tag `v0.2.0` (`docs/phases/pha
 none
 
 ## Program
-Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`)
-Waiting on: to be checked at phase start
-Consumers: E4 (kgateway-ui Phase 9, second half)
+Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, read at `41ddc1c`)
+Waiting on: nothing (no provider edge needed)
+Consumers: E11 (kgwctl Phase 3.2, #27); E4 (Snellius Phase 12, formerly kgateway-ui Phase 9)
 
 ## Carry-over (deferred to later phases)
 - #26 (P2) kube source: cancellation through an API-server proxy — deferred, not a requirement (owner, 2026-11-05)
 
 ## Notes
-- 2026-11-05: library renamed to `xdsview` (D-007, `v0.3.0`). Phase 6 is paused by the owner until kgateway-ui or kgwctl needs it.
+- 2026-11-20: owner started Phase 6 as the E11 route view (D-008); intended vs accepted moves to Phase 7. Request: #27 from kgwctl.
+- 2026-11-05: library renamed to `xdsview` (D-007, `v0.3.0`).
 - 2026-11-05: route origins without `--route` decided as option B (D-006): live mode lists HTTPRoutes. Shipped in `v0.2.1`; review in `docs/phases/phase-5/reviews/d006-codex.md`, live kind check on 04 passed (4 of 4 routes inferred).
 - Phases 1–3 predate the workflow: no base SHAs, no cross-model review files, and no `-complete` records for 1.1 and 3.1–3.4 (summarised in `phase-3-complete.md`). Not backfilled.
 - Phase records keep their original `docs/plans/...` paths in the text; D-001 maps them to the new layout.
