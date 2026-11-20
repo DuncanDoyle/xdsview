@@ -17,9 +17,9 @@ kgwctl and Snellius show a route's filter chain from xdsview's model and text, n
 
 - Intended vs accepted config: moves to Phase 7 (D-008).
 - Interpreting filter-specific per-route switches, such as `ExtAuthzPerRoute.disabled` or a `CorsPolicy` that turns CORS off. The entry carries the per-route config `@type`, so a consumer can show it, but xdsview does not judge it.
-- Per-backend config in a traffic split (`weighted_clusters[].typed_per_filter_config`). Envoy picks it per request. The chain only flags that it exists.
+- Resolving per-backend config in a traffic split (`weighted_clusters[].typed_per_filter_config`). Envoy picks a backend per request. The model keeps the raw per-backend config, and the chain is marked conditional.
 - What happens inside a matcher or composite filter (`ExtensionWithMatcher`). The filter is shown as running, and its delegate type is shown when Phase 5 resolved it.
-- Whether a filter handles requests, responses or both. Response order is the order in which response handlers would run.
+- Whether a filter does anything on a given request (for example, a transformation with no rule that matches). The chain says which filters run, not what they change.
 - Styling, colour or terminal detection in `pkg/envoy`.
 - `-o json` envelopes for consumers. kgwctl keeps its own; `krp dump -o json` only gains fields.
 
@@ -35,12 +35,18 @@ For each HCM filter `f`, xdsview takes the most specific `typed_per_filter_confi
 |---|---|---|---|---|
 | false | none | yes | `on` | — |
 | false | `FilterConfig{disabled: true}` | no | `disabled` | where the entry is |
-| false | any other | yes | `on` | where the entry is (config overridden) |
+| false | `FilterConfig{config: …}` or a filter-specific config | yes | `on` | where the entry is (config overridden) |
 | true | none | no | `off` | — |
 | true | `FilterConfig{disabled: true}` | no | `off` | where the entry is |
-| true | any other, including `FilterConfig` without `disabled` | yes | `enabled` | where the entry is |
+| true | `FilterConfig{config: …}` (kgateway sends `config: {}`) or a filter-specific config | yes | `enabled` | where the entry is |
 
-Request order is the HCM order of the running filters. Response order is that list reversed. Upstream filters (`HCMConfig.UpstreamFilters`) run for each upstream request after the router. Envoy doesn't allow them to be switched per route, so they are listed as they are.
+Envoy rejects a `FilterConfig` that has neither `disabled: true` nor `config` ([`per_filter_config.cc`](https://github.com/envoyproxy/envoy/blob/c7c57d8f48/source/common/router/per_filter_config.cc#L82-L122)), so an accepted dump never has one. If xdsview sees one anyway, the entry is `State: unknown`, and that is tested. Precedence follows [`config_impl.cc`](https://github.com/envoyproxy/envoy/blob/c7c57d8f48/source/common/router/config_impl.cc#L1438-L1443).
+
+**Weighted clusters.** A selected backend's `typed_per_filter_config` overrides the route's ([`weighted_cluster_specifier.cc`](https://github.com/envoyproxy/envoy/blob/c7c57d8f48/source/common/router/weighted_cluster_specifier.cc#L235-L245)). When any backend of the route sets one, the chain is marked `Conditional`. The text then says "baseline before backend selection" and names the backends that override.
+
+**Request and response.** Request order is the HCM order of the running filters that handle requests. Envoy runs response handlers in reverse, so response order is the reverse of the running filters that handle responses. Whether a filter type has a request or response side comes from a table in `chain`. The table lists each Envoy filter's decoder and encoder interfaces, checked against the Envoy source at the version kgateway ships (`/server_info`), and is cited in the code. A type that isn't in the table is `unknown` on both sides. It stays in both lists, marked, and is never dropped.
+
+**Upstream filters** (`HCMConfig.UpstreamFilters`) are the router's configured upstream chain. Envoy can replace it per cluster and give it route-aware config ([`upstream_request.cc`](https://github.com/envoyproxy/envoy/blob/c7c57d8f48/source/common/router/upstream_request.cc#L155-L184)), so the text labels the list "router upstream filters (as configured)", not as the effective upstream chain.
 
 ## Model
 
@@ -67,37 +73,50 @@ type ListenerError struct {
 }
 ```
 
-The listener shown is `active_state` if there is one, otherwise `warming_state`, then `draining_state`. A listener with only `error_state` is `rejected` and has no filter chains. An `error_state` next to an active listener keeps `Status: active` and sets `Error`, because Envoy keeps serving the old version. Static listeners stay out of scope, since kgateway doesn't use them.
+The listener shown is `active_state` if there is one, otherwise `warming_state`, then `draining_state`. A listener with only `error_state` is `rejected` and has no filter chains. An `error_state` next to an active listener keeps `Status: active` and sets `Error`, because Envoy keeps serving the old version. `Updating` and `Draining` mark the other versions next to an active one, and the text shows them. Envoy can also report an LDS-wide error with no listener name ([`listener_manager_impl.cc`](https://github.com/envoyproxy/envoy/blob/c7c57d8f48/source/common/listener_manager/listener_manager_impl.cc#L555-L599)). xdsview keeps it as a `rejected` listener with an empty `Name`, and the text shows it as "LDS error". Static listeners stay out of scope, since kgateway doesn't use them.
 
 ```go
-// Per-filter config at the two levels the parser doesn't read today.
+// Per-filter config at the levels the parser doesn't read today.
 type RouteConfig struct { /* ... */ TypedPerFilterConfig map[string]any `json:"typedPerFilterConfig,omitempty"` }
 type VirtualHost struct { /* ... */ TypedPerFilterConfig map[string]any `json:"typedPerFilterConfig,omitempty"` }
+type WeightedCluster struct { /* ... */ TypedPerFilterConfig map[string]any `json:"typedPerFilterConfig,omitempty"` }
 type Route struct {
 	// ... existing fields
-	PerBackendFilterConfig bool            `json:"perBackendFilterConfig,omitempty"` // a weighted cluster sets typed_per_filter_config
-	Chain                  *EffectiveChain `json:"effectiveChain,omitempty"`         // set by chain.Annotate
+	Chain *EffectiveChain `json:"effectiveChain,omitempty"` // set by chain.Annotate
 }
 
 type EffectiveChain struct {
-	Filters []ChainEntry `json:"filters"` // every HCM filter, in HCM order; Runs marks the ones that run
+	Filters     []ChainEntry `json:"filters"`               // every HCM filter, in HCM order; Runs marks the ones that run
+	Conditional bool         `json:"conditional,omitempty"` // a backend's per-filter config may override (weighted clusters)
 }
 
 type ChainEntry struct {
-	Name          string      `json:"name"`
-	Type          string      `json:"type,omitempty"`          // HTTPFilter.Type
-	Runs          bool        `json:"runs"`
-	State         FilterState `json:"state"`                   // on | off | enabled | disabled
-	Level         ConfigLevel `json:"level,omitempty"`         // route | virtualHost | routeConfig; empty for the HCM default
-	PerFilterType string      `json:"perFilterType,omitempty"` // @type of the deciding per-filter config
-	Policies      []PolicyRef `json:"policies,omitempty"`      // policies behind a per-route entry, when the mapper knows
+	Name          string         `json:"name"`
+	Type          string         `json:"type,omitempty"`          // HTTPFilter.Type
+	Runs          bool           `json:"runs"`
+	State         FilterState    `json:"state"`                   // on | off | enabled | disabled | unknown
+	Level         ConfigLevel    `json:"level,omitempty"`         // route | virtualHost | routeConfig; empty for the HCM default
+	PerFilterType string         `json:"perFilterType,omitempty"` // @type of the deciding per-filter config
+	Request       Side           `json:"request"`                 // yes | no | unknown: has a request (decoder) side
+	Response      Side           `json:"response"`                // yes | no | unknown: has a response (encoder) side
+	Contributions []Contribution `json:"contributions,omitempty"` // what configured this entry, when the mapper knows
 }
 
-func (c EffectiveChain) Request() []ChainEntry  // running filters, HCM order
-func (c EffectiveChain) Response() []ChainEntry // Request reversed
+// Contribution is one object behind a chain entry: the extension that defines
+// the filter instance, or a policy field that configures it on this route.
+type Contribution struct {
+	Kind  ContributionKind `json:"kind"`            // extension | policy
+	Ref   Ref              `json:"ref"`
+	Field string           `json:"field,omitempty"` // policy field, e.g. "extAuth"
+}
+
+func (c EffectiveChain) RequestOrder() []ChainEntry  // Runs && Request != no, HCM order
+func (c EffectiveChain) ResponseOrder() []ChainEntry // Runs && Response != no, reversed
 ```
 
-`Filters` keeps the filters that don't run, because "why doesn't ext_authz run here?" is part of the same question. `Route.Chain` lives on the route, so every route in a narrowed snapshot has its chain without walking listeners again. A consumer that wants a map keys it however it likes. Route names can repeat across filter chains that share a route config, so xdsview doesn't key by name.
+`Filters` keeps the filters that don't run, because "why doesn't ext_authz run here?" is part of the same question. `Route.Chain` lives on the route inside its HCM. The parser clones a route config per HCM, so the same route name under two filter chains gets two chains. Every route in a narrowed snapshot has its chain without walking listeners again, and xdsview doesn't key chains by route name.
+
+`Contributions` lists every contribution it can find, in a stable order. The dump says which policies were merged into a route, but not whether a policy was attached directly or inherited, for example from a Gateway. The two are not distinguished. That would need the Kubernetes objects, which belong to the consumer (D-002).
 
 ## Packages and API
 
@@ -133,23 +152,34 @@ type PolicyFilters interface {
 | `cors` | `cors` |
 | `transformation` | kgateway's transformation filter |
 
-The kind comes from `FilterOrigin.Kind`, or from the composite delegate type. `Chain` asks each mapper in turn. A vendor plugin adds its own fields (P-002). A policy is attached only to entries with a per-route `Level`. The interface is optional, so existing `Mapper` implementations still compile.
+The kind comes from `FilterOrigin.Kind`, or from the composite delegate type. `Chain` asks each mapper in turn. A vendor plugin adds its own fields (P-002). A policy contribution is attached only to entries with a per-route `Level`. The extension contribution comes from `FilterOrigin.Extension`. The interface is optional, so existing `Mapper` implementations still compile.
+
+**Narrowing (`filter.Filter`).** Two changes, so that the chain shown is the right route's:
+
+1. When a route carries an `Origin` (the snapshot was annotated), `Filter` matches on it.
+   - If the origin is `Exact`, or `Inferred` with one candidate, `Filter` compares that origin's HTTPRoute and rule.
+   - If the origin is `Ambiguous`, the route never matches. `filter.Ambiguous(snap, opts) []string` returns the names of ambiguous routes whose candidates include the requested HTTPRoute, so the consumer can report them.
+   - Without an origin, matching stays as it is: by `route_source` metadata, otherwise by name. Today's name match can select HTTPRoute `orders` in `team-a` and `orders-team` in `a` alike. Both encode `httproute-orders-team-a-`.
+2. Listeners that aren't active, and listeners with an `Error`, survive narrowing with their state, even with no matching route. They may explain why a route is missing.
 
 ```go
-// pkg/envoy/render — stdlib + model only (checked by the boundary test).
+// pkg/envoy/render — stdlib + pkg/envoy core only (checked by the boundary test).
 type Options struct {
-	Header        string                         // first line, supplied by the caller (gateway, pod, capture time, file)
-	ResponseOrder bool                           // also print each route's response order
-	AllFilters    bool                           // list filters that don't run inline; default: one "not run:" line
-	Style         func(c Class, s string) string // nil: plain text
-	Expand        func(ref FilterRef) any        // nil: no inline config (TUI hook)
-	Cursor        *FilterRef                     // TUI cursor; marked through Style(ClassCursor, …)
+	Header        string // first line, supplied by the caller (gateway, pod, capture time, file)
+	ResponseOrder bool   // also print each route's response order
+	AllFilters    bool   // list filters that don't run inline; default: one "not run:" line
+
+	// Generic hooks for styled or interactive callers; nil gives plain text.
+	Style func(c Class, ref *FilterRef, s string) string // ref is set on filter rows
+	Extra func(ref FilterRef) []string                   // lines printed under a filter row
 }
 
 func Text(w io.Writer, snap *model.EnvoySnapshot, opts Options) error
 ```
 
-`Class` is a small set of semantic roles: listener, vhost, route, filter, filter-off, origin, backend, warning, cursor. `internal/renderer` maps them to lipgloss styles and the TUI drives `Cursor` and `Expand`, so the tree's structure lives in one place. `FilterRef` moves from `internal/renderer` to `render`. If `snap` has no chains, `Text` computes them with `chain.Effective` and no mapper. Origins print when the snapshot is annotated.
+`Class` is a small set of semantic roles: listener, vhost, route, filter, filter-off, origin, backend and warning. `FilterRef` (listener, filter chain, vhost, route and filter indexes) moves from `internal/renderer` to `render`. `internal/renderer` maps the classes to lipgloss styles. The TUI uses the same two hooks: `Style` highlights its cursor row, and `Extra` prints expanded config. So the tree's structure lives in one place, and no cursor or expansion concept enters the exported API. The TUI renders with `AllFilters: true`, so every filter it can select is a visible row.
+
+If `snap` has no chains, `Text` computes them with `chain.Effective` and no mapper, so `render` imports `chain` and `origin`, both stdlib-only core. Origins print when the snapshot is annotated. A `Conditional` chain prints "baseline before backend selection" and names the backends that override it. Side `unknown` prints as `?` in response order.
 
 Text shape (plain, LF-terminated, no trailing spaces, input order everywhere):
 
@@ -163,7 +193,7 @@ listener~80 [::]:80 · active · Gateway team-a/team-a listener http
         2 ext_auth/team-a/auth                     enabled by route · TrafficPolicy team-a/auth (extAuth)
         3 envoy.filters.http.router                on
       not run: ratelimit/team-a/rl (off), envoy.filters.http.cors (off)
-      upstream filters: envoy.filters.http.upstream_codec
+      router upstream filters (as configured): envoy.filters.http.upstream_codec
       request headers: + x-a: 1
       backend: kube_team-a_orders_8080
 listener~8443 [::]:8443 · warming · error: <details> (2026-11-20T19:39:58Z)
@@ -173,7 +203,7 @@ The listener line shows the state and any error. A listener that isn't active sh
 
 ## Boundary test
 
-`core` gains `chain` and `render`. A second assertion covers kgwctl's need: no `github.com/charmbracelet/...` module, and nothing outside the standard library and `pkg/envoy` except through `source/kube`, appears in `go list -deps` of `render` or `chain`.
+`core` gains `chain` and `render`, so their dependencies are only the standard library and the `pkg/envoy` core. That rule already excludes `source/kube`, client-go and charmbracelet. An explicit second assertion covers kgwctl's check: no `github.com/charmbracelet/` path appears in `go list -deps` of `render`.
 
 ## Testing
 
@@ -181,22 +211,39 @@ The listener line shows the state and any error. A listener that isn't active sh
   - `03-multi-policy` on v2.4.7 and v2.5.0: ext_auth enabled by route through `FilterConfig`, ratelimit and cors enabled by route, `global_disable/ext_auth` off, router last, response order reversed.
   - `00-simple`: everything `on`, nothing per route.
   
-  Policy attribution: `03` attributes `extAuth`, `rateLimit.global` and `cors` to their entries. A field without a mapping attributes nothing.
-- **parser:** listener state from synthetic `dynamic_listeners`: warming only, active + warming, draining, error only, active + error. Per-filter config on vhost and route config. Existing goldens change only by additions; verify with jq as in Phase 5.
+  Policy attribution: `03` attributes `extAuth`, `rateLimit.global` and `cors` to their entries, and the ext_auth entry also gets its GatewayExtension. A field without a mapping attributes nothing.
+
+  The remaining chain cases:
+  - **Sides:** a known decoder-only filter (router, ext_authz) is absent from response order. A type outside the table is `unknown` in both orders.
+  - **Invalid `FilterConfig`:** an entry with neither `disabled` nor `config` gives `unknown`.
+  - **Conditional:** a weighted backend with per-filter config sets `Conditional`.
+- **filter:**
+  - A colliding pair (`orders`/`team-a` and `orders-team`/`a`) under `Known` selects only the requested route. Without `Known`, both are ambiguous, nothing matches, and `Ambiguous` names them.
+  - Un-annotated snapshots keep today's results (existing tests).
+  - A warming listener and a rejected listener survive narrowing.
+- **parser:**
+  - Listener state from synthetic `dynamic_listeners`: warming only, active + warming, draining, error only, active + error, and an unnamed LDS error.
+  - Per-filter config on vhost, route config and weighted cluster, asserted on the joined snapshot after the per-HCM RDS clone, not only on the raw parse.
+  - Existing goldens change only by additions. Verify with jq, as in Phase 5.
+- **krp `-o json`:** goldens include `effectiveChain` (the CLI annotates before printing JSON as well as text).
 - **render:** golden `.txt` per corpus dump in `testdata/golden/` (`-update` flag, as for JSON), plus `ResponseOrder`, `AllFilters`, `Header` and non-active listener cases. Determinism: render twice, compare bytes. A test asserts no `\x1b` and no trailing whitespace.
-- **krp:** existing renderer and TUI tests are kept where the information is the same and updated where the layout changes (listed in the sub-phase record). Interactive cursor and expand tests stay green.
+- **krp:**
+  - Existing renderer and TUI tests are kept where the information is the same, and updated where the layout changes (listed in the sub-phase record).
+  - A TUI navigation test presses through an enabled, disabled, enabled sequence, with one filter enabled by a vhost override. It checks the visible selected row and the expanded config at each step.
 - **Boundary test** as above. It fails if `render` imports lipgloss (checked by mutation).
 
 ## Compatibility
 
 - Library: additive (`model` fields, new packages, optional interface). `internal/renderer`'s exported API is internal.
 - `krp dump` text output changes layout (above). The flags stay the same.
-- `krp dump -o json`: additive fields (`state`, `effectiveChain`, `typedPerFilterConfig` on vhost and route config, `perBackendFilterConfig`). Goldens are regenerated, and the diff contains additions only.
+- `krp dump -o json`: additive fields (`state`, `effectiveChain`, `typedPerFilterConfig` on vhost, route config and weighted cluster). Goldens are regenerated, and the diff contains additions only.
+- `filter.Filter`: results change only for annotated snapshots (origin-based matching, with ambiguous routes excluded) and for non-active or failed listeners, which now survive narrowing. Un-annotated results are unchanged.
 - Tag `v0.4.0`.
 
 ## Risks
 
-- **A wrong chain is worse than none.** The semantics table is checked against the Envoy docs, not only against kgateway's habits. The Codex review is asked to check it. A live check on kind confirms one enabled-by-route filter, by sending a request that ext_authz must deny.
+- **A wrong chain is worse than none.** The semantics table and the side table are checked against Envoy source, not only against kgateway's habits. A live check on kind confirms one enabled-by-route filter. Scenario `03`'s auth service has no endpoints, so a denial alone proves nothing. The oracle is Envoy's ext_authz stats: the HCM's `ext_authz` error or denied counter grows for a request to the enabled route, and doesn't grow for a request to a control route without it.
+- **Phase 7 comparison.** Phase 7 compares intended and accepted config. It must treat `effectiveChain`, origins and listener lifecycle (`State`) as derived or runtime data, not as config. The raw per-backend config is kept for this reason (not reduced to one flag).
 - **Plain text becomes a contract.** Golden `.txt` files make layout changes visible in review. Consumers that need structure use the model, not the text.
 - **TUI regression** from moving the tree into `render`. Mitigated by keeping the interactive tests and doing one manual TUI run, recorded in the sub-phase record.
 
