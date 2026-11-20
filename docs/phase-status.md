@@ -4,12 +4,12 @@
 Phase: 6 — Route View for Consumers
 Base: 40a5863
 Docs: docs/phases/phase-6/
-Status: design written 2026-11-20; awaiting cross-model review, then owner approval.
+Status: design r2 triaged 2026-11-20; awaiting owner approval.
 
 ### Queue
 - [x] Q1 Phase 6 design + plan (`design.md`, `implementation-plan.md`)
-- [ ] Q2 Design + plan cross-model review and triage ← CURRENT
-- [ ] Q3 Owner approval of design
+- [x] Q2 Design + plan cross-model review and triage (reviews/design-codex.md)
+- [ ] Q3 Owner approval of design ← CURRENT
 - [ ] Q4 6.1 Model and parser
 - [ ] Q5 6.2 `pkg/envoy/chain`
 - [ ] Q6 6.3 `pkg/envoy/render` and krp
