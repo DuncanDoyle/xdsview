@@ -84,9 +84,8 @@ func TestE2E_UpstreamFilters(t *testing.T) {
 			t.Errorf("UpstreamFilters = %v, want %v", got, want)
 		}
 		out := ansiCodes.ReplaceAllString(renderer.Render(snap), "")
-		i := strings.Index(out, "Upstream Filters:")
-		if i < 0 || strings.Index(out[i:], want[0]) < 0 || strings.Index(out[i:], want[0]) > strings.Index(out[i:], want[1]) {
-			t.Errorf("rendered upstream filters missing or out of order")
+		if !strings.Contains(out, "router upstream filters (as configured): "+strings.Join(want, ", ")) {
+			t.Errorf("rendered upstream filters missing or out of order:\n%s", out)
 		}
 	}
 }

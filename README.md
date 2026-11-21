@@ -6,7 +6,7 @@ The repo also ships `krp` (Kgateway Route Printer), a CLI built on the library. 
 
 Kgateway translates Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/) resources (Gateway, HTTPRoute, TrafficPolicy, etc.) into Envoy configuration. Understanding the exact filter chain that processes your traffic — including filter ordering, applied policies, and backend routing — is difficult without digging through raw JSON config dumps. `krp` makes this visible.
 
-> **Status:** Active development — Phases 1–5 complete. See [docs/roadmap.md](docs/roadmap.md).
+> **Status:** Active development — Phases 1–5 complete, Phase 6 (route view for consumers) in progress. See [docs/roadmap.md](docs/roadmap.md).
 
 ---
 
@@ -84,23 +84,37 @@ krp dump --file config_dump.json --route my-route --route-ns default --rule api
 - each route's policies, from kgateway's `merge.*` route metadata
 
 ```
-└─ Route: / (prefix)
-    HTTPRoute kgateway-system/api-example-com · rule 0 · match 0
-    HTTP Filters:
-    ├─ [1] global_disable/ext_auth (disabled)
-    ├─ [2] ext_auth/kgateway-system/ext-authz ← GatewayExtension kgateway-system/ext-authz
-    └─ [3] envoy.filters.http.router
-    Policies:
-    └─ TrafficPolicy kgateway-system/ext-auth (extAuth)
+└─ route / (prefix) · HTTPRoute kgateway-system/api-example-com · rule 0 · match 0 (inferred from cluster routes)
+   filters (request order):
+     1 ext_auth/kgateway-system/ext-authz  enabled by route · GatewayExtension kgateway-system/ext-authz · TrafficPolicy kgateway-system/ext-auth (extAuth)
+     2 envoy.filters.http.router           on
+   not run: global_disable/ext_auth (off)
+   policies: TrafficPolicy kgateway-system/ext-auth (extAuth)
 ```
 
-A route name can be read several ways, because HTTPRoute names and namespaces may both contain `-`. krp shows a route's HTTPRoute only when there's one reading. Three things settle it:
+A route name can be read several ways, because HTTPRoute names and namespaces may both contain `-`. Three things settle it:
 
-1. In live mode (`--gateway`, `--deployment`), krp lists the cluster's HTTPRoutes.
+1. In live mode (`--gateway`, `--deployment`), krp lists the cluster's HTTPRoutes. A route settled this way is marked "(inferred from cluster routes)": a route Envoy still serves for a deleted HTTPRoute can resolve to a live one.
 2. `--route`/`--route-ns` names one. It takes the place of the listing.
 3. kgateway runs with `enableRouteSourceMetadata: true` (Helm), which writes each route's source into Envoy's config. kgateway marks it experimental.
 
-With `--file` and none of these, routes print without their HTTPRoute. `-o json` lists every reading, with a `certainty` of `exact`, `inferred` or `ambiguous`.
+With `--file` and none of these, a route prints `ambiguous:` and its readings. `-o json` lists every reading, with a `certainty` of `exact`, `inferred` or `ambiguous`.
+
+### Effective filter chain
+
+Each route lists the HCM filters that run for it, in request order, and one `not run:` line for the rest. kgateway disables policy filters in the HCM and enables them per route, so the HCM list alone doesn't say what a route runs. For each filter, the most specific `typed_per_filter_config` entry decides: route, then virtual host, then route config.
+
+| HCM `disabled` | Deciding entry | Runs | State |
+|---|---|---|---|
+| false | none | yes | `on` |
+| false | `FilterConfig{disabled: true}` | no | `disabled` |
+| false | `FilterConfig{config: …}` or a filter-specific config | yes | `on` |
+| true | none | no | `off` |
+| true | `FilterConfig{disabled: true}` | no | `off` |
+| true | `FilterConfig{config: …}` or a filter-specific config | yes | `enabled` |
+| any | `FilterConfig` with neither field (Envoy rejects it) | no | `unknown` |
+
+A weighted-cluster backend can override the route's entry when Envoy picks it. krp then prints the chain as the "baseline before backend selection" and names the backends that override. Response order is the reverse of the filters with a response side. Which filters have one comes from a table cited from the Envoy source (`pkg/envoy/chain/sides.go`). A filter type that isn't in the table is marked `?`. The TUI (`-i`) lists every filter inline, so each one can be selected and expanded.
 
 ### JSON output
 
@@ -139,30 +153,25 @@ No cluster access required — works fully offline.
 
 ## Example Output
 
+`testdata/golden/scenarios/05-multi-listener/kgateway-v2.5.0.txt`, an HTTP and an HTTPS listener (krp adds colour):
+
 ```
-╭─ Listener: listener~443 ─────────────────────────── [::]:443 ─╮
-│                                                                 │
-│  ├─ FilterChain[0] https-api  TLS: api.example.com             │
-│  │  └─ HCM → RDS: https-api                                    │
-│  │     └─ VirtualHost: https-api~api_example_com               │
-│  │           [api.example.com]                                  │
-│  │        └─ Route: / (prefix)                                  │
-│  │           HTTP Filters:                                      │
-│  │           ├─ [1] io.solo.transformation (disabled)           │
-│  │           └─ [2] envoy.filters.http.router                   │
-│  │           Backend: kube_httpbin_httpbin_8000                 │
-│                                                                 │
-│  └─ FilterChain[1] https-developer  TLS: developer.example.com │
-│     └─ HCM → RDS: https-developer                              │
-│        └─ VirtualHost: https-developer~developer_example_com   │
-│              [developer.example.com]                            │
-│           └─ Route: / (prefix)                                  │
-│              HTTP Filters:                                      │
-│              ├─ [1] io.solo.transformation (disabled)           │
-│              └─ [2] envoy.filters.http.router                   │
-│              Backend: kube_httpbin_httpbin_8000                 │
-╰─────────────────────────────────────────────────────────────────╯
+listener~80 :::80 · active · port 80
+└─ vhost listener~80~api_example_com [api.example.com] · port 80
+   └─ route / (prefix) · HTTPRoute kgateway-system/api-example-com · rule 0 · match 0 (inferred from cluster routes)
+      filters (request order):
+        1 envoy.filters.http.router  on
+      backend: kube_httpbin_httpbin_8000
+listener~443 :::443 · active · port 443
+└─ chain https-api · TLS api.example.com
+   └─ vhost https-api~api_example_com [api.example.com] · listener https-api
+      └─ route / (prefix) · HTTPRoute kgateway-system/api-example-com · rule 0 · match 0 (inferred from cluster routes)
+         filters (request order):
+           1 envoy.filters.http.router  on
+         backend: kube_httpbin_httpbin_8000
 ```
+
+A listener that is warming, draining or rejected shows its state and Envoy's error, e.g. `listener~8443 :::8443 · warming · error: <details> (<time>)`.
 
 ---
 
@@ -175,6 +184,8 @@ pkg/envoy/        Importable library (standard library only, except source/kube)
   parser/         Envoy config dump JSON parser (io.Reader)
   filter/         HTTPRoute snapshot filter
   origin/         Envoy object → Gateway API object mapping (kgateway OSS, pluggable)
+  chain/          Effective HTTP filter chain per route
+  render/         Plain-text tree (what krp prints, without colour)
   source/         Config dump sources: File, Admin (HTTP)
     kube/         Port-forward sources: Gateway, Deployment (client-go)
 internal/
@@ -218,6 +229,21 @@ annotated := origin.Annotate(snap, m)
 // A bare name from proxy stats: a cluster or a route config.
 ref, ok := origin.ObjectForName(m, "kube_shop_cart_8080") // Service shop/cart
 ```
+
+```go
+// Narrow on resolved origins: annotate first. An ambiguous route is never
+// selected; filter.Ambiguous names the ones that may belong to the HTTPRoute.
+opts := filter.Options{HTTPRouteName: "orders", HTTPRouteNamespace: "shop", RuleIndex: filter.AllRules}
+narrowed := filter.Filter(annotated, opts)
+maybe := filter.Ambiguous(annotated, opts)
+
+// Each route's effective chain, attributed to extensions and policy fields,
+// then the same text krp prints, without colour.
+withChains := chain.Annotate(narrowed, m)
+err = render.Text(os.Stdout, withChains, render.Options{Header: "Gateway kgateway-system/gw"})
+```
+
+`render.Options` has `AllFilters` (list every HCM filter inline), `ResponseOrder`, and two hooks for styled or interactive callers: `Style` and `Extra`.
 
 ---
 
