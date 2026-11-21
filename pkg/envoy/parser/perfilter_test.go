@@ -29,6 +29,28 @@ const perFilterDump = `{"configs": [
      "typed_per_filter_config": {"ext_auth": {"@type": "type.googleapis.com/envoy.config.route.v3.FilterConfig", "disabled": true}}},
     {"name": "v2", "weight": 20}]}}}]}]}}]}]}`
 
+// TestParse_BadRouteConfigSkipped: one malformed route config costs only
+// itself; the other is still joined to its HCM, and a warning names it.
+func TestParse_BadRouteConfigSkipped(t *testing.T) {
+	dump := `{"configs": [
+ {"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump", "dynamic_listeners": [
+  {"name": "a", "active_state": {"listener": {"name": "a", "filter_chains": [{"name": "a", "filters": [
+   {"name": "envoy.filters.network.http_connection_manager", "typed_config": {"rds": {"route_config_name": "good"}}}]}]}}}]},
+ {"@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump", "dynamic_route_configs": [
+  {"route_config": {"name": "bad", "virtual_hosts": "not a list"}},
+  {"route_config": {"name": "good", "virtual_hosts": [{"name": "vh", "routes": [{"name": "r", "match": {"prefix": "/"}}]}]}}]}]}`
+	result, err := parser.Parse(strings.NewReader(dump))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rc := result.Snapshot.Listeners[0].FilterChains[0].HCM.RouteConfig; rc == nil || rc.Name != "good" || len(rc.VirtualHosts) != 1 {
+		t.Errorf("good route config not joined: %+v", rc)
+	}
+	if len(result.Warnings) != 1 || !strings.Contains(result.Warnings[0], `route config "bad"`) {
+		t.Errorf("warnings = %q, want one naming route config \"bad\"", result.Warnings)
+	}
+}
+
 func parsePerFilter(t *testing.T) *model.EnvoySnapshot {
 	t.Helper()
 	result, err := parser.Parse(strings.NewReader(perFilterDump))

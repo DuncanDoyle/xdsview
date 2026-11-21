@@ -76,7 +76,21 @@ func Parse(r io.Reader) (Result, error) {
 				warnings = append(warnings, fmt.Sprintf("skipped RoutesConfigDump: %v", err))
 				continue
 			}
-			for _, drc := range rd.DynamicRouteConfigs {
+			// Each route config separately, so a bad one costs only itself.
+			for _, raw := range rd.DynamicRouteConfigs {
+				var drc struct {
+					RouteConfig rawRouteConfig `json:"route_config"`
+				}
+				if err := json.Unmarshal(raw, &drc); err != nil {
+					var named struct {
+						RouteConfig struct {
+							Name string `json:"name"`
+						} `json:"route_config"`
+					}
+					_ = json.Unmarshal(raw, &named) // best effort, for the warning
+					warnings = append(warnings, fmt.Sprintf("skipped route config %q: %v", named.RouteConfig.Name, err))
+					continue
+				}
 				rc := parseRouteConfig(drc.RouteConfig)
 				routeConfigs[rc.Name] = rc
 			}
@@ -509,10 +523,9 @@ type rawRouter struct {
 
 // routesConfigDump corresponds to type.googleapis.com/envoy.admin.v3.RoutesConfigDump.
 // Only `dynamic_route_configs` are read; static route configs are ignored.
+// Entries stay raw so each one is decoded on its own.
 type routesConfigDump struct {
-	DynamicRouteConfigs []struct {
-		RouteConfig rawRouteConfig `json:"route_config"`
-	} `json:"dynamic_route_configs"`
+	DynamicRouteConfigs []json.RawMessage `json:"dynamic_route_configs"`
 }
 
 // rawRouteConfig is the `route_config` object within a dynamic route config entry.
