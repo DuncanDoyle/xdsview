@@ -1,6 +1,7 @@
 package parser_test
 
 import (
+	"reflect"
 	"regexp"
 	"slices"
 	"strings"
@@ -18,7 +19,7 @@ func TestE2E_TrafficSplit(t *testing.T) {
 	}
 	for path, snap := range matcherSnapshots(t, "07-traffic-split") {
 		r := firstRoute(t, snap)
-		if !slices.Equal(r.WeightedClusters, want) || r.Cluster != "" {
+		if !reflect.DeepEqual(r.WeightedClusters, want) || r.Cluster != "" {
 			t.Errorf("%s: WeightedClusters = %v, Cluster = %q; want %v and no cluster", path, r.WeightedClusters, r.Cluster, want)
 		}
 	}

@@ -13,11 +13,40 @@ type EnvoySnapshot struct {
 }
 
 // Listener represents an Envoy listener (e.g. listener~80, listener~443).
+// An LDS-wide error with no listener name is a rejected Listener with an empty Name.
 type Listener struct {
 	Name         string               `json:"name"`
 	Address      string               `json:"address"` // e.g. "0.0.0.0:80"
 	FilterChains []NetworkFilterChain `json:"filterChains"`
+	State        ListenerState        `json:"state"`
 	Origin       *ListenerOrigin      `json:"origin,omitempty"` // set by origin.Annotate
+}
+
+// ListenerStatus is the version of a listener the snapshot shows.
+type ListenerStatus string
+
+// Listener statuses. The shown version is active, else warming, else draining;
+// a listener with only an error_state is rejected.
+const (
+	ListenerActive   ListenerStatus = "active"
+	ListenerWarming  ListenerStatus = "warming"
+	ListenerDraining ListenerStatus = "draining"
+	ListenerRejected ListenerStatus = "rejected"
+)
+
+// ListenerState is a listener's lifecycle state from its dynamic_listeners entry.
+type ListenerState struct {
+	Status      ListenerStatus `json:"status"`
+	Updating    bool           `json:"updating,omitempty"`    // active, with a newer version warming
+	Draining    bool           `json:"draining,omitempty"`    // active, with an older version draining
+	LastUpdated string         `json:"lastUpdated,omitempty"` // of the version shown, as Envoy writes it
+	Error       *ListenerError `json:"error,omitempty"`       // the last rejected update
+}
+
+// ListenerError is a listener's error_state: Envoy rejected its last update.
+type ListenerError struct {
+	Details     string `json:"details"`
+	LastAttempt string `json:"lastAttempt,omitempty"`
 }
 
 // NetworkFilterChain is a network-level filter chain within a listener.
@@ -52,16 +81,18 @@ type HTTPFilter struct {
 
 // RouteConfig is an Envoy route configuration (from RDS).
 type RouteConfig struct {
-	Name         string        `json:"name"`
-	VirtualHosts []VirtualHost `json:"virtualHosts"`
+	Name                 string         `json:"name"`
+	VirtualHosts         []VirtualHost  `json:"virtualHosts"`
+	TypedPerFilterConfig map[string]any `json:"typedPerFilterConfig,omitempty"` // least specific per-filter config
 }
 
 // VirtualHost is an Envoy virtual host within a route config.
 type VirtualHost struct {
-	Name    string             `json:"name"`    // e.g. "listener~80~api_example_com"
-	Domains []string           `json:"domains"` // e.g. ["api.example.com"]
-	Routes  []Route            `json:"routes"`
-	Origin  *VirtualHostOrigin `json:"origin,omitempty"` // set by origin.Annotate
+	Name                 string             `json:"name"`    // e.g. "listener~80~api_example_com"
+	Domains              []string           `json:"domains"` // e.g. ["api.example.com"]
+	Routes               []Route            `json:"routes"`
+	TypedPerFilterConfig map[string]any     `json:"typedPerFilterConfig,omitempty"` // overrides the route config's
+	Origin               *VirtualHostOrigin `json:"origin,omitempty"`               // set by origin.Annotate
 }
 
 // Route is an Envoy route within a virtual host.
@@ -79,6 +110,7 @@ type Route struct {
 	Metadata                map[string]any    `json:"metadata,omitempty"`                // filter_metadata (Phase 4)
 	Origin                  *RouteAnnotation  `json:"origin,omitempty"`                  // set by origin.Annotate
 	Policies                []PolicyRef       `json:"policies,omitempty"`                // set by origin.Annotate
+	Chain                   *EffectiveChain   `json:"effectiveChain,omitempty"`          // set by chain.Annotate
 }
 
 // RouteRewrite captures path rewrite configuration on a route action.
@@ -91,8 +123,9 @@ type RouteRewrite struct {
 
 // WeightedCluster is one backend of a traffic-split route.
 type WeightedCluster struct {
-	Name   string `json:"name"`
-	Weight int    `json:"weight"`
+	Name                 string         `json:"name"`
+	Weight               int            `json:"weight"`
+	TypedPerFilterConfig map[string]any `json:"typedPerFilterConfig,omitempty"` // overrides the route's when Envoy picks this backend
 }
 
 // HeaderOperation is a key/value header to add to a request or response.

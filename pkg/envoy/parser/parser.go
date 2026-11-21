@@ -95,20 +95,42 @@ func Parse(r io.Reader) (Result, error) {
 }
 
 // parseListener converts a raw dynamic listener into the model.Listener,
-// joining each HCM to its route config via `route_config_name`.
+// joining each HCM to its route config via `route_config_name`. It shows the
+// active version, else the warming one, else the draining one.
 func parseListener(rl rawListener, routeConfigs map[string]*model.RouteConfig) model.Listener {
 	l := model.Listener{
 		Name: rl.Name,
 	}
+	if rl.ErrorState != nil {
+		l.State.Error = &model.ListenerError{Details: rl.ErrorState.Details, LastAttempt: rl.ErrorState.LastUpdateAttempt}
+	}
 
-	if rl.ActiveState.Listener.Address.SocketAddress.Address != "" {
+	shown := rl.ActiveState
+	switch {
+	case rl.ActiveState != nil:
+		l.State.Status = model.ListenerActive
+		l.State.Updating = rl.WarmingState != nil
+		l.State.Draining = rl.DrainingState != nil
+	case rl.WarmingState != nil:
+		l.State.Status = model.ListenerWarming
+		shown = rl.WarmingState
+	case rl.DrainingState != nil:
+		l.State.Status = model.ListenerDraining
+		shown = rl.DrainingState
+	default:
+		l.State.Status = model.ListenerRejected
+		return l
+	}
+	l.State.LastUpdated = shown.LastUpdated
+
+	if shown.Listener.Address.SocketAddress.Address != "" {
 		l.Address = fmt.Sprintf("%s:%d",
-			rl.ActiveState.Listener.Address.SocketAddress.Address,
-			rl.ActiveState.Listener.Address.SocketAddress.PortValue,
+			shown.Listener.Address.SocketAddress.Address,
+			shown.Listener.Address.SocketAddress.PortValue,
 		)
 	}
 
-	for _, rfc := range rl.ActiveState.Listener.FilterChains {
+	for _, rfc := range shown.Listener.FilterChains {
 		nfc := model.NetworkFilterChain{
 			Name: rfc.Name,
 		}
@@ -208,13 +230,15 @@ func parseHTTPFilter(hf rawHTTPFilter) model.HTTPFilter {
 // parseRouteConfig converts a raw route config into the model.
 func parseRouteConfig(raw rawRouteConfig) *model.RouteConfig {
 	rc := &model.RouteConfig{
-		Name: raw.Name,
+		Name:                 raw.Name,
+		TypedPerFilterConfig: decodeAll(raw.TypedPerFilterConfig),
 	}
 
 	for _, rvh := range raw.VirtualHosts {
 		vh := model.VirtualHost{
-			Name:    rvh.Name,
-			Domains: rvh.Domains,
+			Name:                 rvh.Name,
+			Domains:              rvh.Domains,
+			TypedPerFilterConfig: decodeAll(rvh.TypedPerFilterConfig),
 		}
 
 		for _, rr := range rvh.Routes {
@@ -233,7 +257,9 @@ func parseRouteConfig(raw rawRouteConfig) *model.RouteConfig {
 				route.Cluster = rr.Route.Cluster
 			}
 			for _, wc := range rr.Route.WeightedClusters.Clusters {
-				route.WeightedClusters = append(route.WeightedClusters, model.WeightedCluster{Name: wc.Name, Weight: wc.Weight})
+				route.WeightedClusters = append(route.WeightedClusters, model.WeightedCluster{
+					Name: wc.Name, Weight: wc.Weight, TypedPerFilterConfig: decodeAll(wc.TypedPerFilterConfig),
+				})
 			}
 
 			// Extract URLRewrite from regex_rewrite on the route action
@@ -303,27 +329,9 @@ func parseRouteConfig(raw rawRouteConfig) *model.RouteConfig {
 				}
 			}
 
-			// Store per-filter config and metadata for later phases
-			if len(rr.TypedPerFilterConfig) > 0 {
-				tpfc := map[string]any{}
-				for k, v := range rr.TypedPerFilterConfig {
-					var parsed any
-					if err := json.Unmarshal(v, &parsed); err == nil {
-						tpfc[k] = parsed
-					}
-				}
-				route.TypedPerFilterConfig = tpfc
-			}
-
-			if rr.Metadata != nil && len(rr.Metadata.FilterMetadata) > 0 {
-				meta := map[string]any{}
-				for k, v := range rr.Metadata.FilterMetadata {
-					var parsed any
-					if err := json.Unmarshal(v, &parsed); err == nil {
-						meta[k] = parsed
-					}
-				}
-				route.Metadata = meta
+			route.TypedPerFilterConfig = decodeAll(rr.TypedPerFilterConfig)
+			if rr.Metadata != nil {
+				route.Metadata = decodeAll(rr.Metadata.FilterMetadata)
 			}
 
 			vh.Routes = append(vh.Routes, route)
@@ -333,6 +341,22 @@ func parseRouteConfig(raw rawRouteConfig) *model.RouteConfig {
 	}
 
 	return rc
+}
+
+// decodeAll decodes each value of a raw JSON map, skipping values that don't
+// decode. It returns nil when nothing decodes.
+func decodeAll(raw map[string]json.RawMessage) map[string]any {
+	var out map[string]any
+	for k, v := range raw {
+		var parsed any
+		if err := json.Unmarshal(v, &parsed); err == nil {
+			if out == nil {
+				out = map[string]any{}
+			}
+			out[k] = parsed
+		}
+	}
+	return out
 }
 
 // --- Raw JSON structs matching the actual Envoy config dump format ---
@@ -362,21 +386,35 @@ type listenersConfigDump struct {
 	DynamicListeners []rawListener `json:"dynamic_listeners"`
 }
 
-// rawListener is a single entry from `dynamic_listeners`.
+// rawListener is a single entry from `dynamic_listeners`. An entry without a
+// name and with only `error_state` is an LDS-wide error.
 type rawListener struct {
-	Name        string `json:"name"`
-	ActiveState struct {
-		Listener struct {
-			Name    string `json:"name"`
-			Address struct {
-				SocketAddress struct {
-					Address   string `json:"address"`
-					PortValue int    `json:"port_value"`
-				} `json:"socket_address"`
-			} `json:"address"`
-			FilterChains []rawFilterChain `json:"filter_chains"`
-		} `json:"listener"`
-	} `json:"active_state"`
+	Name          string            `json:"name"`
+	ActiveState   *rawListenerState `json:"active_state"`
+	WarmingState  *rawListenerState `json:"warming_state"`
+	DrainingState *rawListenerState `json:"draining_state"`
+	ErrorState    *rawUpdateFailure `json:"error_state"`
+}
+
+// rawListenerState is one version of a listener (DynamicListenerState).
+type rawListenerState struct {
+	LastUpdated string `json:"last_updated"`
+	Listener    struct {
+		Name    string `json:"name"`
+		Address struct {
+			SocketAddress struct {
+				Address   string `json:"address"`
+				PortValue int    `json:"port_value"`
+			} `json:"socket_address"`
+		} `json:"address"`
+		FilterChains []rawFilterChain `json:"filter_chains"`
+	} `json:"listener"`
+}
+
+// rawUpdateFailure is a rejected update (UpdateFailureState).
+type rawUpdateFailure struct {
+	Details           string `json:"details"`
+	LastUpdateAttempt string `json:"last_update_attempt"`
 }
 
 // rawFilterChain is a single filter_chain within a listener.
@@ -480,15 +518,17 @@ type routesConfigDump struct {
 
 // rawRouteConfig is the `route_config` object within a dynamic route config entry.
 type rawRouteConfig struct {
-	Name         string           `json:"name"`
-	VirtualHosts []rawVirtualHost `json:"virtual_hosts"`
+	Name                 string                     `json:"name"`
+	VirtualHosts         []rawVirtualHost           `json:"virtual_hosts"`
+	TypedPerFilterConfig map[string]json.RawMessage `json:"typed_per_filter_config"`
 }
 
 // rawVirtualHost is a single virtual_host within a route config.
 type rawVirtualHost struct {
-	Name    string     `json:"name"`
-	Domains []string   `json:"domains"`
-	Routes  []rawRoute `json:"routes"`
+	Name                 string                     `json:"name"`
+	Domains              []string                   `json:"domains"`
+	Routes               []rawRoute                 `json:"routes"`
+	TypedPerFilterConfig map[string]json.RawMessage `json:"typed_per_filter_config"`
 }
 
 // rawRoute is a single route entry within a virtual host.
@@ -526,8 +566,9 @@ type rawRoute struct {
 		Cluster          string `json:"cluster"`
 		WeightedClusters struct {
 			Clusters []struct {
-				Name   string `json:"name"`
-				Weight int    `json:"weight"`
+				Name                 string                     `json:"name"`
+				Weight               int                        `json:"weight"`
+				TypedPerFilterConfig map[string]json.RawMessage `json:"typed_per_filter_config"`
 			} `json:"clusters"`
 		} `json:"weighted_clusters"`
 		PrefixRewrite         string `json:"prefix_rewrite"`
@@ -569,21 +610,28 @@ type rawRouteMetadata struct {
 // This prevents mutations in later phases from corrupting filter chains that share
 // the same route_config_name.
 func cloneRouteConfig(rc *model.RouteConfig) *model.RouteConfig {
+	// Map values are opaque decoded JSON that nothing mutates, so the maps
+	// themselves are copied, not their values.
 	clone := &model.RouteConfig{
-		Name:         rc.Name,
-		VirtualHosts: make([]model.VirtualHost, len(rc.VirtualHosts)),
+		Name:                 rc.Name,
+		VirtualHosts:         make([]model.VirtualHost, len(rc.VirtualHosts)),
+		TypedPerFilterConfig: maps.Clone(rc.TypedPerFilterConfig),
 	}
 	for i, vh := range rc.VirtualHosts {
 		cloneVH := model.VirtualHost{
-			Name:    vh.Name,
-			Domains: append([]string(nil), vh.Domains...),
-			Routes:  make([]model.Route, len(vh.Routes)),
+			Name:                 vh.Name,
+			Domains:              append([]string(nil), vh.Domains...),
+			Routes:               make([]model.Route, len(vh.Routes)),
+			TypedPerFilterConfig: maps.Clone(vh.TypedPerFilterConfig),
 		}
 		for j, r := range vh.Routes {
 			cloneRoute := r // copy all scalar fields
 			// Deep-copy slice fields
 			cloneRoute.MirrorClusters = append([]string(nil), r.MirrorClusters...)
 			cloneRoute.WeightedClusters = append([]model.WeightedCluster(nil), r.WeightedClusters...)
+			for k, wc := range cloneRoute.WeightedClusters {
+				cloneRoute.WeightedClusters[k].TypedPerFilterConfig = maps.Clone(wc.TypedPerFilterConfig)
+			}
 			cloneRoute.RequestHeadersToAdd = append([]model.HeaderOperation(nil), r.RequestHeadersToAdd...)
 			cloneRoute.ResponseHeadersToAdd = append([]model.HeaderOperation(nil), r.ResponseHeadersToAdd...)
 			cloneRoute.ResponseHeadersToRemove = append([]string(nil), r.ResponseHeadersToRemove...)
@@ -594,19 +642,8 @@ func cloneRouteConfig(rc *model.RouteConfig) *model.RouteConfig {
 				rw := *r.Rewrite
 				cloneRoute.Rewrite = &rw
 			}
-			// Deep-copy map fields so mutations in later phases (e.g. Phase 2 filter expansion)
-			// cannot corrupt other HCMs that share the same route_config_name.
-			// Values are opaque JSON (any) and are only read by the renderer, so shallow value copy is safe.
-			if r.TypedPerFilterConfig != nil {
-				tpfc := make(map[string]any, len(r.TypedPerFilterConfig))
-				maps.Copy(tpfc, r.TypedPerFilterConfig)
-				cloneRoute.TypedPerFilterConfig = tpfc
-			}
-			if r.Metadata != nil {
-				meta := make(map[string]any, len(r.Metadata))
-				maps.Copy(meta, r.Metadata)
-				cloneRoute.Metadata = meta
-			}
+			cloneRoute.TypedPerFilterConfig = maps.Clone(r.TypedPerFilterConfig)
+			cloneRoute.Metadata = maps.Clone(r.Metadata)
 			cloneVH.Routes[j] = cloneRoute
 		}
 		clone.VirtualHosts[i] = cloneVH

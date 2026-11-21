@@ -105,6 +105,10 @@
             }
           }
         ],
+        "state": {
+          "status": "active",
+          "lastUpdated": "2026-03-07T14:59:10.514Z"
+        },
         "origin": {
           "certainty": "inferred",
           "port": 80

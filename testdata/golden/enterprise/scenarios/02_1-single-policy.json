@@ -307,6 +307,10 @@
             }
           }
         ],
+        "state": {
+          "status": "active",
+          "lastUpdated": "2026-03-07T14:51:14.237Z"
+        },
         "origin": {
           "certainty": "inferred",
           "port": 443

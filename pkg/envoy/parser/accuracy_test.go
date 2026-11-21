@@ -1,6 +1,7 @@
 package parser_test
 
 import (
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -70,7 +71,7 @@ func routesOf(l model.Listener) []model.Route {
 func TestParse_WeightedClusters(t *testing.T) {
 	split := routesOf(parseAccuracy(t).Listeners[0])[0]
 	want := []model.WeightedCluster{{Name: "kube_ns_v1_8080", Weight: 80}, {Name: "kube_ns_v2_8080", Weight: 20}}
-	if !slices.Equal(split.WeightedClusters, want) {
+	if !reflect.DeepEqual(split.WeightedClusters, want) {
 		t.Errorf("WeightedClusters = %v, want %v", split.WeightedClusters, want)
 	}
 	if split.Cluster != "" {

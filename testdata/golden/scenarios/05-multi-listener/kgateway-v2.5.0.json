@@ -99,6 +99,10 @@
             }
           }
         ],
+        "state": {
+          "status": "active",
+          "lastUpdated": "2026-11-04T22:23:22.278Z"
+        },
         "origin": {
           "certainty": "inferred",
           "port": 80
@@ -206,6 +210,10 @@
             }
           }
         ],
+        "state": {
+          "status": "active",
+          "lastUpdated": "2026-11-04T22:23:22.279Z"
+        },
         "origin": {
           "certainty": "inferred",
           "port": 443
