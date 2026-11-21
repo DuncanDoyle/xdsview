@@ -1,101 +1,70 @@
 package renderer
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/render"
 	"github.com/charmbracelet/lipgloss"
 )
 
-// cursorStyle highlights the filter row that currently holds the navigation cursor.
-// Reverse(true) emits the ANSI reverse-video escape (\x1b[7m), which the TUI
-// cursor-line finder in Task 4 uses to locate the highlighted row.
+// cursorStyle highlights the filter row that holds the cursor. Reverse emits
+// \x1b[7m, which the TUI uses to find the cursor line.
 var cursorStyle = lipgloss.NewStyle().Reverse(true)
 
-// FilterRef uniquely identifies a single HTTP filter instance as rendered
-// under a specific route. The Envoy path is:
-// Listener[ListenerIdx] → FilterChain[FilterChainIdx] → HCM → RouteConfig →
-// VirtualHost[VirtualHostIdx] → Route[RouteIdx] → hcm.HTTPFilters[FilterIdx].
-//
-// Because the same HCM filter list is rendered once per route, the full path
-// is required to distinguish instances.
-type FilterRef struct {
-	ListenerIdx    int
-	FilterChainIdx int
-	VirtualHostIdx int
-	RouteIdx       int
-	FilterIdx      int // zero-based index into hcm.HTTPFilters
-}
-
-// RenderOpts carries the cursor position and expansion state for
-// [RenderInteractive]. Both fields are optional: a nil Cursor means no item
-// is highlighted; an empty or nil Expanded map means no items are expanded.
+// RenderOpts carries the cursor position and expanded filters for
+// [RenderInteractive]. A nil Cursor highlights nothing.
 type RenderOpts struct {
-	Cursor   *FilterRef
-	Expanded map[FilterRef]bool
+	Cursor   *render.FilterRef
+	Expanded map[render.FilterRef]bool
 }
 
-// interactiveContext carries cursor and expansion state into the internal
-// render helpers. A nil pointer means static mode — behaviour is identical
-// to the pre-Phase-3 code path.
-//
-// ref is updated at each level of the render traversal so that
-// renderHTTPFilters can identify the current filter's coordinates and compare
-// them against cursor and expanded.
-type interactiveContext struct {
-	ref      FilterRef
-	cursor   *FilterRef
-	expanded map[FilterRef]bool
+// RenderInteractive renders every HCM filter of every route as a row, so each
+// row the TUI can select is visible. The cursor row is reversed, and expanded
+// rows show their deciding config as indented JSON.
+func RenderInteractive(snapshot *model.EnvoySnapshot, opts RenderOpts) string {
+	return text(snapshot, render.Options{
+		AllFilters: true,
+		Style: func(c render.Class, ref *render.FilterRef, s string) string {
+			if ref != nil && opts.Cursor != nil && *ref == *opts.Cursor {
+				return cursorStyle.Render(s)
+			}
+			return style(c, ref, s)
+		},
+		Extra: func(ref render.FilterRef) []string {
+			if !opts.Expanded[ref] {
+				return nil
+			}
+			cfg := resolveFilterConfig(snapshot, ref)
+			if cfg == nil {
+				return []string{"(no typed config)"}
+			}
+			out, err := json.MarshalIndent(cfg, "", "  ")
+			if err != nil {
+				return []string{"(no typed config)"}
+			}
+			return strings.Split(string(out), "\n")
+		},
+	})
 }
 
-// resolveFilterConfig returns the typed config to display for an expanded filter.
-// It returns Route.TypedPerFilterConfig[filter.Name] if non-nil (per-route override),
-// otherwise HTTPFilter.TypedConfig. Returns nil if neither is set.
-//
-// An empty map[string]any{} is NOT nil in Go, so a route that sets an empty
-// per-route config entry is treated as "has config" and will render as "{}".
-func resolveFilterConfig(f model.HTTPFilter, typedPerFilterConfig map[string]any) any {
-	if typedPerFilterConfig != nil {
-		if v, ok := typedPerFilterConfig[f.Name]; ok && v != nil {
-			return v
+// resolveFilterConfig returns the config that decides ref's filter on its
+// route: the most specific per-filter config (route, vhost, route config),
+// else the HCM filter's own config, else nil.
+func resolveFilterConfig(snapshot *model.EnvoySnapshot, ref render.FilterRef) any {
+	hcm := snapshot.Listeners[ref.ListenerIdx].FilterChains[ref.FilterChainIdx].HCM
+	f := hcm.HTTPFilters[ref.FilterIdx]
+	if rc := hcm.RouteConfig; rc != nil {
+		vh := rc.VirtualHosts[ref.VirtualHostIdx]
+		for _, pfc := range []map[string]any{vh.Routes[ref.RouteIdx].TypedPerFilterConfig, vh.TypedPerFilterConfig, rc.TypedPerFilterConfig} {
+			if v, ok := pfc[f.Name]; ok && v != nil {
+				return v
+			}
 		}
 	}
 	if f.TypedConfig != nil {
 		return f.TypedConfig
 	}
 	return nil
-}
-
-// RenderInteractive produces the same styled tree as [Render] with two
-// additions driven by opts. renderHTTPFilters and renderHCMContent are
-// refactored to accept an optional *interactiveContext; passing nil (as
-// [Render] does) preserves the existing string-equal output.
-//
-// The cursor item (opts.Cursor) is highlighted with a reversed foreground/
-// background style. Expanded items (opts.Expanded) show their typed config
-// inline as indented JSON (json.MarshalIndent with two-space indent).
-//
-// Config resolution for an expanded filter: Route.TypedPerFilterConfig[filter.Name]
-// is shown if non-nil (per-route override, including empty map {}); otherwise
-// HTTPFilter.TypedConfig (HCM-level config) is shown; if neither is set,
-// "(no typed config)" is printed.
-//
-// RenderInteractive is a pure function — it performs no I/O.
-func RenderInteractive(snapshot *model.EnvoySnapshot, opts RenderOpts) string {
-	if len(snapshot.Listeners) == 0 {
-		return warningStyle.Render("No listeners found in config dump.")
-	}
-
-	ctx := &interactiveContext{
-		cursor:   opts.Cursor,
-		expanded: opts.Expanded,
-	}
-
-	var panels []string
-	for i, listener := range snapshot.Listeners {
-		ctx.ref.ListenerIdx = i
-		panels = append(panels, renderListener(listener, ctx))
-	}
-
-	return strings.Join(panels, "\n")
 }

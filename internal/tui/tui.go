@@ -10,6 +10,7 @@ import (
 
 	"github.com/DuncanDoyle/xdsview/internal/renderer"
 	envoymodel "github.com/DuncanDoyle/xdsview/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/render"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -27,9 +28,9 @@ const helpText = "↑/↓ navigate • Enter/Space expand • a toggle all • q
 // model holds all mutable state for the interactive TUI session.
 type model struct {
 	snapshot *envoymodel.EnvoySnapshot
-	items    []renderer.FilterRef
+	items    []render.FilterRef
 	cursor   int
-	expanded map[renderer.FilterRef]bool
+	expanded map[render.FilterRef]bool
 	viewport viewport.Model
 }
 
@@ -39,8 +40,8 @@ type model struct {
 //
 // Filter chains with a nil HCM or a nil RouteConfig are skipped — they produce
 // no navigable filters (same as the renderer, which shows "[no HCM]" / "[RDS not found]").
-func buildItems(snapshot *envoymodel.EnvoySnapshot) []renderer.FilterRef {
-	var items []renderer.FilterRef
+func buildItems(snapshot *envoymodel.EnvoySnapshot) []render.FilterRef {
+	var items []render.FilterRef
 	for lIdx, listener := range snapshot.Listeners {
 		for fcIdx, fc := range listener.FilterChains {
 			if fc.HCM == nil || fc.HCM.RouteConfig == nil {
@@ -49,7 +50,7 @@ func buildItems(snapshot *envoymodel.EnvoySnapshot) []renderer.FilterRef {
 			for vhIdx, vh := range fc.HCM.RouteConfig.VirtualHosts {
 				for rIdx := range vh.Routes {
 					for fIdx := range fc.HCM.HTTPFilters {
-						items = append(items, renderer.FilterRef{
+						items = append(items, render.FilterRef{
 							ListenerIdx:    lIdx,
 							FilterChainIdx: fcIdx,
 							VirtualHostIdx: vhIdx,
@@ -121,7 +122,7 @@ func initialModel(snapshot *envoymodel.EnvoySnapshot) model {
 		snapshot: snapshot,
 		items:    buildItems(snapshot),
 		cursor:   0,
-		expanded: make(map[renderer.FilterRef]bool),
+		expanded: make(map[render.FilterRef]bool),
 		viewport: vp,
 	}
 	return m
@@ -183,7 +184,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if len(m.expanded) == len(m.items) {
 				// All expanded — collapse all.
-				m.expanded = make(map[renderer.FilterRef]bool)
+				m.expanded = make(map[render.FilterRef]bool)
 			} else {
 				// Some or none expanded — expand all.
 				for _, ref := range m.items {

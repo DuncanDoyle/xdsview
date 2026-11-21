@@ -2,11 +2,13 @@ package tui
 
 import (
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/DuncanDoyle/xdsview/internal/renderer"
 	envoymodel "github.com/DuncanDoyle/xdsview/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/render"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -62,7 +64,7 @@ func TestBuildItems_SimpleSnapshot(t *testing.T) {
 	}
 
 	// Verify canonical order: route 0 filter 0, route 0 filter 1, route 1 filter 0, route 1 filter 1
-	expected := []renderer.FilterRef{
+	expected := []render.FilterRef{
 		{ListenerIdx: 0, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 0},
 		{ListenerIdx: 0, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 1},
 		{ListenerIdx: 0, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 1, FilterIdx: 0},
@@ -168,7 +170,7 @@ func TestBuildItems_MultipleListeners(t *testing.T) {
 		t.Fatalf("expected 3 items, got %d", len(items))
 	}
 
-	expected := []renderer.FilterRef{
+	expected := []render.FilterRef{
 		{ListenerIdx: 0, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 0},
 		{ListenerIdx: 0, FilterChainIdx: 1, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 0},
 		{ListenerIdx: 1, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 0},
@@ -248,7 +250,7 @@ func TestUpdate_UpKey_AtFirstItem_ScrollsViewportUp(t *testing.T) {
 		snapshot: snapshot,
 		items:    buildItems(snapshot),
 		cursor:   0,
-		expanded: make(map[renderer.FilterRef]bool),
+		expanded: make(map[render.FilterRef]bool),
 		viewport: vp,
 	}
 
@@ -296,7 +298,7 @@ func TestUpdate_UpKey_AtFirstItem_AtTop_IsNoop(t *testing.T) {
 		snapshot: snapshot,
 		items:    buildItems(snapshot),
 		cursor:   0,
-		expanded: make(map[renderer.FilterRef]bool),
+		expanded: make(map[render.FilterRef]bool),
 		viewport: vp,
 	}
 
@@ -395,3 +397,55 @@ func TestFindCursorLine(t *testing.T) {
 		})
 	}
 }
+
+// TestNavigation_EnabledDisabledEnabled presses down through three filters
+// (enabled by a vhost override, off, on) and checks, at each step, that the
+// highlighted row is the selected filter and that Enter shows its config.
+func TestNavigation_EnabledDisabledEnabled(t *testing.T) {
+	const fc = "type.googleapis.com/envoy.config.route.v3.FilterConfig"
+	snapshot := &envoymodel.EnvoySnapshot{Listeners: []envoymodel.Listener{{
+		Name: "listener~80",
+		FilterChains: []envoymodel.NetworkFilterChain{{HCM: &envoymodel.HCMConfig{
+			HTTPFilters: []envoymodel.HTTPFilter{
+				{Name: "authz", Disabled: true, TypedConfig: map[string]any{"hcm": "authz"}},
+				{Name: "ratelimit", Disabled: true, TypedConfig: map[string]any{"hcm": "ratelimit"}},
+				{Name: "router", TypedConfig: map[string]any{"hcm": "router"}},
+			},
+			RouteConfig: &envoymodel.RouteConfig{VirtualHosts: []envoymodel.VirtualHost{{
+				Name:                 "vh",
+				TypedPerFilterConfig: map[string]any{"authz": map[string]any{"@type": fc, "config": map[string]any{}}},
+				Routes:               []envoymodel.Route{{Match: envoymodel.RouteMatch{Prefix: "/"}, Cluster: "c"}},
+			}}},
+		}}},
+	}}}
+
+	m := initialModel(snapshot)
+	m.setContent()
+	steps := []struct {
+		row, config string
+	}{
+		{"authz      enabled by vhost", `"config": {}`},
+		{"ratelimit  off", `"hcm": "ratelimit"`},
+		{"router     on", `"hcm": "router"`},
+	}
+	for i, s := range steps {
+		if i > 0 {
+			next, _ := m.Update(tea.KeyMsg{Type: tea.KeyDown})
+			m = next.(model)
+		}
+		next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		m = next.(model)
+
+		content := renderer.RenderInteractive(m.snapshot, m.renderOpts())
+		lines := strings.Split(content, "\n")
+		cursor := lines[findCursorLine(content)]
+		if plain := ansiPattern.ReplaceAllString(cursor, ""); !strings.Contains(plain, s.row) {
+			t.Errorf("step %d: highlighted row %q, want it to contain %q", i, plain, s.row)
+		}
+		if !strings.Contains(content, s.config) {
+			t.Errorf("step %d: expanded config %s not shown", i, s.config)
+		}
+	}
+}
+
+var ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*m`)

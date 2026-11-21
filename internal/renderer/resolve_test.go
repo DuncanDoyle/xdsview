@@ -5,10 +5,45 @@
 package renderer
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/render"
 )
+
+// oneRoute is a snapshot with one filter and one route, with per-filter config
+// at route, vhost and route config level.
+func oneRoute(f model.HTTPFilter, route, vhost, routeConfig map[string]any) *model.EnvoySnapshot {
+	return &model.EnvoySnapshot{Listeners: []model.Listener{{FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
+		HTTPFilters: []model.HTTPFilter{f},
+		RouteConfig: &model.RouteConfig{TypedPerFilterConfig: routeConfig, VirtualHosts: []model.VirtualHost{{
+			TypedPerFilterConfig: vhost, Routes: []model.Route{{TypedPerFilterConfig: route}},
+		}}},
+	}}}}}}
+}
+
+// TestResolveFilterConfig_Levels: the most specific level's config is shown.
+func TestResolveFilterConfig_Levels(t *testing.T) {
+	f := model.HTTPFilter{Name: "f", TypedConfig: map[string]any{"level": "hcm"}}
+	at := func(level string) map[string]any { return map[string]any{"f": map[string]any{"level": level}} }
+	tests := []struct {
+		name                      string
+		route, vhost, routeConfig map[string]any
+		want                      string
+	}{
+		{"route beats vhost", at("route"), at("vhost"), at("rc"), "route"},
+		{"vhost beats route config", nil, at("vhost"), at("rc"), "vhost"},
+		{"route config beats HCM", nil, nil, at("rc"), "rc"},
+		{"HCM when none", nil, nil, nil, "hcm"},
+	}
+	for _, tt := range tests {
+		got := resolveFilterConfig(oneRoute(f, tt.route, tt.vhost, tt.routeConfig), render.FilterRef{})
+		if want := map[string]any{"level": tt.want}; !reflect.DeepEqual(got, want) {
+			t.Errorf("%s: got %v, want %v", tt.name, got, want)
+		}
+	}
+}
 
 // TestResolveFilterConfig covers the config-resolution priority rules for
 // [resolveFilterConfig]:
@@ -82,7 +117,7 @@ func TestResolveFilterConfig(t *testing.T) {
 				Name:        tt.filterName,
 				TypedConfig: tt.filterTypedConfig,
 			}
-			got := resolveFilterConfig(f, tt.typedPerFilterConfig)
+			got := resolveFilterConfig(oneRoute(f, tt.typedPerFilterConfig, nil, nil), render.FilterRef{})
 			if tt.wantNil {
 				if got != nil {
 					t.Errorf("resolveFilterConfig() = %v, want nil", got)
