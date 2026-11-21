@@ -4,15 +4,15 @@
 Phase: 6 — Route View for Consumers
 Base: 40a5863
 Docs: docs/phases/phase-6/
-Status: design approved 2026-11-21; 6.1 done; implementing 6.2.
+Status: design approved 2026-11-21; 6.1 and 6.2 done; 6.3 next.
 
 ### Queue
 - [x] Q1 Phase 6 design + plan (`design.md`, `implementation-plan.md`)
 - [x] Q2 Design + plan cross-model review and triage (reviews/design-codex.md)
 - [x] Q3 Owner approval of design (2026-11-21; both open questions answered "yes")
 - [x] Q4 6.1 Model and parser — 45e1f43, phase-6.1-complete.md
-- [ ] Q5 6.2 `pkg/envoy/chain` ← CURRENT
-- [ ] Q6 6.3 `pkg/envoy/render` and krp
+- [x] Q5 6.2 `pkg/envoy/chain` — 5490926, phase-6.2-complete.md
+- [ ] Q6 6.3 `pkg/envoy/render` and krp ← CURRENT
 - [ ] Q7 Phase review, `v0.4.0`, program file, #27, notices
 
 ### Exit gates
@@ -24,23 +24,7 @@ Status: design approved 2026-11-21; 6.1 done; implementing 6.2.
 - [ ] phase-6-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-Sub-phase: 6.2 — `pkg/envoy/chain`, attribution and narrowing
-Kind: planned
-Base: 45e1f43
-Brief: docs/phases/phase-6/phase-6.2-brief.md
-
-### Allowed work
-Features within the approved design.
-
-### Not allowed
-Design changes without a decisions.md entry and owner approval.
-
-### Queue
-- [ ] S1 Side table (Envoy v1.39.6 `aacd0340`, cited) and `chain.Effective`: table tests first ← CURRENT
-- [ ] S2 Corpus checks on `03` (v2.4.7, v2.5.0) and `00`
-- [ ] S3 `origin.PolicyFilters`, Kgateway field table, contributions, `chain.Annotate`
-- [ ] S4 `NarrowedByKnown`; narrowing on origins; `filter.Ambiguous`; non-active listeners kept
-- [ ] S5 Boundary test; phase-6.2-complete.md; message kgwctl
+none
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, read at `780ad25`)
