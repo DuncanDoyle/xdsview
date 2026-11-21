@@ -24,7 +24,24 @@ Status: design approved 2026-11-21; 6.1 and 6.2 done; 6.3 next.
 - [ ] phase-6-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-none
+Sub-phase: 6.3 — `pkg/envoy/render` and krp
+Kind: planned
+Base: 371297e
+Brief: docs/phases/phase-6/phase-6.3-brief.md
+
+### Allowed work
+Features within the approved design.
+
+### Not allowed
+Design changes without a decisions.md entry and owner approval.
+
+### Queue
+- [ ] S1 `render.Text`, options, goldens, determinism/ANSI/whitespace tests ← CURRENT
+- [ ] S2 `internal/renderer` and TUI over `render`; navigation test
+- [ ] S3 `krp`: `chain.Annotate` for text and JSON; JSON goldens additive
+- [ ] S4 Boundary test with charmbracelet assertion and mutation check
+- [ ] S5 Manual TUI run; live kind check (03, ext_authz stats)
+- [ ] S6 README; phase-6.3-complete.md; message kgwctl
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, read at `780ad25`)
