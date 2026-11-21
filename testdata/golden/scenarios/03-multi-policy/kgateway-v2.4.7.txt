@@ -1,0 +1,11 @@
+listener~80 :::80 · active · port 80
+└─ vhost listener~80~api_example_com [api.example.com] · port 80
+   └─ route / (prefix) · HTTPRoute kgateway-system/api-example-com · rule 0 · match 0 (inferred from cluster routes)
+      filters (request order):
+        1 envoy.filters.http.cors              enabled by route · TrafficPolicy kgateway-system/cors (cors)
+        2 ext_auth/kgateway-system/ext-authz   enabled by route · GatewayExtension kgateway-system/ext-authz · TrafficPolicy kgateway-system/ext-auth (extAuth)
+        3 ratelimit/kgateway-system/ratelimit  enabled by route · GatewayExtension kgateway-system/ratelimit · TrafficPolicy kgateway-system/rate-limit (rateLimit.global)
+        4 envoy.filters.http.router            on
+      not run: global_disable/ext_auth (off)
+      policies: TrafficPolicy kgateway-system/cors (cors), TrafficPolicy kgateway-system/ext-auth (extAuth), TrafficPolicy kgateway-system/rate-limit (rateLimit.global)
+      backend: kube_httpbin_httpbin_8000
