@@ -296,12 +296,13 @@ func candidateMatches(o model.RouteOrigin, opts Options) bool {
 }
 
 // explains reports whether l may explain a missing route: it is warming,
-// draining or rejected, or Envoy rejected its last update. A listener without
-// a status (built by hand, or from older JSON) is treated as active.
+// draining or rejected, has a version warming or draining beside the active
+// one, or Envoy rejected its last update. A listener without a status (built
+// by hand, or from older JSON) is treated as active.
 func explains(l model.Listener) bool {
 	switch l.State.Status {
 	case model.ListenerWarming, model.ListenerDraining, model.ListenerRejected:
 		return true
 	}
-	return l.State.Error != nil
+	return l.State.Updating || l.State.Draining || l.State.Error != nil
 }

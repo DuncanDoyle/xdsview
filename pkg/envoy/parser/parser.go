@@ -105,7 +105,8 @@ func Parse(r io.Reader) (Result, error) {
 	// Build the EnvoySnapshot by joining listeners with route configs
 	snapshot := &model.EnvoySnapshot{}
 	for _, rl := range listeners {
-		l := parseListener(rl, routeConfigs)
+		l, ws := parseListener(rl, routeConfigs)
+		warnings = append(warnings, ws...)
 		snapshot.Listeners = append(snapshot.Listeners, l)
 	}
 
@@ -114,8 +115,10 @@ func Parse(r io.Reader) (Result, error) {
 
 // parseListener converts a raw dynamic listener into the model.Listener,
 // joining each HCM to its route config via `route_config_name`. It shows the
-// active version, else the warming one, else the draining one.
-func parseListener(rl rawListener, routeConfigs map[string]*model.RouteConfig) model.Listener {
+// active version, else the warming one, else the draining one. It returns a
+// warning for each HCM it skips.
+func parseListener(rl rawListener, routeConfigs map[string]*model.RouteConfig) (model.Listener, []string) {
+	var warnings []string
 	l := model.Listener{
 		Name: rl.Name,
 	}
@@ -137,7 +140,7 @@ func parseListener(rl rawListener, routeConfigs map[string]*model.RouteConfig) m
 		shown = rl.DrainingState
 	default:
 		l.State.Status = model.ListenerRejected
-		return l
+		return l, nil
 	}
 	l.State.LastUpdated = shown.LastUpdated
 
@@ -165,8 +168,9 @@ func parseListener(rl rawListener, routeConfigs map[string]*model.RouteConfig) m
 			if nf.Name != "envoy.filters.network.http_connection_manager" {
 				continue
 			}
-			hcm := parseHCM(nf.TypedConfig)
-			if hcm == nil {
+			hcm, err := parseHCM(nf.TypedConfig)
+			if err != nil {
+				warnings = append(warnings, fmt.Sprintf("listener %q filter chain %q: skipped HTTP connection manager: %v", l.Name, rfc.Name, err))
 				continue
 			}
 			// Join with RDS route config. Deep-copy so each HCM owns its RouteConfig
@@ -181,14 +185,15 @@ func parseListener(rl rawListener, routeConfigs map[string]*model.RouteConfig) m
 		l.FilterChains = append(l.FilterChains, nfc)
 	}
 
-	return l
+	return l, warnings
 }
 
-// parseHCM extracts the HCM config from the raw `typed_config` JSON.
-func parseHCM(raw json.RawMessage) *model.HCMConfig {
+// parseHCM extracts the HCM config from the raw `typed_config` JSON, or returns
+// the decode error.
+func parseHCM(raw json.RawMessage) (*model.HCMConfig, error) {
 	var hcm rawHCM
 	if err := json.Unmarshal(raw, &hcm); err != nil {
-		return nil
+		return nil, err
 	}
 
 	result := &model.HCMConfig{
@@ -208,7 +213,7 @@ func parseHCM(raw json.RawMessage) *model.HCMConfig {
 		}
 	}
 
-	return result
+	return result, nil
 }
 
 const (

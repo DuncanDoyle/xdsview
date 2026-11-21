@@ -78,14 +78,16 @@ func TestFilter_AnnotatedOrigins(t *testing.T) {
 	}
 }
 
-// TestFilter_ListenersThatExplain: listeners that aren't active, or that have
-// an error, survive narrowing with their state even without a matching route.
+// TestFilter_ListenersThatExplain: listeners that aren't active, are mid-update,
+// or have an error, survive narrowing with their state even without a matching route.
 func TestFilter_ListenersThatExplain(t *testing.T) {
 	other := "listener~80~shop-route-0-httproute-other-ns-0-0-matcher-0"
 	errState := &model.ListenerError{Details: "bad"}
 	snap := &model.EnvoySnapshot{Listeners: []model.Listener{
 		listener("active", model.ListenerState{Status: model.ListenerActive}, other),
 		listener("active-error", model.ListenerState{Status: model.ListenerActive, Error: errState}, other),
+		listener("active-updating", model.ListenerState{Status: model.ListenerActive, Updating: true}, other),
+		listener("active-draining", model.ListenerState{Status: model.ListenerActive, Draining: true}, other),
 		listener("warming", model.ListenerState{Status: model.ListenerWarming}, other),
 		listener("draining", model.ListenerState{Status: model.ListenerDraining}),
 		listener("rejected", model.ListenerState{Status: model.ListenerRejected, Error: errState}),
@@ -100,7 +102,7 @@ func TestFilter_ListenersThatExplain(t *testing.T) {
 			t.Errorf("listener %q state = %+v, want it unchanged", l.Name, l.State)
 		}
 	}
-	if want := []string{"active-error", "warming", "draining", "rejected", ""}; !reflect.DeepEqual(got, want) {
+	if want := []string{"active-error", "active-updating", "active-draining", "warming", "draining", "rejected", ""}; !reflect.DeepEqual(got, want) {
 		t.Errorf("listeners = %q, want %q", got, want)
 	}
 	if rs := routeNames(out); rs != nil {

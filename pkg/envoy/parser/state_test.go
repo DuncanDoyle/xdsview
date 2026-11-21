@@ -95,3 +95,24 @@ func TestParse_ListenerState(t *testing.T) {
 		})
 	}
 }
+
+// TestParse_UndecodableHCMWarns: an HCM whose config doesn't decode leaves its
+// filter chain without an HCM, and a warning says where.
+func TestParse_UndecodableHCMWarns(t *testing.T) {
+	dump := `{"configs": [{"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
+ "dynamic_listeners": [{"name": "listener~80", "active_state": {"listener": {"name": "listener~80",
+  "filter_chains": [{"name": "fc-bad", "filters": [{"name": "envoy.filters.network.http_connection_manager",
+   "typed_config": {"@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+    "http_filters": "not a list"}}]}]}}}]}]}`
+	result, err := parser.Parse(strings.NewReader(dump))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Warnings) != 1 || !strings.Contains(result.Warnings[0], `"listener~80"`) || !strings.Contains(result.Warnings[0], `"fc-bad"`) {
+		t.Errorf("warnings = %q, want one naming listener~80 and fc-bad", result.Warnings)
+	}
+	ls := result.Snapshot.Listeners
+	if len(ls) != 1 || !reflect.DeepEqual(chainNames(ls[0]), []string{"fc-bad"}) || ls[0].FilterChains[0].HCM != nil {
+		t.Errorf("listeners = %+v, want listener~80 with filter chain fc-bad and no HCM", ls)
+	}
+}
