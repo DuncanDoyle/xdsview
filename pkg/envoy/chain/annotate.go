@@ -42,28 +42,36 @@ func Annotate(snap *model.EnvoySnapshot, m origin.Mapper) *model.EnvoySnapshot {
 }
 
 // attribute adds contributions to c's entries, which are in filters' order:
-// the filter's extension first, then policies in m.Policies order.
+// the filter's extension first, then policies in m.Policies order. A policy
+// field goes to the one entry with per-filter config that it configures; when
+// several match, the dump doesn't say which, so none gets it.
 func attribute(c *model.EffectiveChain, filters []model.HTTPFilter, r model.Route, m origin.Mapper) {
 	if m == nil {
 		return
 	}
-	pf, _ := m.(origin.PolicyFilters)
-	var policies []model.PolicyRef
-	if pf != nil {
-		policies = m.Policies(r)
-	}
 	for i, f := range filters {
-		e := &c.Filters[i]
 		if o := m.HTTPFilter(f); o.Certainty > model.Unknown && o.Extension != nil {
-			e.Contributions = append(e.Contributions, model.Contribution{Kind: model.ContributionExtension, Ref: *o.Extension})
+			c.Filters[i].Contributions = append(c.Filters[i].Contributions, model.Contribution{Kind: model.ContributionExtension, Ref: *o.Extension})
 		}
-		if e.Level == "" {
-			continue
-		}
-		for _, p := range policies {
-			if pf.PolicyFilter(p, f) {
-				e.Contributions = append(e.Contributions, model.Contribution{Kind: model.ContributionPolicy, Ref: p.Policy, Field: p.Field})
+	}
+	pf, ok := m.(origin.PolicyFilters)
+	if !ok {
+		return
+	}
+	for _, p := range m.Policies(r) {
+		match := -1
+		for i, f := range filters {
+			if c.Filters[i].Level == "" || !pf.PolicyFilter(p, f) {
+				continue
 			}
+			if match >= 0 {
+				match = -2 // more than one
+				break
+			}
+			match = i
+		}
+		if match >= 0 {
+			c.Filters[match].Contributions = append(c.Filters[match].Contributions, model.Contribution{Kind: model.ContributionPolicy, Ref: p.Policy, Field: p.Field})
 		}
 	}
 }

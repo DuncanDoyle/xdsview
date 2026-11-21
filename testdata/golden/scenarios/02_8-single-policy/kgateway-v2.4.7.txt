@@ -1,6 +1,6 @@
-listener~80 :::80 · active · port 80
+listener~80 [::]:80 · active · port 80
 └─ vhost listener~80~api_example_com [api.example.com] · port 80
-   └─ route / (prefix) · HTTPRoute kgateway-system/api-example-com · rule 0 · match 0 (inferred from cluster routes)
+   └─ route / (prefix) · HTTPRoute kgateway-system/api-example-com · rule 0 · match 0 (chosen from known HTTPRoutes)
       filters (request order):
         1 ratelimit/kgateway-system/ratelimit  enabled by route · GatewayExtension kgateway-system/ratelimit · TrafficPolicy kgateway-system/rate-limit (rateLimit.global)
         2 envoy.filters.http.router            on

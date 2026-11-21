@@ -1,13 +1,13 @@
-listener~80 :::80 · active · port 80
+listener~80 [::]:80 · active · port 80
 └─ vhost listener~80~api_example_com [api.example.com] · port 80
-   └─ route / (prefix) · HTTPRoute kgateway-system/api-example-com · rule 0 · match 0 (inferred from cluster routes)
+   └─ route / (prefix) · HTTPRoute kgateway-system/api-example-com · rule 0 · match 0 (chosen from known HTTPRoutes)
       filters (request order):
         1 envoy.filters.http.router  on
       backend: kube_httpbin_httpbin_8000
-listener~443 :::443 · active · port 443
+listener~443 [::]:443 · active · port 443
 └─ chain https-api · TLS api.example.com
    └─ vhost https-api~api_example_com [api.example.com] · listener https-api
-      └─ route / (prefix) · HTTPRoute kgateway-system/api-example-com · rule 0 · match 0 (inferred from cluster routes)
+      └─ route / (prefix) · HTTPRoute kgateway-system/api-example-com · rule 0 · match 0 (chosen from known HTTPRoutes)
          filters (request order):
            1 envoy.filters.http.router  on
          backend: kube_httpbin_httpbin_8000

@@ -65,7 +65,7 @@ const (
 func Text(w io.Writer, snap *model.EnvoySnapshot, opts Options) error {
 	p := printer{opts: opts}
 	if opts.Header != "" {
-		p.line(opts.Header)
+		p.line(clean(opts.Header))
 	}
 	if len(snap.Listeners) == 0 {
 		p.line(p.style(ClassWarning, nil, "no listeners"))
@@ -84,13 +84,46 @@ type printer struct {
 	ref  FilterRef
 }
 
-func (p *printer) line(s string) { p.b.WriteString(s + "\n") }
+func (p *printer) line(s string) {
+	p.b.WriteString(strings.TrimRight(s, " \t"))
+	p.b.WriteByte('\n')
+}
 
+// style cleans s, which comes from the dump, then lets the caller style it.
 func (p *printer) style(c Class, ref *FilterRef, s string) string {
+	s = clean(s)
 	if p.opts.Style == nil || s == "" {
 		return s
 	}
 	return p.opts.Style(c, ref, s)
+}
+
+// clean escapes control characters, so dump strings can't move the cursor or
+// change colours, and drops trailing whitespace. ESC prints as `\x1b`.
+func clean(s string) string {
+	if !strings.ContainsFunc(s, isControl) {
+		return strings.TrimRight(s, " ")
+	}
+	var b strings.Builder
+	for _, r := range s {
+		if isControl(r) {
+			fmt.Fprintf(&b, `\x%02x`, r)
+		} else {
+			b.WriteRune(r)
+		}
+	}
+	return strings.TrimRight(b.String(), " ")
+}
+
+func isControl(r rune) bool { return r < 0x20 || r == 0x7f || (r >= 0x80 && r < 0xa0) }
+
+// address brackets an IPv6 host, e.g. ":::80" → "[::]:80".
+func address(a string) string {
+	i := strings.LastIndex(a, ":")
+	if i <= 0 || !strings.Contains(a[:i], ":") || strings.HasPrefix(a, "[") {
+		return clean(a)
+	}
+	return clean("[" + a[:i] + "]" + a[i:])
 }
 
 // node returns the prefix for a child and the indent for its own children.
@@ -108,7 +141,7 @@ func (p *printer) listener(l model.Listener) {
 	}
 	parts := []string{p.style(ClassListener, nil, name)}
 	if l.Address != "" {
-		parts[0] += " " + l.Address
+		parts[0] += " " + address(l.Address)
 	}
 	s := l.State
 	if s.Status != "" {
@@ -145,9 +178,9 @@ func (p *printer) listener(l model.Listener) {
 	for i, fc := range l.FilterChains {
 		p.ref.FilterChainIdx = i
 		prefix, indent := node("", i == len(l.FilterChains)-1)
-		label := "chain " + fc.Name
+		label := "chain " + clean(fc.Name)
 		if fc.TLS != nil && len(fc.TLS.SNIHosts) > 0 {
-			label += " · TLS " + strings.Join(fc.TLS.SNIHosts, ", ")
+			label += " · TLS " + clean(strings.Join(fc.TLS.SNIHosts, ", "))
 		}
 		p.line(prefix + label)
 		p.chainBody(fc, indent)
@@ -206,17 +239,18 @@ func (p *printer) route(hcm model.HCMConfig, vh model.VirtualHost, r model.Route
 				parts = append(parts, wc.Name+" ("+strings.Join(slices.Sorted(maps.Keys(wc.TypedPerFilterConfig)), ", ")+")")
 			}
 		}
-		p.line(body + "backend overrides: " + strings.Join(parts, ", "))
+		p.line(body + "backend overrides: " + clean(strings.Join(parts, ", ")))
 	}
 	if p.opts.ResponseOrder {
-		p.rows(body, "filters (response order):", c.ResponseOrder(), c, func(e model.ChainEntry) model.Side { return e.Response })
+		response := func(e model.ChainEntry) bool { return e.Runs && e.Response != model.SideNo }
+		p.rows(body, heading("response", c), c, pick(c, response, true), func(e model.ChainEntry) model.Side { return e.Response })
 	}
 	if len(hcm.UpstreamFilters) > 0 {
 		var names []string
 		for _, f := range hcm.UpstreamFilters {
 			names = append(names, f.Name)
 		}
-		p.line(body + "router upstream filters (as configured): " + strings.Join(names, ", "))
+		p.line(body + "router upstream filters (as configured): " + clean(strings.Join(names, ", ")))
 	}
 	if len(r.Policies) > 0 {
 		var parts []string
@@ -228,18 +262,38 @@ func (p *printer) route(hcm model.HCMConfig, vh model.VirtualHost, r model.Route
 	p.routeActions(r, body)
 }
 
+// heading titles an order, and says when the chain is only the baseline.
+func heading(order string, c model.EffectiveChain) string {
+	if c.Conditional {
+		return "filters (" + order + " order, baseline before backend selection):"
+	}
+	return "filters (" + order + " order):"
+}
+
+// pick returns the HCM indexes of c's entries that keep holds for, in HCM
+// order or reversed. Indexes, not names: two filters can share a name.
+func pick(c model.EffectiveChain, keep func(model.ChainEntry) bool, reverse bool) []int {
+	var out []int
+	for i, e := range c.Filters {
+		if keep(e) {
+			out = append(out, i)
+		}
+	}
+	if reverse {
+		slices.Reverse(out)
+	}
+	return out
+}
+
 // filters prints the request order and, by default, a "not run:" line.
 func (p *printer) filters(c model.EffectiveChain, body string) {
-	title := "filters (request order):"
-	if c.Conditional {
-		title = "filters (request order, baseline before backend selection):"
-	}
+	title := heading("request", c)
 	request := func(e model.ChainEntry) model.Side { return e.Request }
 	if p.opts.AllFilters {
-		p.rows(body, title, c.Filters, c, request)
+		p.rows(body, title, c, pick(c, func(model.ChainEntry) bool { return true }, false), request)
 		return
 	}
-	p.rows(body, title, c.RequestOrder(), c, request)
+	p.rows(body, title, c, pick(c, func(e model.ChainEntry) bool { return e.Runs && e.Request != model.SideNo }, false), request)
 
 	var off, responseOnly []string
 	for i, e := range c.Filters {
@@ -260,25 +314,29 @@ func (p *printer) filters(c model.EffectiveChain, body string) {
 	}
 }
 
-// rows prints a numbered, aligned list of entries. side marks an entry whose
-// side in this order is unknown with "?".
-func (p *printer) rows(body, title string, entries []model.ChainEntry, c model.EffectiveChain, side func(model.ChainEntry) model.Side) {
-	if len(entries) == 0 {
+// rows prints c's entries at idx as a numbered, aligned list. side marks an
+// entry whose side in this order is unknown with "?". A conditional chain
+// prints its heading even with no rows, so the baseline label isn't lost.
+func (p *printer) rows(body, title string, c model.EffectiveChain, idx []int, side func(model.ChainEntry) model.Side) {
+	if len(idx) == 0 && !c.Conditional {
 		return
 	}
 	p.line(body + title)
-	width := 0
-	for _, e := range entries {
-		width = max(width, len(e.Name))
+	nums := make([]string, len(idx))
+	numWidth, nameWidth := 0, 0
+	for n, i := range idx {
+		nums[n] = fmt.Sprint(n + 1)
+		if side(c.Filters[i]) == model.SideUnknown {
+			nums[n] += "?"
+		}
+		numWidth = max(numWidth, len(nums[n]))
+		nameWidth = max(nameWidth, len(clean(c.Filters[i].Name)))
 	}
 	indent := body + "  "
-	for n, e := range entries {
+	for n, i := range idx {
+		e := c.Filters[i]
 		ref := p.ref
-		ref.FilterIdx = slices.IndexFunc(c.Filters, func(f model.ChainEntry) bool { return f.Name == e.Name })
-		num := fmt.Sprint(n + 1)
-		if side(e) == model.SideUnknown {
-			num += "?"
-		}
+		ref.FilterIdx = i
 		class := ClassFilter
 		if !e.Runs {
 			class = ClassFilterOff
@@ -287,11 +345,12 @@ func (p *printer) rows(body, title string, entries []model.ChainEntry, c model.E
 		for _, ct := range e.Contributions {
 			desc += " · " + p.style(ClassOrigin, nil, contribution(ct))
 		}
-		pad := strings.Repeat(" ", width-len(e.Name)+2)
+		num := nums[n] + strings.Repeat(" ", numWidth-len(nums[n]))
+		pad := strings.Repeat(" ", nameWidth-len(clean(e.Name))+2)
 		p.line(indent + num + " " + p.style(class, &ref, e.Name) + pad + desc)
 		if p.opts.Extra != nil {
 			for _, x := range p.opts.Extra(ref) {
-				p.line(strings.TrimRight(indent+"    "+x, " "))
+				p.line(indent + "    " + x)
 			}
 		}
 	}
@@ -300,13 +359,13 @@ func (p *printer) rows(body, title string, entries []model.ChainEntry, c model.E
 func (p *printer) routeActions(r model.Route, body string) {
 	var req, resp []string
 	for _, h := range r.RequestHeadersToAdd {
-		req = append(req, "+ "+h.Key+": "+h.Value)
+		req = append(req, clean("+ "+h.Key+": "+h.Value))
 	}
 	for _, h := range r.ResponseHeadersToAdd {
-		resp = append(resp, "+ "+h.Key+": "+h.Value)
+		resp = append(resp, clean("+ "+h.Key+": "+h.Value))
 	}
 	for _, h := range r.ResponseHeadersToRemove {
-		resp = append(resp, "- "+h)
+		resp = append(resp, clean("- "+h))
 	}
 	if len(req) > 0 {
 		p.line(body + "request headers: " + strings.Join(req, ", "))
@@ -318,10 +377,10 @@ func (p *printer) routeActions(r model.Route, body string) {
 		p.line(body + "mirror: " + p.style(ClassBackend, nil, strings.Join(r.MirrorClusters, ", ")))
 	}
 	if rw := r.Rewrite; rw != nil && rw.RegexPattern != "" {
-		p.line(body + "rewrite: " + rw.RegexPattern + " → " + rw.Substitution)
+		p.line(body + "rewrite: " + clean(rw.RegexPattern) + " → " + clean(rw.Substitution))
 	}
 	if rw := r.Rewrite; rw != nil && rw.Prefix != "" {
-		p.line(body + "rewrite prefix: " + rw.Prefix)
+		p.line(body + "rewrite prefix: " + clean(rw.Prefix))
 	}
 	if r.Cluster != "" {
 		p.line(body + "backend: " + p.style(ClassBackend, nil, r.Cluster))
@@ -411,7 +470,7 @@ func routeOrigin(a *model.RouteAnnotation) string {
 		s += fmt.Sprintf(" · match %d", o.MatchIndex)
 	}
 	if a.NarrowedByKnown {
-		s += " (inferred from cluster routes)"
+		s += " (chosen from known HTTPRoutes)"
 	}
 	return s
 }

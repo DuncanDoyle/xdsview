@@ -1,10 +1,6 @@
 package chain
 
-import (
-	"strings"
-
-	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
-)
+import "github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 
 // sides records, per filter type, whether Envoy installs the filter as a
 // decoder (request side), an encoder (response side) or both. Each entry cites
@@ -47,8 +43,7 @@ var (
 
 // sidesOf returns the request and response side of a filter type URL.
 func sidesOf(typeURL string) (model.Side, model.Side) {
-	name := typeURL[strings.LastIndex(typeURL, "/")+1:]
-	if s, ok := sides[name]; ok {
+	if s, ok := sides[typeName(typeURL)]; ok {
 		return s[0], s[1]
 	}
 	return model.SideUnknown, model.SideUnknown

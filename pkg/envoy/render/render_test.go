@@ -175,7 +175,7 @@ func TestText_RouteOrigins(t *testing.T) {
 	snap := sample()
 	r := &snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes[0]
 	r.Origin.NarrowedByKnown = true
-	hasLine(t, text(t, snap, render.Options{}), "   └─ route /orders (prefix) · HTTPRoute shop/orders · rule 0 · match 0 (inferred from cluster routes)")
+	hasLine(t, text(t, snap, render.Options{}), "   └─ route /orders (prefix) · HTTPRoute shop/orders · rule 0 · match 0 (chosen from known HTTPRoutes)")
 
 	r.Origin = &model.RouteAnnotation{Certainty: model.Ambiguous, Candidates: []model.RouteOrigin{
 		{Route: model.Ref{Kind: "HTTPRoute", Namespace: "a", Name: "b"}, RuleIndex: 0, MatchIndex: 0},

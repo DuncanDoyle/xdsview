@@ -34,7 +34,7 @@ func Effective(hcm model.HCMConfig, vh model.VirtualHost, r model.Route) model.E
 		if f.Disabled {
 			e.State = model.FilterOff
 		}
-		e.Request, e.Response = sidesOf(f.Type)
+		e.Request, e.Response = sidesOf(installedType(f))
 		for _, l := range levels {
 			if v, ok := l.pfc[f.Name]; ok {
 				cfg, _ := v.(map[string]any)
@@ -54,19 +54,40 @@ func Effective(hcm model.HCMConfig, vh model.VirtualHost, r model.Route) model.E
 	return c
 }
 
+// installedType is the type of the filter Envoy installs. f.Type can name a
+// composite's delegate, but the composite runs on both sides whatever the
+// delegate. An ExtensionWithMatcher keeps its inner filter's sides
+// (match_delegate/config.h), so its inner type counts.
+func installedType(f model.HTTPFilter) string {
+	typ, _ := f.TypedConfig["@type"].(string)
+	if typeName(typ) == "envoy.extensions.common.matching.v3.ExtensionWithMatcher" {
+		ext, _ := f.TypedConfig["extension_config"].(map[string]any)
+		inner, _ := ext["typed_config"].(map[string]any)
+		typ, _ = inner["@type"].(string)
+	}
+	if typ == "" {
+		return f.Type
+	}
+	return typ
+}
+
+// typeName strips the type URL prefix: "type.googleapis.com/a.B" → "a.B".
+func typeName(typeURL string) string { return typeURL[strings.LastIndex(typeURL, "/")+1:] }
+
 // decide applies one per-filter config entry to a filter the HCM enables or
 // disables. A FilterConfig with disabled set wins over its config; one with
 // neither field is invalid, and Envoy rejects it
 // (source/common/router/per_filter_config.cc, PerFilterConfigs).
 func decide(hcmDisabled bool, cfg map[string]any) (bool, model.FilterState) {
-	if typ, _ := cfg["@type"].(string); strings.HasSuffix(typ, filterConfigType) {
+	if typ, _ := cfg["@type"].(string); typeName(typ) == filterConfigType {
 		if d, _ := cfg["disabled"].(bool); d {
 			if hcmDisabled {
 				return false, model.FilterOff
 			}
 			return false, model.FilterDisabled
 		}
-		if _, ok := cfg["config"]; !ok {
+		// ProtoJSON leaves a null message unset, so it counts as missing.
+		if cfg["config"] == nil {
 			return false, model.FilterUnknown
 		}
 	}
