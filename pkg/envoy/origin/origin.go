@@ -35,9 +35,26 @@ type Mapper interface {
 	Policies(r model.Route) []model.PolicyRef
 }
 
+// PolicyFilters is implemented by mappers that know which HTTP filter a policy
+// field configures, e.g. that a TrafficPolicy's extAuth field configures an
+// ext_authz filter. It is optional; chain.Annotate uses it to attribute entries.
+type PolicyFilters interface {
+	PolicyFilter(p model.PolicyRef, f model.HTTPFilter) bool
+}
+
 // Chain returns a Mapper that asks each mapper in order and returns the first
 // answer better than Unknown. Policies come from the first mapper that returns any.
+// It implements [PolicyFilters]: a field configures a filter if any mapper says so.
 func Chain(mappers ...Mapper) Mapper { return chain(mappers) }
+
+func (c chain) PolicyFilter(p model.PolicyRef, f model.HTTPFilter) bool {
+	for _, m := range c {
+		if pf, ok := m.(PolicyFilters); ok && pf.PolicyFilter(p, f) {
+			return true
+		}
+	}
+	return false
+}
 
 type chain []Mapper
 

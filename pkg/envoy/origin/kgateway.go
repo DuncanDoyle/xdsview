@@ -254,6 +254,28 @@ func filterKind(typ string) string {
 	return kind
 }
 
+// policyFilterKinds maps a kgateway policy field to the filter kind it
+// configures, as seen in the corpus. Vendor fields belong to a plugin.
+var policyFilterKinds = map[string]string{
+	"extAuth":          "ext_authz",
+	"extProc":          "ext_proc",
+	"rateLimit.global": "ratelimit",
+	"cors":             "cors",
+}
+
+// transformationType is kgateway's transformation filter, from envoy-gloo.
+const transformationType = "type.googleapis.com/envoy.api.v2.filter.http.FilterTransformations"
+
+// PolicyFilter reports whether p's field configures f. f.Type is the
+// delegate's type for a composite filter whose delegate is known.
+func (k kgateway) PolicyFilter(p model.PolicyRef, f model.HTTPFilter) bool {
+	if p.Field == "transformation" {
+		return f.Type == transformationType
+	}
+	kind, ok := policyFilterKinds[p.Field]
+	return ok && filterKind(f.Type) == kind
+}
+
 // Policies reads every "merge.<Kind>.<group>" route metadata entry, which maps
 // a policy field to "<group>/<Kind>/<ns>/<name>" policy IDs. Any Kind is read,
 // so a vendor policy Kind appears without a plugin.
