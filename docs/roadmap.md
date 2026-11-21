@@ -85,6 +85,7 @@ The effective HTTP filter chain per route (request and response order, and what 
 Compare the controller's intended xDS (kgateway admin `/snapshots/xds`) with what Envoy accepted (`/config_dump`), and report differences per route and filter. Covers the "Config Mismatches" TODO: a filter the controller produced that Envoy does not run, or the reverse.
 
 - New source for the controller snapshot.
+- Lifecycle matters for comparison: the parser shows a warming-only or draining-only listener's config like an active one, so compare on `Listener.State`, not without it (Phase 6 review #13).
 - Diff model (added / missing / changed) exposed by the library and rendered by the `krp` CLI.
 
 ---

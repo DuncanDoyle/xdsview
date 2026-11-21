@@ -13,7 +13,21 @@ Status: 6.1–6.3 done 2026-11-21; phase review next.
 - [x] Q4 6.1 Model and parser — 45e1f43, phase-6.1-complete.md
 - [x] Q5 6.2 `pkg/envoy/chain` — 5490926, phase-6.2-complete.md
 - [x] Q6 6.3 `pkg/envoy/render` and krp — 6713dd7, phase-6.3-complete.md
-- [ ] Q7 Phase review, `v0.4.0`, program file, #27, notices ← CURRENT
+- [x] Q7 Phase review — reviews/phase-codex.md, triaged: 13 accepted, 1 deferred to Phase 7
+- [ ] Q8 (P1) Composite sides from the installed type — src: reviews/phase-codex.md#1 ← CURRENT (proposed 6.4)
+- [ ] Q9 (P1) Policy attribution only when one entry matches — #2
+- [ ] Q10 (P1) Conditional heading always qualified, response too — #3
+- [ ] Q11 (P1) FilterIdx carried, not looked up by name — #4
+- [ ] Q12 (P1) Escape control bytes, trim trailing whitespace — #5
+- [ ] Q13 (P1) `krp -i` prints the tree when nothing is selectable — #6
+- [ ] Q14 (P1) Exact `FilterConfig` type; null `config` is unset — #7
+- [ ] Q15 (P2) Wording `(chosen from known HTTPRoutes)`; tell kgwctl — #8
+- [ ] Q16 (P2) IPv6 brackets in text; padded number column — #9
+- [ ] Q17 (P2) D-009: `WeightedCluster` not comparable — #10
+- [ ] Q18 (P3) Navigation test on `View()` — #11
+- [ ] Q19 (P3) Boundary test allows only `core` — #12
+- [ ] Q20 (P4) Deep-copy per-filter config in the clone — #14
+- [ ] Q21 `v0.4.0`, program file, #27, notices
 
 ### Exit gates
 - [ ] tests/vet pass (observed)
