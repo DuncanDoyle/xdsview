@@ -12,7 +12,21 @@ const modulePrefix = "github.com/DuncanDoyle/xdsview/pkg/envoy/"
 
 // core packages may import only the standard library and each other, so that
 // consumers such as kgateway-ui's client-go-free core can use them.
-var core = []string{"model", "parser", "filter", "source", "origin", "chain"}
+var core = []string{"model", "parser", "filter", "source", "origin", "chain", "render"}
+
+// TestRenderHasNoCharmbracelet is the check kgwctl relies on: the text
+// renderer pulls in no terminal styling library.
+func TestRenderHasNoCharmbracelet(t *testing.T) {
+	out, err := exec.Command("go", "list", "-deps", modulePrefix+"render").CombinedOutput()
+	if err != nil {
+		t.Fatalf("go list render: %v\n%s", err, out)
+	}
+	for _, dep := range strings.Fields(string(out)) {
+		if strings.HasPrefix(dep, "github.com/charmbracelet/") {
+			t.Errorf("render depends on %s", dep)
+		}
+	}
+}
 
 func TestCoreImportsOnlyStdlib(t *testing.T) {
 	for _, pkg := range core {
