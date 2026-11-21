@@ -86,6 +86,7 @@ Compare the controller's intended xDS (kgateway admin `/snapshots/xds`) with wha
 
 - New source for the controller snapshot.
 - Lifecycle matters for comparison: the parser shows a warming-only or draining-only listener's config like an active one, so compare on `Listener.State`, not without it (Phase 6 review #13).
+- A filter chain whose HCM didn't decode has no HCM, like one without an HCM. The comparison must use the parser's warnings, or it reports that config as missing (6.7 review #5).
 - Diff model (added / missing / changed) exposed by the library and rendered by the `krp` CLI.
 
 ### Phase 8 — Vendor-Neutral Core

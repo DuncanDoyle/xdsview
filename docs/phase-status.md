@@ -24,10 +24,10 @@ Brief: docs/phases/phase-6/phase-6.7-brief.md
 Issues: #31
 
 ### Queue
-- [ ] Q1 (P1) warning for an HCM that fails to decode ← CURRENT
-- [ ] Q2 (P2) narrowing keeps listeners with `Updating` or `Draining`
-- [ ] Q3 Codex review of `ab593d2..HEAD`, triage
-- [ ] Q4 close: complete record, `v0.4.3`, #31, kgwctl
+- [x] Q1 (P1) warning for an HCM that fails to decode — ace0d71
+- [x] Q2 (P2) narrowing keeps listeners with `Updating` or `Draining` — ace0d71
+- [x] Q3 Codex review of `ab593d2..HEAD`, triage — reviews/6.7-codex.md, 4 accepted, 1 deferred
+- [ ] Q4 close ← CURRENT: complete record, `v0.4.3`, #31, kgwctl
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `3b71687`)

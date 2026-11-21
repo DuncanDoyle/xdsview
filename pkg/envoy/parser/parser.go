@@ -19,6 +19,7 @@ package parser
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 
@@ -151,7 +152,7 @@ func parseListener(rl rawListener, routeConfigs map[string]*model.RouteConfig) (
 		)
 	}
 
-	for _, rfc := range shown.Listener.FilterChains {
+	for i, rfc := range shown.Listener.FilterChains {
 		nfc := model.NetworkFilterChain{
 			Name: rfc.Name,
 		}
@@ -170,7 +171,7 @@ func parseListener(rl rawListener, routeConfigs map[string]*model.RouteConfig) (
 			}
 			hcm, err := parseHCM(nf.TypedConfig)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("listener %q filter chain %q: skipped HTTP connection manager: %v", l.Name, rfc.Name, err))
+				warnings = append(warnings, fmt.Sprintf("listener %q filter chain %s: skipped HTTP connection manager: %v", l.Name, chainLabel(i, rfc.Name), err))
 				continue
 			}
 			// Join with RDS route config. Deep-copy so each HCM owns its RouteConfig
@@ -188,9 +189,20 @@ func parseListener(rl rawListener, routeConfigs map[string]*model.RouteConfig) (
 	return l, warnings
 }
 
+// chainLabel names filter chain i for a warning: by name, or by index if unnamed.
+func chainLabel(i int, name string) string {
+	if name == "" {
+		return fmt.Sprintf("#%d", i)
+	}
+	return fmt.Sprintf("%q", name)
+}
+
 // parseHCM extracts the HCM config from the raw `typed_config` JSON, or returns
 // the decode error.
 func parseHCM(raw json.RawMessage) (*model.HCMConfig, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil, errors.New("no typed_config")
+	}
 	var hcm rawHCM
 	if err := json.Unmarshal(raw, &hcm); err != nil {
 		return nil, err

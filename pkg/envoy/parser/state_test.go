@@ -96,23 +96,62 @@ func TestParse_ListenerState(t *testing.T) {
 	}
 }
 
-// TestParse_UndecodableHCMWarns: an HCM whose config doesn't decode leaves its
-// filter chain without an HCM, and a warning says where.
+// hcmVersion returns one listener version whose filter chain holds an HCM with
+// the given typed_config.
+func hcmVersion(chain, typedConfig string) string {
+	return `{"listener": {"name": "listener~80", "filter_chains": [{"name": "` + chain + `",
+ "filters": [{"name": "envoy.filters.network.http_connection_manager", "typed_config": ` + typedConfig + `}]}]}}`
+}
+
+// TestParse_UndecodableHCMWarns: an HCM in the shown version whose config
+// doesn't decode leaves its filter chain without an HCM, and a warning says where.
 func TestParse_UndecodableHCMWarns(t *testing.T) {
-	dump := `{"configs": [{"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
- "dynamic_listeners": [{"name": "listener~80", "active_state": {"listener": {"name": "listener~80",
-  "filter_chains": [{"name": "fc-bad", "filters": [{"name": "envoy.filters.network.http_connection_manager",
-   "typed_config": {"@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
-    "http_filters": "not a list"}}]}]}}}]}]}`
-	result, err := parser.Parse(strings.NewReader(dump))
-	if err != nil {
-		t.Fatal(err)
+	const hcmType = `"@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"`
+	bad := `{` + hcmType + `, "http_filters": "not a list"}`
+	good := `{` + hcmType + `, "http_filters": []}`
+
+	tests := []struct {
+		name      string
+		entry     string
+		wantWarn  []string // substrings of the one warning; nil means no warning
+		wantChain string
+		wantHCM   bool
+	}{
+		{"active, bad", `"active_state": ` + hcmVersion("fc-bad", bad),
+			[]string{`listener "listener~80"`, `filter chain "fc-bad"`}, "fc-bad", false},
+		{"active, unnamed, null", `"active_state": ` + hcmVersion("", "null"),
+			[]string{`listener "listener~80"`, "filter chain #0", "no typed_config"}, "", false},
+		{"warming only, bad", `"warming_state": ` + hcmVersion("fc-bad", bad),
+			[]string{`filter chain "fc-bad"`}, "fc-bad", false},
+		{"draining only, bad", `"draining_state": ` + hcmVersion("fc-bad", bad),
+			[]string{`filter chain "fc-bad"`}, "fc-bad", false},
+		{"active good, warming bad (not shown)", `"active_state": ` + hcmVersion("fc-good", good) + `, "warming_state": ` + hcmVersion("fc-bad", bad),
+			nil, "fc-good", true},
 	}
-	if len(result.Warnings) != 1 || !strings.Contains(result.Warnings[0], `"listener~80"`) || !strings.Contains(result.Warnings[0], `"fc-bad"`) {
-		t.Errorf("warnings = %q, want one naming listener~80 and fc-bad", result.Warnings)
-	}
-	ls := result.Snapshot.Listeners
-	if len(ls) != 1 || !reflect.DeepEqual(chainNames(ls[0]), []string{"fc-bad"}) || ls[0].FilterChains[0].HCM != nil {
-		t.Errorf("listeners = %+v, want listener~80 with filter chain fc-bad and no HCM", ls)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dump := `{"configs": [{"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
+ "dynamic_listeners": [{"name": "listener~80", ` + tt.entry + `}]}]}`
+			result, err := parser.Parse(strings.NewReader(dump))
+			if err != nil {
+				t.Fatal(err)
+			}
+			switch {
+			case tt.wantWarn == nil && len(result.Warnings) != 0:
+				t.Errorf("warnings = %q, want none", result.Warnings)
+			case tt.wantWarn != nil && len(result.Warnings) != 1:
+				t.Errorf("warnings = %q, want one", result.Warnings)
+			case tt.wantWarn != nil:
+				for _, s := range tt.wantWarn {
+					if !strings.Contains(result.Warnings[0], s) {
+						t.Errorf("warning %q, want it to contain %q", result.Warnings[0], s)
+					}
+				}
+			}
+			ls := result.Snapshot.Listeners
+			if len(ls) != 1 || !reflect.DeepEqual(chainNames(ls[0]), []string{tt.wantChain}) || (ls[0].FilterChains[0].HCM != nil) != tt.wantHCM {
+				t.Errorf("listeners = %+v, want one filter chain %q, HCM %v", ls, tt.wantChain, tt.wantHCM)
+			}
+		})
 	}
 }
