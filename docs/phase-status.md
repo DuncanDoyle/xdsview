@@ -18,21 +18,12 @@ Status: not started. Phase 6 complete 2026-11-21 (`v0.4.0`, docs/phases/phase-6/
 - [ ] phase-7-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-Sub-phase: 6.7 — Silent HCM skips, listeners mid-update (stabilization, `v0.4.3`)
-Base: ab593d2
-Brief: docs/phases/phase-6/phase-6.7-brief.md
-Issues: #31
-
-### Queue
-- [x] Q1 (P1) warning for an HCM that fails to decode — ace0d71
-- [x] Q2 (P2) narrowing keeps listeners with `Updating` or `Draining` — ace0d71
-- [x] Q3 Codex review of `ab593d2..HEAD`, triage — reviews/6.7-codex.md, 4 accepted, 1 deferred
-- [ ] Q4 close ← CURRENT: complete record, `v0.4.3`, #31, kgwctl
+none
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `3b71687`)
 Waiting on: nothing
-Consumers: E11 available (`v0.4.2`, kgwctl#10); E4 effective chain available, intended vs accepted is Phase 7 (snellius#63)
+Consumers: E11 available (`v0.4.3`, kgwctl#10); E4 effective chain available, intended vs accepted is Phase 7 (snellius#63)
 
 ## Carry-over (deferred to later phases)
 - #26 (P2) kube source: cancellation through an API-server proxy — deferred, not a requirement (owner, 2026-11-05). kgwctl fixed the same gap in its own dialer and offered its code.
@@ -40,6 +31,7 @@ Consumers: E11 available (`v0.4.2`, kgwctl#10); E4 effective chain available, in
 - #32 E6 cleanup (enterprise corpus, enterprise type in the core mapper): its own phase, before kgwctl moves into kgateway (owner, 2026-11-21).
 
 ## Notes
+- 2026-11-21: Phase 6 patch `v0.4.3` (sub-phase 6.7, #31): warning for a skipped HCM; narrowing keeps listeners mid-update. E6 cleanup planned as Phase 8 (#32).
 - 2026-11-21: Phase 6 patch `v0.4.2` (sub-phase 6.6, #29): narrowing edge cases. #30 open (unmapped policy fields).
 - 2026-11-21: Phase 6 patch `v0.4.1` (sub-phase 6.5, #28, D-010): attribution gaps and `RouteExtra`.
 - 2026-11-21: Phase 6 closed: `v0.4.0` tagged, #27 closed, notices kgwctl#10 and snellius#63, program file `3b71687`.
