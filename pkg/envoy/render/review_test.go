@@ -75,6 +75,24 @@ func TestText_UntrustedStrings(t *testing.T) {
 	}
 }
 
+// TestText_InnerSpacesKept: escaping keeps spaces inside a line; only the
+// line's end is trimmed.
+func TestText_InnerSpacesKept(t *testing.T) {
+	snap := oneHCM([]model.HTTPFilter{{Name: "router"}}, model.Route{
+		Rewrite:             &model.RouteRewrite{RegexPattern: "^x ", Substitution: "/y"},
+		RequestHeadersToAdd: []model.HeaderOperation{{Key: "a", Value: "1 "}, {Key: "b", Value: "2"}}})
+	out := text(t, snap, render.Options{})
+	hasLine(t, out, "      rewrite: ^x  → /y")
+	hasLine(t, out, "      request headers: + a: 1 , + b: 2")
+}
+
+// TestText_UTF8Alignment: padding counts characters, not bytes.
+func TestText_UTF8Alignment(t *testing.T) {
+	out := text(t, oneHCM([]model.HTTPFilter{{Name: "é", Type: httpFilters + "cors.v3.Cors"}, {Name: "a", Type: httpFilters + "cors.v3.Cors"}}, model.Route{}), render.Options{})
+	hasLine(t, out, "        1 é  on")
+	hasLine(t, out, "        2 a  on")
+}
+
 func TestText_KnownWording(t *testing.T) {
 	snap := oneHCM([]model.HTTPFilter{{Name: "router"}}, model.Route{Origin: &model.RouteAnnotation{
 		Certainty: model.Inferred, NarrowedByKnown: true,
@@ -94,20 +112,23 @@ func TestText_AddressesAndAlignment(t *testing.T) {
 	if !strings.HasPrefix(out, "l [::]:80 · active\n") {
 		t.Errorf("listener line = %q", strings.SplitN(out, "\n", 2)[0])
 	}
-	col := -1
+	col, rows := -1, 0
 	for _, l := range strings.Split(out, "\n") {
 		i := strings.Index(l, "  on")
 		if !strings.Contains(l, " f") || i < 0 {
 			continue
 		}
+		rows++
 		if col >= 0 && i != col {
 			t.Errorf("state column at %d, want %d: %q", i, col, l)
 		}
 		col = i
 	}
-	if col < 0 {
-		t.Fatalf("no filter rows in\n%s", out)
+	if rows != 10 {
+		t.Fatalf("got %d filter rows, want 10:\n%s", rows, out)
 	}
+	hasLine(t, out, "        4? f3  on")
+	hasLine(t, out, "        10 f9  on")
 
 	for addr, want := range map[string]string{"0.0.0.0:80": "0.0.0.0:80", "[::]:443": "[::]:443", "": ""} {
 		snap := oneHCM(nil, model.Route{})

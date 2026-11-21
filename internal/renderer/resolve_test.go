@@ -6,6 +6,8 @@ package renderer
 
 import (
 	"reflect"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
@@ -147,3 +149,27 @@ func TestResolveFilterConfig(t *testing.T) {
 		})
 	}
 }
+
+// TestRenderInteractive_DuplicateNamesOwnConfig: two HCM filters share a name.
+// Expanded, each row shows its own config directly under it.
+func TestRenderInteractive_DuplicateNamesOwnConfig(t *testing.T) {
+	snap := oneRoute(model.HTTPFilter{Name: "dup", TypedConfig: map[string]any{"which": "first"}}, nil, nil, nil)
+	hcm := snap.Listeners[0].FilterChains[0].HCM
+	hcm.HTTPFilters = append(hcm.HTTPFilters, model.HTTPFilter{Name: "dup", TypedConfig: map[string]any{"which": "second"}})
+	first, second := render.FilterRef{FilterIdx: 0}, render.FilterRef{FilterIdx: 1}
+	out := RenderInteractive(snap, RenderOpts{Expanded: map[render.FilterRef]bool{first: true, second: true}})
+
+	lines := strings.Split(ansiCodes.ReplaceAllString(out, ""), "\n")
+	var got []string
+	for i, l := range lines {
+		if strings.Contains(l, " dup ") && i+2 < len(lines) {
+			got = append(got, strings.TrimSpace(lines[i+1])+strings.TrimSpace(lines[i+2]))
+		}
+	}
+	want := []string{`{"which": "first"`, `{"which": "second"`}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("config under each dup row = %q, want %q\n%s", got, want, out)
+	}
+}
+
+var ansiCodes = regexp.MustCompile(`\x1b\[[0-9;]*m`)

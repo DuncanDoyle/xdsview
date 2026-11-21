@@ -11,6 +11,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/chain"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
@@ -99,10 +100,10 @@ func (p *printer) style(c Class, ref *FilterRef, s string) string {
 }
 
 // clean escapes control characters, so dump strings can't move the cursor or
-// change colours, and drops trailing whitespace. ESC prints as `\x1b`.
+// change colours. ESC prints as `\x1b`. Spaces stay; line trims the line's end.
 func clean(s string) string {
 	if !strings.ContainsFunc(s, isControl) {
-		return strings.TrimRight(s, " ")
+		return s
 	}
 	var b strings.Builder
 	for _, r := range s {
@@ -112,7 +113,7 @@ func clean(s string) string {
 			b.WriteRune(r)
 		}
 	}
-	return strings.TrimRight(b.String(), " ")
+	return b.String()
 }
 
 func isControl(r rune) bool { return r < 0x20 || r == 0x7f || (r >= 0x80 && r < 0xa0) }
@@ -330,7 +331,7 @@ func (p *printer) rows(body, title string, c model.EffectiveChain, idx []int, si
 			nums[n] += "?"
 		}
 		numWidth = max(numWidth, len(nums[n]))
-		nameWidth = max(nameWidth, len(clean(c.Filters[i].Name)))
+		nameWidth = max(nameWidth, utf8.RuneCountInString(clean(c.Filters[i].Name)))
 	}
 	indent := body + "  "
 	for n, i := range idx {
@@ -346,7 +347,7 @@ func (p *printer) rows(body, title string, c model.EffectiveChain, idx []int, si
 			desc += " · " + p.style(ClassOrigin, nil, contribution(ct))
 		}
 		num := nums[n] + strings.Repeat(" ", numWidth-len(nums[n]))
-		pad := strings.Repeat(" ", nameWidth-len(clean(e.Name))+2)
+		pad := strings.Repeat(" ", nameWidth-utf8.RuneCountInString(clean(e.Name))+2)
 		p.line(indent + num + " " + p.style(class, &ref, e.Name) + pad + desc)
 		if p.opts.Extra != nil {
 			for _, x := range p.opts.Extra(ref) {

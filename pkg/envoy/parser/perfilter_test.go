@@ -22,7 +22,9 @@ const perFilterDump = `{"configs": [
   "typed_per_filter_config": {"cors": {"@type": "type.googleapis.com/envoy.config.route.v3.FilterConfig", "disabled": true}},
   "virtual_hosts": [{"name": "vh", "domains": ["*"],
    "typed_per_filter_config": {"ext_auth": {"@type": "type.googleapis.com/envoy.config.route.v3.FilterConfig", "config": {}}},
-   "routes": [{"name": "r", "match": {"prefix": "/"}, "route": {"weighted_clusters": {"clusters": [
+   "routes": [{"name": "r", "match": {"prefix": "/"},
+    "typed_per_filter_config": {"rbac": {"@type": "type.googleapis.com/acme.Rbac", "rules": [{"allow": true}]}},
+    "route": {"weighted_clusters": {"clusters": [
     {"name": "v1", "weight": 80,
      "typed_per_filter_config": {"ext_auth": {"@type": "type.googleapis.com/envoy.config.route.v3.FilterConfig", "disabled": true}}},
     {"name": "v2", "weight": 20}]}}}]}]}}]}]}`
@@ -88,6 +90,15 @@ func TestParse_PerFilterConfigIsolated(t *testing.T) {
 	}
 	if d := b.VirtualHosts[0].Routes[0].WeightedClusters[0].TypedPerFilterConfig["ext_auth"].(map[string]any)["disabled"]; d != true {
 		t.Errorf("weighted cluster: nested change to listener a's copy shows in listener b's: disabled = %v", d)
+	}
+	// An array inside route-level config, and a nested route-config value.
+	a.VirtualHosts[0].Routes[0].TypedPerFilterConfig["rbac"].(map[string]any)["rules"].([]any)[0].(map[string]any)["allow"] = false
+	a.TypedPerFilterConfig["cors"].(map[string]any)["disabled"] = false
+	if v := b.VirtualHosts[0].Routes[0].TypedPerFilterConfig["rbac"].(map[string]any)["rules"].([]any)[0].(map[string]any)["allow"]; v != true {
+		t.Errorf("route: change inside an array shows in listener b's copy: allow = %v", v)
+	}
+	if d := b.TypedPerFilterConfig["cors"].(map[string]any)["disabled"]; d != true {
+		t.Errorf("route config: nested change shows in listener b's copy: disabled = %v", d)
 	}
 	for level, m := range map[string]map[string]any{
 		"route config":     b.TypedPerFilterConfig,

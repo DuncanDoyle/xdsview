@@ -50,7 +50,7 @@ Envoy rejects a `FilterConfig` that has neither `disabled: true` nor `config` ([
 
 ## Model
 
-These are additive changes. `krp dump -o json` stays `v1alpha1` (D-005: only removals or renames bump it).
+These are additive changes, except that `WeightedCluster` is no longer comparable in Go (D-009). `krp dump -o json` stays `v1alpha1` (D-005: only removals or renames bump it).
 
 ```go
 // Listener: state from the dynamic_listeners entry.
@@ -235,7 +235,7 @@ The listener line shows the state and any error. A listener that isn't active sh
 
 ## Compatibility
 
-- Library: additive (`model` fields, new packages, optional interface). `internal/renderer`'s exported API is internal.
+- Library: additive (`model` fields, new packages, optional interface), with one break: `WeightedCluster` holds a map and is no longer comparable with `==` (D-009). `internal/renderer`'s exported API is internal.
 - `krp dump` text output changes layout (above). The flags stay the same.
 - `krp dump -o json`: additive fields (`state`, `effectiveChain`, `typedPerFilterConfig` on vhost, route config and weighted cluster). Goldens are regenerated, and the diff contains additions only.
 - `filter.Filter`: results change only for annotated snapshots (origin-based matching, with ambiguous routes excluded) and for non-active or failed listeners, which now survive narrowing. Un-annotated results are unchanged.

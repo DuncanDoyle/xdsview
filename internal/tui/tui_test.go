@@ -446,7 +446,10 @@ func TestNavigation_EnabledDisabledEnabled(t *testing.T) {
 		if plain := ansiPattern.ReplaceAllString(view[cursor], ""); !strings.Contains(plain, s.row) {
 			t.Errorf("step %d: highlighted row %q, want it to contain %q", i, plain, s.row)
 		}
-		// The config sits right under the row: the lines up to the closing brace.
+		// The config sits right under the row: "{" first, then up to the closing brace.
+		if cursor+1 >= len(view) || strings.TrimSpace(ansiPattern.ReplaceAllString(view[cursor+1], "")) != "{" {
+			t.Fatalf("step %d: the line under the cursor row doesn't open the config", i)
+		}
 		var below []string
 		for _, l := range view[cursor+1:] {
 			below = append(below, ansiPattern.ReplaceAllString(l, ""))
@@ -456,6 +459,33 @@ func TestNavigation_EnabledDisabledEnabled(t *testing.T) {
 		}
 		if !strings.Contains(strings.Join(below, "\n"), s.config) {
 			t.Errorf("step %d: config %s not directly under the row; got:\n%s", i, s.config, strings.Join(below, "\n"))
+		}
+	}
+}
+
+// TestNavigation_CursorStaysOnScreen: in a viewport shorter than the tree, the
+// selected row stays visible as the cursor moves down.
+func TestNavigation_CursorStaysOnScreen(t *testing.T) {
+	var filters []envoymodel.HTTPFilter
+	for _, n := range []string{"a", "b", "c", "d", "e"} {
+		filters = append(filters, envoymodel.HTTPFilter{Name: n})
+	}
+	snapshot := &envoymodel.EnvoySnapshot{Listeners: []envoymodel.Listener{{Name: "l",
+		FilterChains: []envoymodel.NetworkFilterChain{{HCM: &envoymodel.HCMConfig{HTTPFilters: filters,
+			RouteConfig: &envoymodel.RouteConfig{VirtualHosts: []envoymodel.VirtualHost{{Name: "vh",
+				Routes: []envoymodel.Route{{Cluster: "c"}}}}}}}}}}}
+	// Four rows: three for the viewport, one for the help bar.
+	next, _ := initialModel(snapshot).Update(tea.WindowSizeMsg{Width: 80, Height: 4})
+	m := next.(model)
+	for i, name := range []string{"a", "b", "c", "d", "e"} {
+		if i > 0 {
+			next, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+			m = next.(model)
+		}
+		view := strings.Split(m.View(), "\n")
+		cursor := slices.IndexFunc(view, func(l string) bool { return strings.Contains(l, "\x1b[7m") })
+		if cursor < 0 || !strings.Contains(ansiPattern.ReplaceAllString(view[cursor], ""), " "+name+" ") {
+			t.Errorf("step %d: row %q not highlighted on screen:\n%s", i, name, ansiPattern.ReplaceAllString(m.View(), ""))
 		}
 	}
 }
