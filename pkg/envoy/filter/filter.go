@@ -133,7 +133,7 @@ func filterVirtualHost(vh model.VirtualHost, opts Options) *model.VirtualHost {
 	out := vh
 	out.Routes = nil
 	for _, r := range vh.Routes {
-		if selected(r, opts) {
+		if selected(vh, r, opts) {
 			out.Routes = append(out.Routes, r)
 		}
 	}
@@ -150,7 +150,7 @@ var metadataMapper = origin.Kgateway(origin.KgatewayOptions{})
 // annotated route is judged by its origin, and never selected when that is
 // Ambiguous. Otherwise a route with route_source metadata is judged by it, and
 // others by their name.
-func selected(r model.Route, opts Options) bool {
+func selected(vh model.VirtualHost, r model.Route, opts Options) bool {
 	if a := r.Origin; a != nil {
 		if a.Certainty == model.Ambiguous || len(a.Candidates) != 1 {
 			return false
@@ -162,7 +162,22 @@ func selected(r model.Route, opts Options) bool {
 			return candidateMatches(a.Candidates[0], opts)
 		}
 	}
-	return routeMatches(r.Name, opts)
+	return routeMatches(routePart(vh.Name, r.Name), opts)
+}
+
+// routePart strips "<vhost>-route-<n>-" from a kgateway route name, so name
+// matching can't hit a marker inside the vhost name. A name in another format
+// is returned whole.
+func routePart(vhost, name string) string {
+	rest, ok := strings.CutPrefix(name, vhost+"-route-")
+	if !ok {
+		return name
+	}
+	n, after, ok := strings.Cut(rest, "-")
+	if !ok || !isDigits(n) {
+		return name
+	}
+	return after
 }
 
 // routeMatches reports whether the Envoy route name encodes the HTTPRoute
@@ -220,10 +235,12 @@ func isDigits(s string) bool {
 	return true
 }
 
-// Ambiguous returns the names of the routes [Filter] leaves out because their
-// origin is Ambiguous while one of its candidates is the HTTPRoute (and rule)
-// in opts. Each name appears once, in snapshot order. Use it to tell the user
-// that a route may be missing from the narrowed view.
+// Ambiguous returns the names of annotated routes that [Filter] leaves out but
+// that may belong to the HTTPRoute (and rule) in opts: their origin isn't
+// Exact, and one reading of the route name alone is that HTTPRoute. Readings
+// that Known set aside count, because Envoy can still serve a route for a
+// deleted HTTPRoute. Each name appears once, in snapshot order. Use it to tell
+// the user that a route may be missing from the narrowed view.
 func Ambiguous(snapshot *model.EnvoySnapshot, opts Options) []string {
 	if opts.HTTPRouteName == "" {
 		return nil
@@ -237,10 +254,12 @@ func Ambiguous(snapshot *model.EnvoySnapshot, opts Options) []string {
 			}
 			for _, vh := range fc.HCM.RouteConfig.VirtualHosts {
 				for _, r := range vh.Routes {
-					if r.Origin == nil || r.Origin.Certainty != model.Ambiguous || seen[r.Name] {
+					if r.Origin == nil || r.Origin.Certainty == model.Exact || seen[r.Name] || selected(vh, r, opts) {
 						continue
 					}
-					if slices.ContainsFunc(r.Origin.Candidates, func(o model.RouteOrigin) bool { return candidateMatches(o, opts) }) {
+					// The name's readings without Known: metadataMapper has none.
+					readings := metadataMapper.Route(model.Route{Name: r.Name}).Candidates
+					if slices.ContainsFunc(readings, func(o model.RouteOrigin) bool { return candidateMatches(o, opts) }) {
 						seen[r.Name] = true
 						out = append(out, r.Name)
 					}

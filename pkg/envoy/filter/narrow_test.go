@@ -57,7 +57,8 @@ func TestFilter_AnnotatedOrigins(t *testing.T) {
 		{"ambiguous: orders-team/a not selected", unknown, opts("a", "orders-team"), nil, []string{collidingRoute}},
 		{"ambiguous: unrelated HTTPRoute not reported", unknown, opts("x", "y"), nil, nil},
 		{"known orders/team-a: selected", known, opts("team-a", "orders"), []string{collidingRoute}, nil},
-		{"known orders/team-a: orders-team/a not selected", known, opts("a", "orders-team"), nil, nil},
+		// Known set the orders-team/a reading aside, but Envoy may still serve a deleted orders-team/a (#29).
+		{"known orders/team-a: orders-team/a not selected, listed", known, opts("a", "orders-team"), nil, []string{collidingRoute}},
 		{"known: rule 0 selected", known, filter.Options{HTTPRouteName: "orders", HTTPRouteNamespace: "team-a"}, []string{collidingRoute}, nil},
 		{"known: rule 1 not selected", known, filter.Options{HTTPRouteName: "orders", HTTPRouteNamespace: "team-a", RuleIndex: 1}, nil, nil},
 	}
@@ -114,4 +115,63 @@ func stateOf(snap *model.EnvoySnapshot, name string) model.ListenerState {
 		}
 	}
 	return model.ListenerState{}
+}
+
+// readings4 reads as a/b-c-d, a-b/c-d and a-b-c/d.
+const readings4 = "listener~80~shop-route-0-httproute-a-b-c-d-0-0-matcher-0"
+
+// TestAmbiguous_AllNameReadings: a route Known narrowed may still serve a
+// deleted HTTPRoute, so Ambiguous judges it on all its name's readings (#29).
+func TestAmbiguous_AllNameReadings(t *testing.T) {
+	raw := &model.EnvoySnapshot{Listeners: []model.Listener{
+		listener("listener~80", model.ListenerState{Status: model.ListenerActive}, readings4),
+	}}
+	annotate := func(known ...model.Ref) *model.EnvoySnapshot {
+		return origin.Annotate(raw, origin.Kgateway(origin.KgatewayOptions{Known: known}))
+	}
+	tests := []struct {
+		name string
+		snap *model.EnvoySnapshot
+	}{
+		{"Known keeps two other readings", annotate(routeRef("b-c-d", "a"), routeRef("c-d", "a-b"))},
+		{"Known keeps one other reading", annotate(routeRef("b-c-d", "a"))},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			o := opts("d", "a-b-c")
+			if got := routeNames(filter.Filter(tt.snap, o)); got != nil {
+				t.Errorf("Filter = %v, want nothing", got)
+			}
+			if got, want := filter.Ambiguous(tt.snap, o), []string{readings4}; !reflect.DeepEqual(got, want) {
+				t.Errorf("Ambiguous = %v, want %v", got, want)
+			}
+		})
+	}
+
+	// Selected routes and exact origins are never listed.
+	known := annotate(routeRef("b-c-d", "a"))
+	if got := filter.Ambiguous(known, opts("b-c-d", "a")); got != nil {
+		t.Errorf("selected route listed: %v", got)
+	}
+	exact := annotate()
+	exact.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes[0].Origin = &model.RouteAnnotation{
+		Certainty: model.Exact, Candidates: []model.RouteOrigin{{Route: routeRef("x", "y")}}}
+	if got := filter.Ambiguous(exact, opts("d", "a-b-c")); got != nil {
+		t.Errorf("exact origin listed: %v", got)
+	}
+}
+
+// TestFilter_NameMatchIgnoresVhost: an unannotated route matches only on the
+// part after "<vhost>-route-<n>-", not inside the vhost name (#29).
+func TestFilter_NameMatchIgnoresVhost(t *testing.T) {
+	const vhost = "listener~80~httproute-orders-team-a-example"
+	name := vhost + "-route-0-httproute-web-shop-0-0-matcher-0"
+	snap := &model.EnvoySnapshot{Listeners: []model.Listener{{Name: "l", FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
+		RouteConfig: &model.RouteConfig{VirtualHosts: []model.VirtualHost{{Name: vhost, Routes: []model.Route{{Name: name}}}}}}}}}}}
+	if got := routeNames(filter.Filter(snap, opts("team-a", "orders"))); got != nil {
+		t.Errorf("team-a/orders selected %v; the marker is in the vhost name", got)
+	}
+	if got := routeNames(filter.Filter(snap, opts("shop", "web"))); !reflect.DeepEqual(got, []string{name}) {
+		t.Errorf("shop/web selected %v, want the route", got)
+	}
 }
