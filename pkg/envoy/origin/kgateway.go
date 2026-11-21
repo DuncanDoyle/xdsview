@@ -257,22 +257,39 @@ func filterKind(typ string) string {
 }
 
 // policyFilterKinds maps a kgateway policy field to the filter kind it
-// configures, as seen in the corpus. Vendor fields belong to a plugin.
+// configures (kgateway v2.5.1, plugins/trafficpolicy). Vendor fields belong to a plugin.
 var policyFilterKinds = map[string]string{
 	"extAuth":          "ext_authz",
 	"extProc":          "ext_proc",
 	"rateLimit.global": "ratelimit",
+	"rateLimit.local":  "local_ratelimit",
 	"cors":             "cors",
 }
 
-// transformationType is kgateway's transformation filter, from envoy-gloo.
-const transformationType = "type.googleapis.com/envoy.api.v2.filter.http.FilterTransformations"
+// globalDisable maps a field to the helper filter kgateway enables per route
+// when a policy turns that feature off (extauth_policy.go, extproc_policy.go).
+var globalDisable = map[string]string{
+	"extAuth": "global_disable/ext_auth",
+	"extProc": "global_disable/ext_proc",
+}
+
+const (
+	// transformationType is the envoy-gloo transformation filter (enterprise).
+	transformationType = "type.googleapis.com/envoy.api.v2.filter.http.FilterTransformations"
+	// rustformation is OSS kgateway's transformation, a dynamic module filter
+	// (traffic_policy_plugin.go, "dynamic_modules/simple_mutations").
+	rustformation = "rustformation"
+)
 
 // PolicyFilter reports whether p's field configures f. f.Type is the
 // delegate's type for a composite filter whose delegate is known.
 func (k kgateway) PolicyFilter(p model.PolicyRef, f model.HTTPFilter) bool {
+	if name, ok := globalDisable[p.Field]; ok && f.Name == name {
+		return true
+	}
 	if p.Field == "transformation" {
-		return f.Type == transformationType
+		name, _ := f.TypedConfig["filter_name"].(string)
+		return f.Type == transformationType || filterKind(f.Type) == "dynamic_modules" && name == rustformation
 	}
 	kind, ok := policyFilterKinds[p.Field]
 	return ok && filterKind(f.Type) == kind

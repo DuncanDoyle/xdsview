@@ -189,11 +189,34 @@ func TestKgateway_PolicyFilter(t *testing.T) {
 		{"transformation", http + "ext_authz.v3.ExtAuthz", false},
 		{"extAuth", http + "ext_proc.v3.ExternalProcessor", false},
 		{"entExtAuth", http + "ext_authz.v3.ExtAuthz", false},
+		{"rateLimit.local", http + "local_ratelimit.v3.LocalRateLimit", true},
+		{"rateLimit.local", http + "ratelimit.v3.RateLimit", false},
 	}
 	for _, tt := range tests {
 		p := model.PolicyRef{Field: tt.field}
 		if got := pf.PolicyFilter(p, model.HTTPFilter{Type: tt.typ}); got != tt.want {
 			t.Errorf("PolicyFilter(%s, %s) = %v, want %v", tt.field, tt.typ, got, tt.want)
+		}
+	}
+
+	// Filters identified by more than their type.
+	dm := http + "dynamic_modules.v3.DynamicModuleFilter"
+	setMeta := http + "set_metadata.v3.Config"
+	byFilter := []struct {
+		field string
+		f     model.HTTPFilter
+		want  bool
+	}{
+		{"transformation", model.HTTPFilter{Type: dm, TypedConfig: map[string]any{"filter_name": "rustformation"}}, true},
+		{"transformation", model.HTTPFilter{Type: dm, TypedConfig: map[string]any{"filter_name": "other"}}, false},
+		{"extAuth", model.HTTPFilter{Name: "global_disable/ext_auth", Type: setMeta}, true},
+		{"extProc", model.HTTPFilter{Name: "global_disable/ext_proc", Type: setMeta}, true},
+		{"extAuth", model.HTTPFilter{Name: "global_disable/ext_proc", Type: setMeta}, false},
+		{"cors", model.HTTPFilter{Type: setMeta}, false},
+	}
+	for _, tt := range byFilter {
+		if got := pf.PolicyFilter(model.PolicyRef{Field: tt.field}, tt.f); got != tt.want {
+			t.Errorf("PolicyFilter(%s, %s %s) = %v, want %v", tt.field, tt.f.Name, tt.f.Type, got, tt.want)
 		}
 	}
 }

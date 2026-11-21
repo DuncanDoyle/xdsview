@@ -150,7 +150,19 @@
                               "level": "route",
                               "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilterPerRoute",
                               "request": "yes",
-                              "response": "yes"
+                              "response": "yes",
+                              "contributions": [
+                                {
+                                  "kind": "policy",
+                                  "ref": {
+                                    "group": "gateway.kgateway.dev",
+                                    "kind": "TrafficPolicy",
+                                    "namespace": "kgateway-system",
+                                    "name": "transformation"
+                                  },
+                                  "field": "transformation"
+                                }
+                              ]
                             },
                             {
                               "name": "envoy.filters.http.router",
@@ -321,7 +333,19 @@
                               "level": "route",
                               "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilterPerRoute",
                               "request": "yes",
-                              "response": "yes"
+                              "response": "yes",
+                              "contributions": [
+                                {
+                                  "kind": "policy",
+                                  "ref": {
+                                    "group": "gateway.kgateway.dev",
+                                    "kind": "TrafficPolicy",
+                                    "namespace": "kgateway-system",
+                                    "name": "transformation"
+                                  },
+                                  "field": "transformation"
+                                }
+                              ]
                             },
                             {
                               "name": "envoy.filters.http.router",
