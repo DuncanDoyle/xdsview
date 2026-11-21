@@ -4,7 +4,7 @@
 Phase: 6 — Route View for Consumers
 Base: 40a5863
 Docs: docs/phases/phase-6/
-Status: design approved 2026-11-21; 6.1 and 6.2 done; 6.3 next.
+Status: 6.1–6.3 done 2026-11-21; phase review next.
 
 ### Queue
 - [x] Q1 Phase 6 design + plan (`design.md`, `implementation-plan.md`)
@@ -12,8 +12,8 @@ Status: design approved 2026-11-21; 6.1 and 6.2 done; 6.3 next.
 - [x] Q3 Owner approval of design (2026-11-21; both open questions answered "yes")
 - [x] Q4 6.1 Model and parser — 45e1f43, phase-6.1-complete.md
 - [x] Q5 6.2 `pkg/envoy/chain` — 5490926, phase-6.2-complete.md
-- [ ] Q6 6.3 `pkg/envoy/render` and krp ← CURRENT
-- [ ] Q7 Phase review, `v0.4.0`, program file, #27, notices
+- [x] Q6 6.3 `pkg/envoy/render` and krp — 6713dd7, phase-6.3-complete.md
+- [ ] Q7 Phase review, `v0.4.0`, program file, #27, notices ← CURRENT
 
 ### Exit gates
 - [ ] tests/vet pass (observed)
@@ -24,24 +24,7 @@ Status: design approved 2026-11-21; 6.1 and 6.2 done; 6.3 next.
 - [ ] phase-6-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-Sub-phase: 6.3 — `pkg/envoy/render` and krp
-Kind: planned
-Base: 371297e
-Brief: docs/phases/phase-6/phase-6.3-brief.md
-
-### Allowed work
-Features within the approved design.
-
-### Not allowed
-Design changes without a decisions.md entry and owner approval.
-
-### Queue
-- [ ] S1 `render.Text`, options, goldens, determinism/ANSI/whitespace tests ← CURRENT
-- [ ] S2 `internal/renderer` and TUI over `render`; navigation test
-- [ ] S3 `krp`: `chain.Annotate` for text and JSON; JSON goldens additive
-- [ ] S4 Boundary test with charmbracelet assertion and mutation check
-- [ ] S5 Manual TUI run; live kind check (03, ext_authz stats)
-- [ ] S6 README; phase-6.3-complete.md; message kgwctl
+none
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, read at `780ad25`)
