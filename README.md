@@ -245,7 +245,7 @@ withChains := chain.Annotate(narrowed, m)
 err = render.Text(os.Stdout, withChains, render.Options{Header: "Gateway kgateway-system/gw"})
 ```
 
-`render.Options` has `AllFilters` (list every HCM filter inline), `ResponseOrder`, and two hooks for styled or interactive callers: `Style` and `Extra`.
+`render.Options` has `AllFilters` (list every HCM filter inline), `ResponseOrder`, and hooks for styled or interactive callers: `Style`, `Extra` (lines under a filter row) and `RouteExtra` (lines under a route line).
 
 ---
 

@@ -93,6 +93,31 @@ func TestText_UTF8Alignment(t *testing.T) {
 	hasLine(t, out, "        2 a  on")
 }
 
+// TestText_RouteExtra: lines from RouteExtra print under each route line,
+// before its filters, with that route's ref (D-010).
+func TestText_RouteExtra(t *testing.T) {
+	snap := oneHCM([]model.HTTPFilter{{Name: "router"}}, model.Route{Match: model.RouteMatch{Prefix: "/a"}})
+	vh := &snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0]
+	vh.Routes = append(vh.Routes, model.Route{Match: model.RouteMatch{Prefix: "/b"}})
+	var refs []render.RouteRef
+	out := text(t, snap, render.Options{RouteExtra: func(r render.RouteRef) []string {
+		refs = append(refs, r)
+		if r.RouteIdx == 1 {
+			return []string{"note: one candidate exists in the cluster"}
+		}
+		return nil
+	}})
+	if want := []render.RouteRef{{RouteIdx: 0}, {RouteIdx: 1}}; !reflect.DeepEqual(refs, want) {
+		t.Errorf("refs = %+v, want %+v", refs, want)
+	}
+	want := "   └─ route /b (prefix)\n" +
+		"      note: one candidate exists in the cluster\n" +
+		"      filters (request order):\n"
+	if !strings.Contains(out, want) {
+		t.Errorf("no note under the /b route line:\n%s", out)
+	}
+}
+
 func TestText_KnownWording(t *testing.T) {
 	snap := oneHCM([]model.HTTPFilter{{Name: "router"}}, model.Route{Origin: &model.RouteAnnotation{
 		Certainty: model.Inferred, NarrowedByKnown: true,

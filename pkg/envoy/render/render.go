@@ -24,8 +24,18 @@ type Options struct {
 	AllFilters    bool   // list filters that don't run inline; default: one "not run:" line
 
 	// Generic hooks for styled or interactive callers; nil gives plain text.
-	Style func(c Class, ref *FilterRef, s string) string // ref is set on filter rows
-	Extra func(ref FilterRef) []string                   // lines printed under a filter row
+	Style      func(c Class, ref *FilterRef, s string) string // ref is set on filter rows
+	Extra      func(ref FilterRef) []string                   // lines printed under a filter row
+	RouteExtra func(ref RouteRef) []string                    // lines printed under a route line, before its filters
+}
+
+// RouteRef identifies one route as printed: indexes into the snapshot's
+// listeners, the listener's filter chains, and the HCM's virtual hosts and routes.
+type RouteRef struct {
+	ListenerIdx    int
+	FilterChainIdx int
+	VirtualHostIdx int
+	RouteIdx       int
 }
 
 // Class is the semantic role of a piece of text, for [Options.Style].
@@ -227,6 +237,12 @@ func (p *printer) route(hcm model.HCMConfig, vh model.VirtualHost, r model.Route
 		line += " · " + p.style(ClassOrigin, nil, o)
 	}
 	p.line(prefix + line)
+	if p.opts.RouteExtra != nil {
+		ref := RouteRef{p.ref.ListenerIdx, p.ref.FilterChainIdx, p.ref.VirtualHostIdx, p.ref.RouteIdx}
+		for _, x := range p.opts.RouteExtra(ref) {
+			p.line(body + x)
+		}
+	}
 
 	c := chain.Effective(hcm, vh, r)
 	if r.Chain != nil {
