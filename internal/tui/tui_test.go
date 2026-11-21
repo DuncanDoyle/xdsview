@@ -3,10 +3,10 @@ package tui
 import (
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
-	"github.com/DuncanDoyle/xdsview/internal/renderer"
 	envoymodel "github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/render"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -419,8 +419,9 @@ func TestNavigation_EnabledDisabledEnabled(t *testing.T) {
 		}}},
 	}}}
 
-	m := initialModel(snapshot)
-	m.setContent()
+	// A real window size, as bubbletea sends it first.
+	next, _ := initialModel(snapshot).Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	m := next.(model)
 	steps := []struct {
 		row, config string
 	}{
@@ -436,14 +437,25 @@ func TestNavigation_EnabledDisabledEnabled(t *testing.T) {
 		next, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 		m = next.(model)
 
-		content := renderer.RenderInteractive(m.snapshot, m.renderOpts())
-		lines := strings.Split(content, "\n")
-		cursor := lines[findCursorLine(content)]
-		if plain := ansiPattern.ReplaceAllString(cursor, ""); !strings.Contains(plain, s.row) {
+		// What the user sees: the viewport, not the full render.
+		view := strings.Split(m.View(), "\n")
+		cursor := slices.IndexFunc(view, func(l string) bool { return strings.Contains(l, "\x1b[7m") })
+		if cursor < 0 {
+			t.Fatalf("step %d: no highlighted row on screen:\n%s", i, ansiPattern.ReplaceAllString(m.View(), ""))
+		}
+		if plain := ansiPattern.ReplaceAllString(view[cursor], ""); !strings.Contains(plain, s.row) {
 			t.Errorf("step %d: highlighted row %q, want it to contain %q", i, plain, s.row)
 		}
-		if !strings.Contains(content, s.config) {
-			t.Errorf("step %d: expanded config %s not shown", i, s.config)
+		// The config sits right under the row: the lines up to the closing brace.
+		var below []string
+		for _, l := range view[cursor+1:] {
+			below = append(below, ansiPattern.ReplaceAllString(l, ""))
+			if strings.TrimSpace(below[len(below)-1]) == "}" {
+				break
+			}
+		}
+		if !strings.Contains(strings.Join(below, "\n"), s.config) {
+			t.Errorf("step %d: config %s not directly under the row; got:\n%s", i, s.config, strings.Join(below, "\n"))
 		}
 	}
 }

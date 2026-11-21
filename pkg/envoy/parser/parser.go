@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"maps"
 
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 )
@@ -606,23 +605,47 @@ type rawRouteMetadata struct {
 	FilterMetadata map[string]json.RawMessage `json:"filter_metadata"`
 }
 
+// copyJSON deep-copies decoded JSON: maps, slices and scalars. It returns nil for nil.
+func copyJSON(m map[string]any) map[string]any {
+	if m == nil {
+		return nil
+	}
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[k] = copyValue(v)
+	}
+	return out
+}
+
+func copyValue(v any) any {
+	switch v := v.(type) {
+	case map[string]any:
+		return copyJSON(v)
+	case []any:
+		out := make([]any, len(v))
+		for i, e := range v {
+			out[i] = copyValue(e)
+		}
+		return out
+	}
+	return v
+}
+
 // cloneRouteConfig returns a deep copy of rc so each HCM owns its own RouteConfig.
 // This prevents mutations in later phases from corrupting filter chains that share
 // the same route_config_name.
 func cloneRouteConfig(rc *model.RouteConfig) *model.RouteConfig {
-	// Map values are opaque decoded JSON that nothing mutates, so the maps
-	// themselves are copied, not their values.
 	clone := &model.RouteConfig{
 		Name:                 rc.Name,
 		VirtualHosts:         make([]model.VirtualHost, len(rc.VirtualHosts)),
-		TypedPerFilterConfig: maps.Clone(rc.TypedPerFilterConfig),
+		TypedPerFilterConfig: copyJSON(rc.TypedPerFilterConfig),
 	}
 	for i, vh := range rc.VirtualHosts {
 		cloneVH := model.VirtualHost{
 			Name:                 vh.Name,
 			Domains:              append([]string(nil), vh.Domains...),
 			Routes:               make([]model.Route, len(vh.Routes)),
-			TypedPerFilterConfig: maps.Clone(vh.TypedPerFilterConfig),
+			TypedPerFilterConfig: copyJSON(vh.TypedPerFilterConfig),
 		}
 		for j, r := range vh.Routes {
 			cloneRoute := r // copy all scalar fields
@@ -630,7 +653,7 @@ func cloneRouteConfig(rc *model.RouteConfig) *model.RouteConfig {
 			cloneRoute.MirrorClusters = append([]string(nil), r.MirrorClusters...)
 			cloneRoute.WeightedClusters = append([]model.WeightedCluster(nil), r.WeightedClusters...)
 			for k, wc := range cloneRoute.WeightedClusters {
-				cloneRoute.WeightedClusters[k].TypedPerFilterConfig = maps.Clone(wc.TypedPerFilterConfig)
+				cloneRoute.WeightedClusters[k].TypedPerFilterConfig = copyJSON(wc.TypedPerFilterConfig)
 			}
 			cloneRoute.RequestHeadersToAdd = append([]model.HeaderOperation(nil), r.RequestHeadersToAdd...)
 			cloneRoute.ResponseHeadersToAdd = append([]model.HeaderOperation(nil), r.ResponseHeadersToAdd...)
@@ -642,8 +665,8 @@ func cloneRouteConfig(rc *model.RouteConfig) *model.RouteConfig {
 				rw := *r.Rewrite
 				cloneRoute.Rewrite = &rw
 			}
-			cloneRoute.TypedPerFilterConfig = maps.Clone(r.TypedPerFilterConfig)
-			cloneRoute.Metadata = maps.Clone(r.Metadata)
+			cloneRoute.TypedPerFilterConfig = copyJSON(r.TypedPerFilterConfig)
+			cloneRoute.Metadata = copyJSON(r.Metadata)
 			cloneVH.Routes[j] = cloneRoute
 		}
 		clone.VirtualHosts[i] = cloneVH

@@ -78,7 +78,17 @@ func TestParse_PerFilterConfigIsolated(t *testing.T) {
 	a.VirtualHosts[0].TypedPerFilterConfig["x"] = 1
 	a.VirtualHosts[0].Routes[0].WeightedClusters[0].TypedPerFilterConfig["x"] = 1
 
+	// Nested values too: one HCM's copy can be normalized without touching another's.
+	a.VirtualHosts[0].TypedPerFilterConfig["ext_auth"].(map[string]any)["config"].(map[string]any)["x"] = 1
+	a.VirtualHosts[0].Routes[0].WeightedClusters[0].TypedPerFilterConfig["ext_auth"].(map[string]any)["disabled"] = false
+
 	b := snap.Listeners[1].FilterChains[0].HCM.RouteConfig
+	if inner := b.VirtualHosts[0].TypedPerFilterConfig["ext_auth"].(map[string]any)["config"].(map[string]any); len(inner) != 0 {
+		t.Errorf("vhost: nested change to listener a's copy shows in listener b's: %v", inner)
+	}
+	if d := b.VirtualHosts[0].Routes[0].WeightedClusters[0].TypedPerFilterConfig["ext_auth"].(map[string]any)["disabled"]; d != true {
+		t.Errorf("weighted cluster: nested change to listener a's copy shows in listener b's: disabled = %v", d)
+	}
 	for level, m := range map[string]map[string]any{
 		"route config":     b.TypedPerFilterConfig,
 		"vhost":            b.VirtualHosts[0].TypedPerFilterConfig,

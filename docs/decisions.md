@@ -55,3 +55,11 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 - kgwctl writes its own view (rejected: two views drift).
 - The effective chain as a `filter.Filter` option (rejected: filtering narrows a snapshot, the chain is a per-route answer, and Snellius needs it without narrowing).
 **Consequences:** `krp`'s text layout follows the shared shape. Golden `.txt` files make the plain text a reviewed contract.
+
+## D-009 — `model.WeightedCluster` holds per-filter config and is no longer comparable (2026-11-21, phase 6)
+**Context:** The approved Phase 6 model keeps each backend's raw `typed_per_filter_config` on `WeightedCluster`, so `chain` can mark a chain `Conditional` and Phase 7 can compare the config itself. A map field makes the struct non-comparable in Go. The phase review (#10) noted that the design called library changes additive.
+**Decision:** Keep the field on `WeightedCluster`. Treat it as a breaking change for Go callers that compare the struct with `==`, use it as a map key, or pass it to `slices.Equal`. JSON stays additive (`v1alpha1`).
+**Alternatives:**
+- A separate `Route` map keyed by backend name (rejected: names can repeat in a split, and the data belongs with the backend).
+- A one-bit flag (rejected in the design review: Phase 7 needs the config).
+**Consequences:** Callers use `reflect.DeepEqual` or compare fields. The `v0.4.0` release notes and the consumer notices name the change.

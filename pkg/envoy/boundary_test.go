@@ -4,6 +4,7 @@ package envoy_test
 
 import (
 	"os/exec"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -36,7 +37,7 @@ func TestCoreImportsOnlyStdlib(t *testing.T) {
 			t.Fatalf("go list %s: %v\n%s", pkg, err, out)
 		}
 		for _, dep := range strings.Fields(string(out)) {
-			if !strings.HasPrefix(dep, modulePrefix) || strings.HasPrefix(dep, modulePrefix+"source/kube") {
+			if !slices.Contains(core, strings.TrimPrefix(dep, modulePrefix)) {
 				t.Errorf("%s depends on %s; core packages may import only the standard library and pkg/envoy core", pkg, dep)
 			}
 		}
