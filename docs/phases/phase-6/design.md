@@ -248,10 +248,12 @@ The listener line shows the state and any error. A listener that isn't active sh
 - **Plain text becomes a contract.** Golden `.txt` files make layout changes visible in review. Consumers that need structure use the model, not the text.
 - **TUI regression** from moving the tree into `render`. Mitigated by keeping the interactive tests and doing one manual TUI run, recorded in the sub-phase record.
 
-## Open questions for the owner
+## Owner decisions (2026-11-21)
 
-1. Default to one "not run:" line per route, with `AllFilters` listing those filters inline? kgwctl's sketch lists only running filters. Proposed: yes.
-2. Drop the bordered listener panel from `krp` output in favour of the shared shape? Proposed: yes, since one tree means no drift.
+The owner approved the design on 2026-11-21 and answered both open questions:
+
+1. The default output has one "not run:" line per route, and `AllFilters` lists those filters inline: **yes**.
+2. `krp` output drops the bordered listener panel and uses the shared shape: **yes**.
 
 ## Done when
 

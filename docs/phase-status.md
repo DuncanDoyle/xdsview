@@ -4,13 +4,13 @@
 Phase: 6 — Route View for Consumers
 Base: 40a5863
 Docs: docs/phases/phase-6/
-Status: design r2 triaged 2026-11-20; awaiting owner approval.
+Status: design approved 2026-11-21; implementing 6.1.
 
 ### Queue
 - [x] Q1 Phase 6 design + plan (`design.md`, `implementation-plan.md`)
 - [x] Q2 Design + plan cross-model review and triage (reviews/design-codex.md)
-- [ ] Q3 Owner approval of design ← CURRENT
-- [ ] Q4 6.1 Model and parser
+- [x] Q3 Owner approval of design (2026-11-21; both open questions answered "yes")
+- [ ] Q4 6.1 Model and parser ← CURRENT
 - [ ] Q5 6.2 `pkg/envoy/chain`
 - [ ] Q6 6.3 `pkg/envoy/render` and krp
 - [ ] Q7 Phase review, `v0.4.0`, program file, #27, notices
@@ -24,10 +24,26 @@ Status: design r2 triaged 2026-11-20; awaiting owner approval.
 - [ ] phase-6-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-none
+Sub-phase: 6.1 — Model and parser
+Kind: planned
+Base: 5d82113
+Brief: docs/phases/phase-6/phase-6.1-brief.md
+
+### Allowed work
+Features within the approved design.
+
+### Not allowed
+Design changes without a decisions.md entry and owner approval.
+
+### Queue
+- [ ] S1 Model types (listener state, per-filter config levels, chain types, orders) ← CURRENT
+- [ ] S2 Listener state: tests first, then parser
+- [ ] S3 Per-filter config on vhost, route config, weighted cluster: tests first, then parser and clone
+- [ ] S4 JSON goldens regenerated, additions only
+- [ ] S5 phase-6.1-complete.md
 
 ## Program
-Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, read at `41ddc1c`)
+Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, read at `780ad25`)
 Waiting on: nothing (no provider edge needed)
 Consumers: E11 (kgwctl Phase 3.2, #27); E4 (Snellius Phase 12, formerly kgateway-ui Phase 9)
 
