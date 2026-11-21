@@ -1,6 +1,6 @@
 # krp — Roadmap
 
-**Last updated:** 2026-11-04
+**Last updated:** 2026-11-21
 Program: [kgateway-tooling `program.md`](https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md) (local checkout: `../kgateway-tooling-claude`)
 
 ## Goal
@@ -71,7 +71,7 @@ Make the model faithful to what Envoy runs, and own the mapping back to Gateway 
 - Policy provenance from Envoy metadata (e.g. `filter_metadata` merge keys) where present, through a plugin seam. Vendor-specific policy kinds live outside the core (program decision P-002).
 
 ### Phase 6 — Route View for Consumers
-**Status:** Design (started 2026-11-20)
+**Status:** Complete (2026-11-21, `v0.4.0`) — `docs/phases/phase-6/phase-6-complete.md`
 **Docs:** `docs/phases/phase-6/`
 **Unblocks:** program edge E11 (kgwctl Phase 3.2 `proxy routes`, #27), and the same model for E4 (Snellius Phase 12)
 

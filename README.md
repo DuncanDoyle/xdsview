@@ -6,7 +6,7 @@ The repo also ships `krp` (Kgateway Route Printer), a CLI built on the library. 
 
 Kgateway translates Kubernetes [Gateway API](https://gateway-api.sigs.k8s.io/) resources (Gateway, HTTPRoute, TrafficPolicy, etc.) into Envoy configuration. Understanding the exact filter chain that processes your traffic — including filter ordering, applied policies, and backend routing — is difficult without digging through raw JSON config dumps. `krp` makes this visible.
 
-> **Status:** Active development — Phases 1–5 complete, Phase 6 (route view for consumers) in progress. See [docs/roadmap.md](docs/roadmap.md).
+> **Status:** Active development — Phases 1–6 complete. See [docs/roadmap.md](docs/roadmap.md).
 
 ---
 
