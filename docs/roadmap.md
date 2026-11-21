@@ -88,6 +88,17 @@ Compare the controller's intended xDS (kgateway admin `/snapshots/xds`) with wha
 - Lifecycle matters for comparison: the parser shows a warming-only or draining-only listener's config like an active one, so compare on `Listener.State`, not without it (Phase 6 review #13).
 - Diff model (added / missing / changed) exposed by the library and rendered by the `krp` CLI.
 
+### Phase 8 — Vendor-Neutral Core
+**Status:** Not started. May run before Phase 7: it gates kgwctl's move into kgateway.
+**Docs:** `docs/phases/phase-8/`
+**Unblocks:** program edge E6 (CLI move into kgateway)
+**Issue:** #32
+
+Make the module license-clean and vendor-neutral (program P-002).
+
+- Remove `testdata/enterprise/`; move the tests that read it onto OSS dumps.
+- Move the enterprise transformation type out of the core kgateway mapper, behind the `origin.Chain` seam.
+
 ---
 
 ## Deferred / out of roadmap

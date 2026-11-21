@@ -18,7 +18,16 @@ Status: not started. Phase 6 complete 2026-11-21 (`v0.4.0`, docs/phases/phase-6/
 - [ ] phase-7-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-none
+Sub-phase: 6.7 — Silent HCM skips, listeners mid-update (stabilization, `v0.4.3`)
+Base: ab593d2
+Brief: docs/phases/phase-6/phase-6.7-brief.md
+Issues: #31
+
+### Queue
+- [ ] Q1 (P1) warning for an HCM that fails to decode ← CURRENT
+- [ ] Q2 (P2) narrowing keeps listeners with `Updating` or `Draining`
+- [ ] Q3 Codex review of `ab593d2..HEAD`, triage
+- [ ] Q4 close: complete record, `v0.4.3`, #31, kgwctl
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `3b71687`)
@@ -28,6 +37,7 @@ Consumers: E11 available (`v0.4.2`, kgwctl#10); E4 effective chain available, in
 ## Carry-over (deferred to later phases)
 - #26 (P2) kube source: cancellation through an API-server proxy — deferred, not a requirement (owner, 2026-11-05). kgwctl fixed the same gap in its own dialer and offered its code.
 - Phase 6 review #13: Phase 7 must compare listeners on `Listener.State` (roadmap Phase 7).
+- #32 E6 cleanup (enterprise corpus, enterprise type in the core mapper): its own phase, before kgwctl moves into kgateway (owner, 2026-11-21).
 
 ## Notes
 - 2026-11-21: Phase 6 patch `v0.4.2` (sub-phase 6.6, #29): narrowing edge cases. #30 open (unmapped policy fields).
