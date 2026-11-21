@@ -328,6 +328,128 @@
                               }
                             }
                           }
+                        },
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "name": "envoy.filters.http.early_ext_proc",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+                              "runs": true,
+                              "state": "on",
+                              "level": "route",
+                              "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExtProcPerRoute",
+                              "request": "yes",
+                              "response": "yes"
+                            },
+                            {
+                              "name": "envoy.filters.http.fault",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.fault.v3.HTTPFault",
+                              "runs": true,
+                              "state": "on",
+                              "request": "yes",
+                              "response": "yes"
+                            },
+                            {
+                              "name": "envoy.filters.http.cors",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors",
+                              "runs": true,
+                              "state": "on",
+                              "level": "route",
+                              "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.CorsPolicy",
+                              "request": "yes",
+                              "response": "yes"
+                            },
+                            {
+                              "name": "io.solo.filters.http.transformation_ee",
+                              "type": "type.googleapis.com/envoy.config.filter.http.transformation_ee.v2.FilterTransformations",
+                              "runs": true,
+                              "state": "on",
+                              "request": "unknown",
+                              "response": "unknown"
+                            },
+                            {
+                              "name": "io.solo.filters.http.modsecurity",
+                              "type": "type.googleapis.com/envoy.config.filter.http.modsecurity.v2.ModSecurity",
+                              "runs": true,
+                              "state": "on",
+                              "request": "unknown",
+                              "response": "unknown"
+                            },
+                            {
+                              "name": "envoy.filters.http.local_ratelimit",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit",
+                              "runs": true,
+                              "state": "on",
+                              "request": "yes",
+                              "response": "yes"
+                            },
+                            {
+                              "name": "io.solo.filters.http.sanitize",
+                              "type": "type.googleapis.com/envoy.config.filter.http.sanitize.v2.Sanitize",
+                              "runs": true,
+                              "state": "on",
+                              "request": "unknown",
+                              "response": "unknown"
+                            },
+                            {
+                              "name": "io.solo.filters.http.solo_jwt_authn_staged",
+                              "type": "type.googleapis.com/envoy.config.filter.http.solo_jwt_authn.v2.JwtWithStage",
+                              "runs": true,
+                              "state": "on",
+                              "request": "unknown",
+                              "response": "unknown"
+                            },
+                            {
+                              "name": "envoy.filters.http.rbac",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC",
+                              "runs": true,
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no"
+                            },
+                            {
+                              "name": "envoy.filters.http.ext_proc",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+                              "runs": true,
+                              "state": "on",
+                              "level": "route",
+                              "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExtProcPerRoute",
+                              "request": "yes",
+                              "response": "yes"
+                            },
+                            {
+                              "name": "envoy.filters.http.grpc_web",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb",
+                              "runs": true,
+                              "state": "on",
+                              "request": "yes",
+                              "response": "yes"
+                            },
+                            {
+                              "name": "io.solo.transformation",
+                              "type": "type.googleapis.com/envoy.api.v2.filter.http.FilterTransformations",
+                              "runs": true,
+                              "state": "on",
+                              "request": "yes",
+                              "response": "yes"
+                            },
+                            {
+                              "name": "envoy.filters.http.csrf",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.csrf.v3.CsrfPolicy",
+                              "runs": true,
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no"
+                            },
+                            {
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": true,
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no"
+                            }
+                          ]
                         }
                       }
                     ]

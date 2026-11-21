@@ -205,7 +205,7 @@ func TestDumpText_Origins(t *testing.T) {
 		{"known route", []string{"--file", filepath.Join(testdataDir, "scenarios/02_7-single-policy/envoy/kgateway-v2.5.0/config_dump.json"),
 			"--route", "api-example-com", "--route-ns", "kgateway-system"},
 			[]string{"HTTPRoute kgateway-system/api-example-com · rule 0 · match 0",
-				"ext_auth/kgateway-system/ext-authz ← GatewayExtension kgateway-system/ext-authz",
+				"ext_auth/kgateway-system/ext-authz  enabled by route · GatewayExtension kgateway-system/ext-authz",
 				"TrafficPolicy kgateway-system/ext-auth (extAuth)"}},
 		{"route_source metadata", []string{"--file", filepath.Join(testdataDir, "scenarios/04-multi-rule/envoy/kgateway-v2.4.7-route-source/config_dump.json")},
 			[]string{"HTTPRoute kgateway-system/api-example-com · rule 1 · match 1"}},
@@ -229,8 +229,17 @@ func TestDumpText_Origins(t *testing.T) {
 	// Rule a-b selects one route, not the a or a-matcher-b rules.
 	out, _, _ := runKrp(t, "dump", "--file", filepath.Join(testdataDir, "scenarios/08-named-rules/envoy/kgateway-v2.5.0/config_dump.json"),
 		"--route", "api-example-com", "--route-ns", "kgateway-system", "--rule", "a-b")
-	if n := strings.Count(out, "Route: "); n != 1 {
+	if n := strings.Count(out, "─ route "); n != 1 {
 		t.Errorf("--rule a-b printed %d routes, want 1", n)
+	}
+}
+
+// TestDump_NoRoutesWarning warns when --route matches nothing.
+func TestDump_NoRoutesWarning(t *testing.T) {
+	_, stderr, err := runKrp(t, "dump", "--file", filepath.Join(testdataDir, "scenarios/00-simple/envoy/kgateway-v2.5.0/config_dump.json"),
+		"--route", "missing", "--route-ns", "nowhere")
+	if err != nil || !strings.Contains(stderr, "warning: no routes found for HTTPRoute nowhere/missing") {
+		t.Errorf("err=%v stderr=%q, want the no-routes warning", err, stderr)
 	}
 }
 
@@ -298,8 +307,9 @@ func TestDumpLive_ListsHTTPRoutes(t *testing.T) {
 	if !strings.Contains(stderr, "warning: route origins unavailable") {
 		t.Errorf("stderr lacks the warning: %q", stderr)
 	}
-	if strings.Contains(out, "HTTPRoute ") || !strings.Contains(out, "Route: ") {
-		t.Errorf("want routes without origins, got:\n%s", out)
+	// Without the listing, route names stay ambiguous: no origin is resolved.
+	if strings.Contains(out, "HTTPRoute kgateway-system/api-example-com · rule") || !strings.Contains(out, "─ route ") {
+		t.Errorf("want routes without resolved origins, got:\n%s", out)
 	}
 
 	// A listing that never answers is cut off, and the dump still prints.
@@ -310,7 +320,7 @@ func TestDumpLive_ListsHTTPRoutes(t *testing.T) {
 		return nil, ctx.Err()
 	}
 	out, stderr, err = runKrp(t, "dump", "--gateway", "gw", "-n", "kgateway-system")
-	if err != nil || !strings.Contains(out, "Route: ") || !strings.Contains(stderr, "deadline exceeded") {
+	if err != nil || !strings.Contains(out, "─ route ") || !strings.Contains(stderr, "deadline exceeded") {
 		t.Errorf("stalled listing: err=%v stderr=%q", err, stderr)
 	}
 }

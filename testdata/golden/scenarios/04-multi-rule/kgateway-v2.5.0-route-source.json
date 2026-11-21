@@ -62,6 +62,18 @@
                               "matchIndex": 0
                             }
                           ]
+                        },
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": true,
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no"
+                            }
+                          ]
                         }
                       },
                       {
@@ -92,6 +104,18 @@
                               },
                               "ruleIndex": 1,
                               "matchIndex": 0
+                            }
+                          ]
+                        },
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": true,
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no"
                             }
                           ]
                         }
@@ -132,6 +156,18 @@
                               "matchIndex": 1
                             }
                           ]
+                        },
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": true,
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no"
+                            }
+                          ]
                         }
                       },
                       {
@@ -162,6 +198,18 @@
                               },
                               "ruleIndex": 2,
                               "matchIndex": 0
+                            }
+                          ]
+                        },
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": true,
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no"
                             }
                           ]
                         }

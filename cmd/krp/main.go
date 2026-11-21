@@ -23,6 +23,7 @@ import (
 
 	"github.com/DuncanDoyle/xdsview/internal/renderer"
 	"github.com/DuncanDoyle/xdsview/internal/tui"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/chain"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/filter"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/origin"
@@ -110,6 +111,18 @@ func mapper(gateway, namespace, routeName, routeNS string, known []model.Ref) or
 		opts.Known = append(opts.Known, model.Ref{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute", Namespace: routeNS, Name: routeName})
 	}
 	return origin.Chain(append(append([]origin.Mapper(nil), extraMappers...), origin.Kgateway(opts))...)
+}
+
+// hasRoutes reports whether any filter chain in snap kept a virtual host.
+func hasRoutes(snap *model.EnvoySnapshot) bool {
+	for _, l := range snap.Listeners {
+		for _, fc := range l.FilterChains {
+			if fc.HCM != nil && fc.HCM.RouteConfig != nil && len(fc.HCM.RouteConfig.VirtualHosts) > 0 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // parseRule reads --rule: empty or -1 means all rules, a non-negative integer
@@ -219,7 +232,8 @@ func runDump(cmd *cobra.Command, args []string) error {
 			RuleIndex:          ruleIndex,
 			RuleName:           ruleName,
 		})
-		if len(snapshot.Listeners) == 0 {
+		// Listeners that aren't active survive narrowing, so count routes.
+		if !hasRoutes(snapshot) {
 			fmt.Fprintf(cmd.ErrOrStderr(),
 				"warning: no routes found for HTTPRoute %s/%s — check name, namespace, and that the HTTPRoute is attached to this Gateway\n",
 				routeNS, routeName)
@@ -238,7 +252,8 @@ func runDump(cmd *cobra.Command, args []string) error {
 			fmt.Fprintf(cmd.ErrOrStderr(), "warning: route origins unavailable: %v\n", err)
 		}
 	}
-	snapshot = origin.Annotate(snapshot, mapper(gateway, namespace, routeName, routeNS, known))
+	m := mapper(gateway, namespace, routeName, routeNS, known)
+	snapshot = chain.Annotate(origin.Annotate(snapshot, m), m)
 
 	// Render and print — or launch the interactive TUI.
 	switch {

@@ -140,7 +140,29 @@
                             },
                             "field": "entTransformation"
                           }
-                        ]
+                        ],
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "name": "io.solo.transformation",
+                              "type": "type.googleapis.com/envoy.api.v2.filter.http.FilterTransformations",
+                              "runs": true,
+                              "state": "enabled",
+                              "level": "route",
+                              "perFilterType": "type.googleapis.com/envoy.api.v2.filter.http.RouteTransformations",
+                              "request": "yes",
+                              "response": "yes"
+                            },
+                            {
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": true,
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no"
+                            }
+                          ]
+                        }
                       }
                     ],
                     "origin": {
@@ -290,7 +312,29 @@
                             },
                             "field": "entTransformation"
                           }
-                        ]
+                        ],
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "name": "io.solo.transformation",
+                              "type": "type.googleapis.com/envoy.api.v2.filter.http.FilterTransformations",
+                              "runs": true,
+                              "state": "enabled",
+                              "level": "route",
+                              "perFilterType": "type.googleapis.com/envoy.api.v2.filter.http.RouteTransformations",
+                              "request": "yes",
+                              "response": "yes"
+                            },
+                            {
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": true,
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no"
+                            }
+                          ]
+                        }
                       }
                     ],
                     "origin": {

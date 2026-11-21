@@ -145,7 +145,50 @@
                             },
                             "field": "rateLimit.global"
                           }
-                        ]
+                        ],
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "name": "ratelimit/kgateway-system/ratelimit",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit",
+                              "runs": true,
+                              "state": "enabled",
+                              "level": "route",
+                              "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimitPerRoute",
+                              "request": "yes",
+                              "response": "yes",
+                              "contributions": [
+                                {
+                                  "kind": "extension",
+                                  "ref": {
+                                    "group": "gateway.kgateway.dev",
+                                    "kind": "GatewayExtension",
+                                    "namespace": "kgateway-system",
+                                    "name": "ratelimit"
+                                  }
+                                },
+                                {
+                                  "kind": "policy",
+                                  "ref": {
+                                    "group": "gateway.kgateway.dev",
+                                    "kind": "TrafficPolicy",
+                                    "namespace": "kgateway-system",
+                                    "name": "rate-limit"
+                                  },
+                                  "field": "rateLimit.global"
+                                }
+                              ]
+                            },
+                            {
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": true,
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no"
+                            }
+                          ]
+                        }
                       }
                     ],
                     "origin": {

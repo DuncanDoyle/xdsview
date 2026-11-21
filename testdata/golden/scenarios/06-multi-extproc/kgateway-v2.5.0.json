@@ -293,7 +293,77 @@
                             },
                             "field": "extProc"
                           }
-                        ]
+                        ],
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "name": "global_disable/ext_proc",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.set_metadata.v3.Config",
+                              "runs": false,
+                              "state": "off",
+                              "request": "yes",
+                              "response": "no"
+                            },
+                            {
+                              "name": "ext_proc/kgateway-system/ext-proc-a",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+                              "runs": false,
+                              "state": "off",
+                              "request": "yes",
+                              "response": "yes",
+                              "contributions": [
+                                {
+                                  "kind": "extension",
+                                  "ref": {
+                                    "group": "gateway.kgateway.dev",
+                                    "kind": "GatewayExtension",
+                                    "namespace": "kgateway-system",
+                                    "name": "ext-proc-a"
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "name": "ext_proc/kgateway-system/ext-proc-b",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+                              "runs": true,
+                              "state": "enabled",
+                              "level": "route",
+                              "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExtProcPerRoute",
+                              "request": "yes",
+                              "response": "yes",
+                              "contributions": [
+                                {
+                                  "kind": "extension",
+                                  "ref": {
+                                    "group": "gateway.kgateway.dev",
+                                    "kind": "GatewayExtension",
+                                    "namespace": "kgateway-system",
+                                    "name": "ext-proc-b"
+                                  }
+                                },
+                                {
+                                  "kind": "policy",
+                                  "ref": {
+                                    "group": "gateway.kgateway.dev",
+                                    "kind": "TrafficPolicy",
+                                    "namespace": "kgateway-system",
+                                    "name": "ext-proc-b"
+                                  },
+                                  "field": "extProc"
+                                }
+                              ]
+                            },
+                            {
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": true,
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no"
+                            }
+                          ]
+                        }
                       },
                       {
                         "name": "listener~80~api_example_com-route-1-httproute-api-example-com-kgateway-system-0-0-matcher-0",
@@ -369,7 +439,77 @@
                             },
                             "field": "extProc"
                           }
-                        ]
+                        ],
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "name": "global_disable/ext_proc",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.set_metadata.v3.Config",
+                              "runs": false,
+                              "state": "off",
+                              "request": "yes",
+                              "response": "no"
+                            },
+                            {
+                              "name": "ext_proc/kgateway-system/ext-proc-a",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+                              "runs": true,
+                              "state": "enabled",
+                              "level": "route",
+                              "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExtProcPerRoute",
+                              "request": "yes",
+                              "response": "yes",
+                              "contributions": [
+                                {
+                                  "kind": "extension",
+                                  "ref": {
+                                    "group": "gateway.kgateway.dev",
+                                    "kind": "GatewayExtension",
+                                    "namespace": "kgateway-system",
+                                    "name": "ext-proc-a"
+                                  }
+                                },
+                                {
+                                  "kind": "policy",
+                                  "ref": {
+                                    "group": "gateway.kgateway.dev",
+                                    "kind": "TrafficPolicy",
+                                    "namespace": "kgateway-system",
+                                    "name": "ext-proc-a"
+                                  },
+                                  "field": "extProc"
+                                }
+                              ]
+                            },
+                            {
+                              "name": "ext_proc/kgateway-system/ext-proc-b",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+                              "runs": false,
+                              "state": "off",
+                              "request": "yes",
+                              "response": "yes",
+                              "contributions": [
+                                {
+                                  "kind": "extension",
+                                  "ref": {
+                                    "group": "gateway.kgateway.dev",
+                                    "kind": "GatewayExtension",
+                                    "namespace": "kgateway-system",
+                                    "name": "ext-proc-b"
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": true,
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no"
+                            }
+                          ]
+                        }
                       }
                     ],
                     "origin": {

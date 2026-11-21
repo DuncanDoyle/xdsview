@@ -139,7 +139,29 @@
                             },
                             "field": "transformation"
                           }
-                        ]
+                        ],
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "name": "dynamic_modules/simple_mutations",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilter",
+                              "runs": true,
+                              "state": "enabled",
+                              "level": "route",
+                              "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilterPerRoute",
+                              "request": "yes",
+                              "response": "yes"
+                            },
+                            {
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": true,
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no"
+                            }
+                          ]
+                        }
                       }
                     ],
                     "origin": {
@@ -288,7 +310,29 @@
                             },
                             "field": "transformation"
                           }
-                        ]
+                        ],
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "name": "dynamic_modules/simple_mutations",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilter",
+                              "runs": true,
+                              "state": "enabled",
+                              "level": "route",
+                              "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilterPerRoute",
+                              "request": "yes",
+                              "response": "yes"
+                            },
+                            {
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": true,
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no"
+                            }
+                          ]
+                        }
                       }
                     ],
                     "origin": {
