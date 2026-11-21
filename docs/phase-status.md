@@ -14,7 +14,7 @@ Status: 6.1–6.3 done 2026-11-21; phase review next.
 - [x] Q5 6.2 `pkg/envoy/chain` — 5490926, phase-6.2-complete.md
 - [x] Q6 6.3 `pkg/envoy/render` and krp — 6713dd7, phase-6.3-complete.md
 - [x] Q7 Phase review — reviews/phase-codex.md, triaged: 13 accepted, 1 deferred to Phase 7
-- [ ] Q8 (P1) Composite sides from the installed type — src: reviews/phase-codex.md#1 ← CURRENT (proposed 6.4)
+- [ ] Q8 (P1) Composite sides from the installed type — src: reviews/phase-codex.md#1 ← CURRENT (6.4)
 - [ ] Q9 (P1) Policy attribution only when one entry matches — #2
 - [ ] Q10 (P1) Conditional heading always qualified, response too — #3
 - [ ] Q11 (P1) FilterIdx carried, not looked up by name — #4
@@ -38,7 +38,19 @@ Status: 6.1–6.3 done 2026-11-21; phase review next.
 - [ ] phase-6-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-none
+Sub-phase: 6.4 — Phase review fixes
+Kind: stabilization
+Base: 02e635f
+Brief: docs/phases/phase-6/phase-6.4-brief.md
+
+### Allowed work
+Bug fixes, missing designed behaviour, tests, docs.
+
+### Not allowed
+New features, architecture changes, new dependencies.
+
+### Queue
+Phase queue Q8–Q20, then a cross-model review of `02e635f..HEAD`.
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, read at `780ad25`)
