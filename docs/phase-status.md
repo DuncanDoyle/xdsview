@@ -4,7 +4,7 @@
 Phase: 6 — Route View for Consumers
 Base: 40a5863
 Docs: docs/phases/phase-6/
-Status: 6.1–6.3 done 2026-11-21; phase review next.
+Status: 6.1–6.4 done 2026-11-21; close gates next (tag, program file, #27, notices need the owner).
 
 ### Queue
 - [x] Q1 Phase 6 design + plan (`design.md`, `implementation-plan.md`)
@@ -14,20 +14,20 @@ Status: 6.1–6.3 done 2026-11-21; phase review next.
 - [x] Q5 6.2 `pkg/envoy/chain` — 5490926, phase-6.2-complete.md
 - [x] Q6 6.3 `pkg/envoy/render` and krp — 6713dd7, phase-6.3-complete.md
 - [x] Q7 Phase review — reviews/phase-codex.md, triaged: 13 accepted, 1 deferred to Phase 7
-- [ ] Q8 (P1) Composite sides from the installed type — src: reviews/phase-codex.md#1 ← CURRENT (6.4)
-- [ ] Q9 (P1) Policy attribution only when one entry matches — #2
-- [ ] Q10 (P1) Conditional heading always qualified, response too — #3
-- [ ] Q11 (P1) FilterIdx carried, not looked up by name — #4
-- [ ] Q12 (P1) Escape control bytes, trim trailing whitespace — #5
-- [ ] Q13 (P1) `krp -i` prints the tree when nothing is selectable — #6
-- [ ] Q14 (P1) Exact `FilterConfig` type; null `config` is unset — #7
-- [ ] Q15 (P2) Wording `(chosen from known HTTPRoutes)`; tell kgwctl — #8
-- [ ] Q16 (P2) IPv6 brackets in text; padded number column — #9
-- [ ] Q17 (P2) D-009: `WeightedCluster` not comparable — #10
-- [ ] Q18 (P3) Navigation test on `View()` — #11
-- [ ] Q19 (P3) Boundary test allows only `core` — #12
-- [ ] Q20 (P4) Deep-copy per-filter config in the clone — #14
-- [ ] Q21 `v0.4.0`, program file, #27, notices
+- [x] Q8 (P1) Composite sides from the installed type — src: reviews/phase-codex.md#1 — 6.4
+- [x] Q9 (P1) Policy attribution only when one entry matches — #2 — 6.4
+- [x] Q10 (P1) Conditional heading always qualified, response too — #3 — 6.4
+- [x] Q11 (P1) FilterIdx carried, not looked up by name — #4 — 6.4
+- [x] Q12 (P1) Escape control bytes, trim trailing whitespace — #5 — 6.4
+- [x] Q13 (P1) `krp -i` prints the tree when nothing is selectable — #6 — 6.4
+- [x] Q14 (P1) Exact `FilterConfig` type; null `config` is unset — #7 — 6.4
+- [x] Q15 (P2) Wording `(chosen from known HTTPRoutes)`; tell kgwctl — #8 — 6.4
+- [x] Q16 (P2) IPv6 brackets in text; padded number column — #9 — 6.4
+- [x] Q17 (P2) D-009: `WeightedCluster` not comparable — #10 — 6.4
+- [x] Q18 (P3) Navigation test on `View()` — #11 — 6.4
+- [x] Q19 (P3) Boundary test allows only `core` — #12 — 6.4
+- [x] Q20 (P4) Deep-copy per-filter config in the clone — #14 — 6.4
+- [ ] Q21 `v0.4.0`, program file, #27, notices ← CURRENT
 
 ### Exit gates
 - [ ] tests/vet pass (observed)
@@ -38,19 +38,7 @@ Status: 6.1–6.3 done 2026-11-21; phase review next.
 - [ ] phase-6-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-Sub-phase: 6.4 — Phase review fixes
-Kind: stabilization
-Base: 02e635f
-Brief: docs/phases/phase-6/phase-6.4-brief.md
-
-### Allowed work
-Bug fixes, missing designed behaviour, tests, docs.
-
-### Not allowed
-New features, architecture changes, new dependencies.
-
-### Queue
-Phase queue Q8–Q20, then a cross-model review of `02e635f..HEAD`.
+none
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, read at `780ad25`)
