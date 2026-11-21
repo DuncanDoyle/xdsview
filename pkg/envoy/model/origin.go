@@ -57,6 +57,10 @@ type RouteOrigin struct {
 type RouteAnnotation struct {
 	Certainty  Certainty     `json:"certainty"`
 	Candidates []RouteOrigin `json:"candidates,omitempty"`
+	// NarrowedByKnown is set when the name reads several ways and the caller's
+	// list of existing HTTPRoutes left one. A route Envoy still serves for a
+	// deleted HTTPRoute can resolve to a live one this way.
+	NarrowedByKnown bool `json:"narrowedByKnown,omitempty"`
 }
 
 // ListenerOrigin is the Gateway listener an Envoy listener, route config or

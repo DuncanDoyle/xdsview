@@ -91,6 +91,7 @@ func (k kgateway) Route(r model.Route) model.RouteAnnotation {
 		return model.RouteAnnotation{Certainty: model.Exact, Candidates: []model.RouteOrigin{o}}
 	}
 	cands := parseRouteName(r.Name)
+	byKnown := false
 	if len(k.opts.Known) > 0 && len(cands) > 1 {
 		var known []model.RouteOrigin
 		for _, c := range cands {
@@ -100,13 +101,14 @@ func (k kgateway) Route(r model.Route) model.RouteAnnotation {
 		}
 		if len(known) > 0 {
 			cands = known
+			byKnown = len(known) == 1
 		}
 	}
 	switch len(cands) {
 	case 0:
 		return model.RouteAnnotation{}
 	case 1:
-		return model.RouteAnnotation{Certainty: model.Inferred, Candidates: cands}
+		return model.RouteAnnotation{Certainty: model.Inferred, Candidates: cands, NarrowedByKnown: byKnown}
 	default:
 		return model.RouteAnnotation{Certainty: model.Ambiguous, Candidates: cands}
 	}

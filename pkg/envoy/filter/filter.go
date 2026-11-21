@@ -9,18 +9,21 @@
 // <N> is the route's position in the virtual host after precedence sorting, not
 // the rule index.
 //
-// [Filter] uses substring matching on that segment to select routes without
-// making any Kubernetes API calls. A route with kgateway's route_source
-// metadata is selected by that metadata instead. Listeners and virtual hosts that contain no
-// matching routes are pruned from the returned snapshot.
+// A route annotated by origin.Annotate is selected by its origin, and never
+// when that origin is Ambiguous; [Ambiguous] lists those routes. Otherwise a
+// route with kgateway's route_source metadata is selected by that metadata,
+// and others by substring matching on that segment, without Kubernetes API
+// calls. Listeners and virtual hosts that contain no matching routes are
+// pruned from the returned snapshot, except listeners whose state may explain
+// a missing route.
 //
 // # Known limitation
 //
 // Both the HTTPRoute name and its namespace can contain dashes. If a name and
 // namespace pair produces the same concatenated string as another pair (e.g.
-// HTTPRoute "foo-bar" in namespace "baz" versus "foo" in "bar-baz"), the two
-// routes are indistinguishable without a Kubernetes API call. In practice this
-// ambiguity is extremely rare.
+// HTTPRoute "foo-bar" in namespace "baz" versus "foo" in "bar-baz"), name
+// matching selects both. Annotate the snapshot first, with the HTTPRoutes that
+// exist as origin.KgatewayOptions.Known, to tell them apart.
 //
 // # Ownership
 //
@@ -30,6 +33,7 @@ package filter
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
@@ -88,11 +92,15 @@ func filterListener(l model.Listener, opts Options) *model.Listener {
 	for _, fc := range l.FilterChains {
 		out.FilterChains = append(out.FilterChains, filterChain(fc, opts))
 	}
-	// Keep the listener only when at least one filter chain has matching VHs.
+	// Keep the listener when a filter chain has matching VHs, or when its state
+	// may explain why a route is missing.
 	for _, fc := range out.FilterChains {
 		if fc.HCM != nil && fc.HCM.RouteConfig != nil && len(fc.HCM.RouteConfig.VirtualHosts) > 0 {
 			return &out
 		}
+	}
+	if explains(l) {
+		return &out
 	}
 	return nil
 }
@@ -138,16 +146,20 @@ func filterVirtualHost(vh model.VirtualHost, opts Options) *model.VirtualHost {
 // metadataMapper reads kgateway's route_source metadata.
 var metadataMapper = origin.Kgateway(origin.KgatewayOptions{})
 
-// selected reports whether r belongs to the HTTPRoute (and rule) in opts. A
-// route with route_source metadata is judged by it; others by their name.
+// selected reports whether r belongs to the HTTPRoute (and rule) in opts. An
+// annotated route is judged by its origin, and never selected when that is
+// Ambiguous. Otherwise a route with route_source metadata is judged by it, and
+// others by their name.
 func selected(r model.Route, opts Options) bool {
+	if a := r.Origin; a != nil {
+		if a.Certainty == model.Ambiguous || len(a.Candidates) != 1 {
+			return false
+		}
+		return candidateMatches(a.Candidates[0], opts)
+	}
 	if _, ok := r.Metadata["dev.kgateway.route_source"]; ok {
 		if a := metadataMapper.Route(r); a.Certainty == model.Exact {
-			o := a.Candidates[0]
-			return o.Route.Kind == "HTTPRoute" && o.Route.Name == opts.HTTPRouteName &&
-				o.Route.Namespace == opts.HTTPRouteNamespace &&
-				(opts.RuleIndex < 0 || o.RuleIndex == opts.RuleIndex) &&
-				(opts.RuleName == "" || o.RuleName == opts.RuleName)
+			return candidateMatches(a.Candidates[0], opts)
 		}
 	}
 	return routeMatches(r.Name, opts)
@@ -206,4 +218,54 @@ func isDigits(s string) bool {
 		}
 	}
 	return true
+}
+
+// Ambiguous returns the names of the routes [Filter] leaves out because their
+// origin is Ambiguous while one of its candidates is the HTTPRoute (and rule)
+// in opts. Each name appears once, in snapshot order. Use it to tell the user
+// that a route may be missing from the narrowed view.
+func Ambiguous(snapshot *model.EnvoySnapshot, opts Options) []string {
+	if opts.HTTPRouteName == "" {
+		return nil
+	}
+	var out []string
+	seen := map[string]bool{}
+	for _, l := range snapshot.Listeners {
+		for _, fc := range l.FilterChains {
+			if fc.HCM == nil || fc.HCM.RouteConfig == nil {
+				continue
+			}
+			for _, vh := range fc.HCM.RouteConfig.VirtualHosts {
+				for _, r := range vh.Routes {
+					if r.Origin == nil || r.Origin.Certainty != model.Ambiguous || seen[r.Name] {
+						continue
+					}
+					if slices.ContainsFunc(r.Origin.Candidates, func(o model.RouteOrigin) bool { return candidateMatches(o, opts) }) {
+						seen[r.Name] = true
+						out = append(out, r.Name)
+					}
+				}
+			}
+		}
+	}
+	return out
+}
+
+// candidateMatches reports whether o is the HTTPRoute, and rule, in opts.
+func candidateMatches(o model.RouteOrigin, opts Options) bool {
+	return o.Route.Kind == "HTTPRoute" && o.Route.Name == opts.HTTPRouteName &&
+		o.Route.Namespace == opts.HTTPRouteNamespace &&
+		(opts.RuleIndex < 0 || o.RuleIndex == opts.RuleIndex) &&
+		(opts.RuleName == "" || o.RuleName == opts.RuleName)
+}
+
+// explains reports whether l may explain a missing route: it is warming,
+// draining or rejected, or Envoy rejected its last update. A listener without
+// a status (built by hand, or from older JSON) is treated as active.
+func explains(l model.Listener) bool {
+	switch l.State.Status {
+	case model.ListenerWarming, model.ListenerDraining, model.ListenerRejected:
+		return true
+	}
+	return l.State.Error != nil
 }

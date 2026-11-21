@@ -152,21 +152,23 @@ func TestRoute_Ambiguity(t *testing.T) {
 		known     []model.Ref
 		certainty model.Certainty
 		cands     []model.RouteOrigin
+		byKnown   bool
 	}{
-		{"nothing known", nil, model.Ambiguous, want},
-		{"one reading known", []model.Ref{ref("c", "a-b")}, model.Inferred, want[1:]},
-		{"both known", []model.Ref{ref("c", "a-b"), ref("b-c", "a")}, model.Ambiguous, want},
-		{"unrelated known", []model.Ref{ref("x", "y")}, model.Ambiguous, want},
+		{"nothing known", nil, model.Ambiguous, want, false},
+		{"one reading known", []model.Ref{ref("c", "a-b")}, model.Inferred, want[1:], true},
+		{"both known", []model.Ref{ref("c", "a-b"), ref("b-c", "a")}, model.Ambiguous, want, false},
+		{"unrelated known", []model.Ref{ref("x", "y")}, model.Ambiguous, want, false},
 	}
 	for _, c := range cases {
 		got := origin.Kgateway(origin.KgatewayOptions{Known: c.known}).Route(model.Route{Name: name})
-		if got.Certainty != c.certainty || !reflect.DeepEqual(got.Candidates, c.cands) {
-			t.Errorf("%s: got %v %v, want %v %v", c.label, got.Certainty, got.Candidates, c.certainty, c.cands)
+		if got.Certainty != c.certainty || !reflect.DeepEqual(got.Candidates, c.cands) || got.NarrowedByKnown != c.byKnown {
+			t.Errorf("%s: got %v %v NarrowedByKnown=%v, want %v %v %v", c.label, got.Certainty, got.Candidates, got.NarrowedByKnown, c.certainty, c.cands, c.byKnown)
 		}
 	}
-	// One reading only: no "-" to split on.
-	if got := origin.Kgateway(origin.KgatewayOptions{}).Route(model.Route{Name: "v~*-route-0-httproute-web-shop-1-0-matcher-0"}); got.Certainty != model.Inferred {
-		t.Errorf("single reading: certainty %v, want inferred", got.Certainty)
+	// One reading only: no "-" to split on, so Known plays no part.
+	single := origin.Kgateway(origin.KgatewayOptions{Known: []model.Ref{ref("shop", "web")}}).Route(model.Route{Name: "v~*-route-0-httproute-web-shop-1-0-matcher-0"})
+	if single.Certainty != model.Inferred || single.NarrowedByKnown {
+		t.Errorf("single reading: certainty %v NarrowedByKnown=%v, want inferred false", single.Certainty, single.NarrowedByKnown)
 	}
 }
 

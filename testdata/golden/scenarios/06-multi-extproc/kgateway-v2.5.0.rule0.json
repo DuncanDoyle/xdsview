@@ -241,7 +241,8 @@
                               "ruleIndex": 0,
                               "matchIndex": 0
                             }
-                          ]
+                          ],
+                          "narrowedByKnown": true
                         },
                         "policies": [
                           {
