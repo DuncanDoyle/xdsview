@@ -175,3 +175,54 @@ func TestFilter_NameMatchIgnoresVhost(t *testing.T) {
 		t.Errorf("shop/web selected %v, want the route", got)
 	}
 }
+
+// TestAmbiguous_ReviewCases: readings come from the route part only, a custom
+// mapper's candidates still count, and route_source metadata is authoritative.
+func TestAmbiguous_ReviewCases(t *testing.T) {
+	route := func(vhost, name string, o *model.RouteAnnotation, meta map[string]any) *model.EnvoySnapshot {
+		return &model.EnvoySnapshot{Listeners: []model.Listener{{Name: "l", FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
+			RouteConfig: &model.RouteConfig{VirtualHosts: []model.VirtualHost{{Name: vhost, Routes: []model.Route{{Name: name, Origin: o, Metadata: meta}}}}}}}}}}}
+	}
+	ambiguous := &model.RouteAnnotation{Certainty: model.Ambiguous, Candidates: []model.RouteOrigin{{Route: routeRef("x", "y")}, {Route: routeRef("z", "w")}}}
+
+	// 1: a vhost carrying its own marker; the route part reads ns/foo only.
+	const vh = "listener~80~a-route-0-httproute-web"
+	name := vh + "-route-0-httproute-foo-ns-0-0-matcher-0"
+	if got := filter.Ambiguous(route(vh, name, ambiguous, nil), opts("ns", "foo")); !reflect.DeepEqual(got, []string{name}) {
+		t.Errorf("route part: Ambiguous = %v, want the route", got)
+	}
+
+	// 2: a custom mapper's candidates, on a name in another format.
+	custom := &model.RouteAnnotation{Certainty: model.Ambiguous, Candidates: []model.RouteOrigin{{Route: routeRef("shop", "web")}, {Route: routeRef("x", "y")}}}
+	if got := filter.Ambiguous(route("vh", "acme-route-7", custom, nil), opts("shop", "web")); !reflect.DeepEqual(got, []string{"acme-route-7"}) {
+		t.Errorf("custom candidates: Ambiguous = %v, want the route", got)
+	}
+
+	// 3: route_source names another HTTPRoute, under a non-Exact annotation.
+	meta := map[string]any{"dev.kgateway.route_source": map[string]any{
+		"kind": "HTTPRoute", "group": "gateway.networking.k8s.io", "namespace": "x", "name": "y", "rule": "_rule-0", "match": "_match-0"}}
+	if got := filter.Ambiguous(route("listener~80~shop", readings4, ambiguous, meta), opts("d", "a-b-c")); got != nil {
+		t.Errorf("route_source: Ambiguous = %v, want nothing", got)
+	}
+}
+
+// TestFilter_NameMatchIgnoresVhostRules: rule index and rule name still apply
+// to the route part.
+func TestFilter_NameMatchIgnoresVhostRules(t *testing.T) {
+	const vhost = "listener~80~httproute-web-shop-1-0-api-matcher-0"
+	name := vhost + "-route-0-httproute-web-shop-0-0-matcher-0"
+	snap := &model.EnvoySnapshot{Listeners: []model.Listener{{Name: "l", FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
+		RouteConfig: &model.RouteConfig{VirtualHosts: []model.VirtualHost{{Name: vhost, Routes: []model.Route{{Name: name}}}}}}}}}}}
+	for _, c := range []struct {
+		o    filter.Options
+		want []string
+	}{
+		{filter.Options{HTTPRouteName: "web", HTTPRouteNamespace: "shop", RuleIndex: 0}, []string{name}},
+		{filter.Options{HTTPRouteName: "web", HTTPRouteNamespace: "shop", RuleIndex: 1}, nil},
+		{filter.Options{HTTPRouteName: "web", HTTPRouteNamespace: "shop", RuleIndex: filter.AllRules, RuleName: "api"}, nil},
+	} {
+		if got := routeNames(filter.Filter(snap, c.o)); !reflect.DeepEqual(got, c.want) {
+			t.Errorf("%+v: Filter = %v, want %v", c.o, got, c.want)
+		}
+	}
+}

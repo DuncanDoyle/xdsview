@@ -257,15 +257,32 @@ func Ambiguous(snapshot *model.EnvoySnapshot, opts Options) []string {
 					if r.Origin == nil || r.Origin.Certainty == model.Exact || seen[r.Name] || selected(vh, r, opts) {
 						continue
 					}
-					// The name's readings without Known: metadataMapper has none.
-					readings := metadataMapper.Route(model.Route{Name: r.Name}).Candidates
-					if slices.ContainsFunc(readings, func(o model.RouteOrigin) bool { return candidateMatches(o, opts) }) {
+					// route_source metadata is authoritative, whatever the mapper said.
+					if metadataMapper.Route(r).Certainty == model.Exact {
+						continue
+					}
+					if slices.ContainsFunc(possibleOrigins(vh, r), func(o model.RouteOrigin) bool { return candidateMatches(o, opts) }) {
 						seen[r.Name] = true
 						out = append(out, r.Name)
 					}
 				}
 			}
 		}
+	}
+	return out
+}
+
+// possibleOrigins is everything r might have come from: the mapper's
+// candidates, plus every reading of the route part of its name, which Known
+// may have set aside. Parsing only the route part keeps a marker inside the
+// vhost name out of the readings.
+func possibleOrigins(vh model.VirtualHost, r model.Route) []model.RouteOrigin {
+	out := append([]model.RouteOrigin(nil), r.Origin.Candidates...)
+	if part := routePart(vh.Name, r.Name); part != r.Name {
+		// metadataMapper has no Known, so it returns all readings.
+		out = append(out, metadataMapper.Route(model.Route{Name: "-route-0-" + part}).Candidates...)
+	} else {
+		out = append(out, metadataMapper.Route(model.Route{Name: r.Name}).Candidates...)
 	}
 	return out
 }
