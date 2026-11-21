@@ -18,7 +18,15 @@ Status: not started. Phase 6 complete 2026-11-21 (`v0.4.0`, docs/phases/phase-6/
 - [ ] phase-7-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-none
+Sub-phase: 6.6 — Narrowing edge cases (`v0.4.2`, Phase 6 patch)
+Kind: stabilization
+Base: 5d66c27
+Brief: docs/phases/phase-6/phase-6.6-brief.md
+
+### Queue
+- [ ] S1 (P2) Ambiguous on all name readings — #29 ← CURRENT
+- [ ] S2 (P2) Name match after `<vhost>-route-<n>-` — #29
+- [ ] S3 Review, `v0.4.2`, close #29, tell kgwctl
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `3b71687`)
