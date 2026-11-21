@@ -63,3 +63,11 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 - A separate `Route` map keyed by backend name (rejected: names can repeat in a split, and the data belongs with the backend).
 - A one-bit flag (rejected in the design review: Phase 7 needs the config).
 **Consequences:** Callers use `reflect.DeepEqual` or compare fields. The `v0.4.0` release notes and the consumer notices name the change.
+
+## D-010 — `render.Options.RouteExtra` in the `v0.4.1` patch (2026-11-21, phase 6)
+**Context:** kgwctl adds its own note under some route lines. It finds the line by counting `Style` calls with `ClassRoute`, which depends on render's traversal order.
+**Decision:** Add `RouteExtra func(r RouteRef) []string` to `render.Options`. `RouteRef` holds the listener, filter chain, vhost and route indexes. The lines print under the route line, before its filters, like `Extra` does under a filter row. `Style` stays filter-scoped. The owner approved shipping it in `v0.4.1` with the attribution fixes (#28), as an additive API in a stabilization sub-phase.
+**Alternatives:**
+- Pass a route ref to `Style` for `ClassRoute` (rejected: `Style` styles text; adding lines is `Extra`'s job).
+- Ship it alone as `v0.5.0` (owner chose `v0.4.1`).
+**Consequences:** Additive. Consumers drop traversal-order assumptions.

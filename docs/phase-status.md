@@ -18,7 +18,22 @@ Status: not started. Phase 6 complete 2026-11-21 (`v0.4.0`, docs/phases/phase-6/
 - [ ] phase-7-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-none
+Sub-phase: 6.5 — Attribution gaps and route hook (`v0.4.1`, Phase 6 patch)
+Kind: stabilization (plus D-010, owner-approved 2026-11-21)
+Base: b4cf6ab
+Brief: docs/phases/phase-6/phase-6.5-brief.md
+
+### Allowed work
+Bug fixes, missing designed behaviour, tests, docs; `render.Options.RouteExtra` (D-010).
+
+### Not allowed
+Other new features, architecture changes, new dependencies.
+
+### Queue
+- [ ] S1 (P2) `rateLimit.local`, OSS transformation, `global_disable/*` attribution — #28 ← CURRENT
+- [ ] S2 (P3) Per-route-config parse skipping — #28
+- [ ] S3 `RouteExtra` (D-010)
+- [ ] S4 Cross-model review, triage; `v0.4.1`; close #28; tell kgwctl
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `3b71687`)
