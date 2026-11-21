@@ -84,7 +84,7 @@ krp dump --file config_dump.json --route my-route --route-ns default --rule api
 - each route's policies, from kgateway's `merge.*` route metadata
 
 ```
-└─ route / (prefix) · HTTPRoute kgateway-system/api-example-com · rule 0 · match 0 (inferred from cluster routes)
+└─ route / (prefix) · HTTPRoute kgateway-system/api-example-com · rule 0 · match 0 (chosen from known HTTPRoutes)
    filters (request order):
      1 ext_auth/kgateway-system/ext-authz  enabled by route · GatewayExtension kgateway-system/ext-authz · TrafficPolicy kgateway-system/ext-auth (extAuth)
      2 envoy.filters.http.router           on
@@ -94,9 +94,11 @@ krp dump --file config_dump.json --route my-route --route-ns default --rule api
 
 A route name can be read several ways, because HTTPRoute names and namespaces may both contain `-`. Three things settle it:
 
-1. In live mode (`--gateway`, `--deployment`), krp lists the cluster's HTTPRoutes. A route settled this way is marked "(inferred from cluster routes)": a route Envoy still serves for a deleted HTTPRoute can resolve to a live one.
+1. In live mode (`--gateway`, `--deployment`), krp lists the cluster's HTTPRoutes.
 2. `--route`/`--route-ns` names one. It takes the place of the listing.
 3. kgateway runs with `enableRouteSourceMetadata: true` (Helm), which writes each route's source into Envoy's config. kgateway marks it experimental.
+
+A route settled by 1 or 2 is marked "(chosen from known HTTPRoutes)": a route Envoy still serves for a deleted HTTPRoute can resolve to a live one.
 
 With `--file` and none of these, a route prints `ambiguous:` and its readings. `-o json` lists every reading, with a `certainty` of `exact`, `inferred` or `ambiguous`.
 
@@ -156,22 +158,22 @@ No cluster access required — works fully offline.
 `testdata/golden/scenarios/05-multi-listener/kgateway-v2.5.0.txt`, an HTTP and an HTTPS listener (krp adds colour):
 
 ```
-listener~80 :::80 · active · port 80
+listener~80 [::]:80 · active · port 80
 └─ vhost listener~80~api_example_com [api.example.com] · port 80
-   └─ route / (prefix) · HTTPRoute kgateway-system/api-example-com · rule 0 · match 0 (inferred from cluster routes)
+   └─ route / (prefix) · HTTPRoute kgateway-system/api-example-com · rule 0 · match 0 (chosen from known HTTPRoutes)
       filters (request order):
         1 envoy.filters.http.router  on
       backend: kube_httpbin_httpbin_8000
-listener~443 :::443 · active · port 443
+listener~443 [::]:443 · active · port 443
 └─ chain https-api · TLS api.example.com
    └─ vhost https-api~api_example_com [api.example.com] · listener https-api
-      └─ route / (prefix) · HTTPRoute kgateway-system/api-example-com · rule 0 · match 0 (inferred from cluster routes)
+      └─ route / (prefix) · HTTPRoute kgateway-system/api-example-com · rule 0 · match 0 (chosen from known HTTPRoutes)
          filters (request order):
            1 envoy.filters.http.router  on
          backend: kube_httpbin_httpbin_8000
 ```
 
-A listener that is warming, draining or rejected shows its state and Envoy's error, e.g. `listener~8443 :::8443 · warming · error: <details> (<time>)`.
+A listener that is warming, draining or rejected shows its state and Envoy's error, e.g. `listener~8443 [::]:8443 · warming · error: <details> (<time>)`.
 
 ---
 

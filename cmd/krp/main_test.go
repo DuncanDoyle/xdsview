@@ -243,6 +243,24 @@ func TestDump_NoRoutesWarning(t *testing.T) {
 	}
 }
 
+// TestDumpInteractive_NothingSelectable: with only a rejected listener there
+// is no row to select, so -i prints the tree, including Envoy's error.
+func TestDumpInteractive_NothingSelectable(t *testing.T) {
+	dump := filepath.Join(t.TempDir(), "config_dump.json")
+	const rejected = `{"configs": [{"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
+ "dynamic_listeners": [{"name": "listener~80", "error_state": {"details": "duplicate filter chain match"}}]}]}`
+	if err := os.WriteFile(dump, []byte(rejected), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, _, err := runKrp(t, "dump", "-i", "--file", dump)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "listener~80 · rejected · port 80 · error: duplicate filter chain match") {
+		t.Errorf("stdout lacks the rejected listener:\n%s", out)
+	}
+}
+
 // waf is a test plugin mapper that claims every ext_auth filter.
 type waf struct{ origin.Mapper }
 

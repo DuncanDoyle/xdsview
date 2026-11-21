@@ -5,7 +5,7 @@ package tui
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"strings"
 
 	"github.com/DuncanDoyle/xdsview/internal/renderer"
@@ -207,14 +207,15 @@ func (m model) View() string {
 	return m.viewport.View() + "\n" + helpBarStyle.Render(helpText)
 }
 
-// Run starts the interactive TUI for the given snapshot. It prints a warning
-// to stderr and returns immediately (without launching the bubbletea program)
-// if the snapshot contains no navigable filters. It blocks until the user quits
-// (q or Ctrl+C) and returns any bubbletea program error.
-func Run(snapshot *envoymodel.EnvoySnapshot) error {
+// Run starts the interactive TUI for the given snapshot. With no filter to
+// select, for example when only rejected listeners remain, it prints the
+// static tree to out instead, so their state and errors still show. It blocks
+// until the user quits (q or Ctrl+C) and returns any bubbletea program error.
+func Run(snapshot *envoymodel.EnvoySnapshot, out, errOut io.Writer) error {
 	m := initialModel(snapshot)
 	if len(m.items) == 0 {
-		fmt.Fprintln(os.Stderr, "no expandable filters found")
+		fmt.Fprintln(errOut, "no expandable filters found; printing the tree")
+		fmt.Fprintln(out, renderer.Render(snapshot))
 		return nil
 	}
 	// Content is initialised in Update() when the first tea.WindowSizeMsg arrives.

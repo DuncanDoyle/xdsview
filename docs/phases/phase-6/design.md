@@ -159,7 +159,7 @@ The kind comes from `FilterOrigin.Kind`, or from the composite delegate type. `C
 1. When a route carries an `Origin` (the snapshot was annotated), `Filter` matches on it.
    - If the origin is `Exact`, or `Inferred` with one candidate, `Filter` compares that origin's HTTPRoute and rule.
    - If the origin is `Ambiguous`, the route never matches. `filter.Ambiguous(snap, opts) []string` returns the names of ambiguous routes whose candidates include the requested HTTPRoute, so the consumer can report them.
-   - `RouteAnnotation` gains `NarrowedByKnown bool` (`json:"narrowedByKnown,omitempty"`). It is set when the route name alone reads several ways and `Known` left one candidate. A route still served for a deleted HTTPRoute can resolve to a live one that way. `Filter` still matches such a route, and the text marks its origin "(inferred from cluster routes)", so the consumer can decide.
+   - `RouteAnnotation` gains `NarrowedByKnown bool` (`json:"narrowedByKnown,omitempty"`). It is set when the route name alone reads several ways and `Known` left one candidate. A route still served for a deleted HTTPRoute can resolve to a live one that way. `Filter` still matches such a route, and the text marks its origin "(chosen from known HTTPRoutes)", so the consumer can decide.
    - Without an origin, matching stays as it is: by `route_source` metadata, otherwise by name. Today's name match can select HTTPRoute `orders` in `team-a` and `orders-team` in `a` alike. Both encode `httproute-orders-team-a-`.
 2. Listeners that aren't active, and listeners with an `Error`, survive narrowing with their state, even with no matching route. They may explain why a route is missing.
 

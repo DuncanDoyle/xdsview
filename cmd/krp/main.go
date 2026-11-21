@@ -258,7 +258,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 	// Render and print — or launch the interactive TUI.
 	switch {
 	case interactive:
-		return tui.Run(snapshot)
+		return tui.Run(snapshot, cmd.OutOrStdout(), cmd.ErrOrStderr())
 	case output == outputJSON:
 		return writeJSON(cmd.OutOrStdout(), snapshot, result.Warnings)
 	}
