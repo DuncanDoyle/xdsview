@@ -276,9 +276,10 @@ var globalDisable = map[string]string{
 const (
 	// transformationType is the envoy-gloo transformation filter (enterprise).
 	transformationType = "type.googleapis.com/envoy.api.v2.filter.http.FilterTransformations"
-	// rustformation is OSS kgateway's transformation, a dynamic module filter
-	// (traffic_policy_plugin.go, "dynamic_modules/simple_mutations").
-	rustformation = "rustformation"
+	// rustformationFilter is OSS kgateway's transformation filter instance
+	// (traffic_policy_plugin.go). Its module also backs the ext_auth_enabled
+	// helper, so the instance name, not the module, identifies it.
+	rustformationFilter = "dynamic_modules/simple_mutations"
 )
 
 // PolicyFilter reports whether p's field configures f. f.Type is the
@@ -288,8 +289,7 @@ func (k kgateway) PolicyFilter(p model.PolicyRef, f model.HTTPFilter) bool {
 		return true
 	}
 	if p.Field == "transformation" {
-		name, _ := f.TypedConfig["filter_name"].(string)
-		return f.Type == transformationType || filterKind(f.Type) == "dynamic_modules" && name == rustformation
+		return f.Type == transformationType || f.Name == rustformationFilter
 	}
 	kind, ok := policyFilterKinds[p.Field]
 	return ok && filterKind(f.Type) == kind

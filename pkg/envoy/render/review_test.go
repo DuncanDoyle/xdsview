@@ -3,6 +3,7 @@ package render_test
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -115,6 +116,42 @@ func TestText_RouteExtra(t *testing.T) {
 		"      filters (request order):\n"
 	if !strings.Contains(out, want) {
 		t.Errorf("no note under the /b route line:\n%s", out)
+	}
+}
+
+// TestText_RouteExtraRefs: every index in RouteRef follows the traversal, and
+// each note lands under its own route.
+func TestText_RouteExtraRefs(t *testing.T) {
+	vh := func(name string, routes ...string) model.VirtualHost {
+		v := model.VirtualHost{Name: name}
+		for _, p := range routes {
+			v.Routes = append(v.Routes, model.Route{Match: model.RouteMatch{Prefix: p}})
+		}
+		return v
+	}
+	chainOf := func(name string, vhs ...model.VirtualHost) model.NetworkFilterChain {
+		return model.NetworkFilterChain{Name: name, TLS: &model.TLSContext{SNIHosts: []string{name}},
+			HCM: &model.HCMConfig{RouteConfig: &model.RouteConfig{VirtualHosts: vhs}}}
+	}
+	snap := &model.EnvoySnapshot{Listeners: []model.Listener{
+		{Name: "l0", FilterChains: []model.NetworkFilterChain{chainOf("c0", vh("v0", "/a"))}},
+		{Name: "l1", FilterChains: []model.NetworkFilterChain{chainOf("c0", vh("v0", "/b")), chainOf("c1", vh("v0", "/c"), vh("v1", "/d", "/e"))}},
+	}}
+	var refs []render.RouteRef
+	out := text(t, snap, render.Options{RouteExtra: func(r render.RouteRef) []string {
+		refs = append(refs, r)
+		return []string{fmt.Sprintf("ref %d %d %d %d", r.ListenerIdx, r.FilterChainIdx, r.VirtualHostIdx, r.RouteIdx)}
+	}})
+	want := []render.RouteRef{{0, 0, 0, 0}, {1, 0, 0, 0}, {1, 1, 0, 0}, {1, 1, 1, 0}, {1, 1, 1, 1}}
+	if !reflect.DeepEqual(refs, want) {
+		t.Errorf("refs = %v, want %v", refs, want)
+	}
+	for _, pair := range [][2]string{{"/d", "ref 1 1 1 0"}, {"/e", "ref 1 1 1 1"}, {"/c", "ref 1 1 0 0"}} {
+		lines := strings.Split(out, "\n")
+		i := slices.IndexFunc(lines, func(l string) bool { return strings.Contains(l, "route "+pair[0]+" ") })
+		if i < 0 || i+1 >= len(lines) || strings.TrimLeft(lines[i+1], " │") != pair[1] {
+			t.Errorf("line under route %s isn't %q:\n%s", pair[0], pair[1], out)
+		}
 	}
 }
 

@@ -91,6 +91,11 @@ func Parse(r io.Reader) (Result, error) {
 					warnings = append(warnings, fmt.Sprintf("skipped route config %q: %v", named.RouteConfig.Name, err))
 					continue
 				}
+				// A null or nameless entry would join any HCM without an RDS name.
+				if drc.RouteConfig.Name == "" {
+					warnings = append(warnings, "skipped a route config with no name")
+					continue
+				}
 				rc := parseRouteConfig(drc.RouteConfig)
 				routeConfigs[rc.Name] = rc
 			}

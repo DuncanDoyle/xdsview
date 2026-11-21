@@ -35,19 +35,33 @@ func TestParse_BadRouteConfigSkipped(t *testing.T) {
 	dump := `{"configs": [
  {"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump", "dynamic_listeners": [
   {"name": "a", "active_state": {"listener": {"name": "a", "filter_chains": [{"name": "a", "filters": [
-   {"name": "envoy.filters.network.http_connection_manager", "typed_config": {"rds": {"route_config_name": "good"}}}]}]}}}]},
+   {"name": "envoy.filters.network.http_connection_manager", "typed_config": {"rds": {"route_config_name": "good"}}}]}]}}},
+  {"name": "b", "active_state": {"listener": {"name": "b", "filter_chains": [{"name": "b", "filters": [
+   {"name": "envoy.filters.network.http_connection_manager", "typed_config": {"rds": {"route_config_name": "bad"}}}]}]}}},
+  {"name": "c", "active_state": {"listener": {"name": "c", "filter_chains": [{"name": "c", "filters": [
+   {"name": "envoy.filters.network.http_connection_manager", "typed_config": {}}]}]}}}]},
  {"@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump", "dynamic_route_configs": [
   {"route_config": {"name": "bad", "virtual_hosts": "not a list"}},
+  null,
+  {"route_config": null},
   {"route_config": {"name": "good", "virtual_hosts": [{"name": "vh", "routes": [{"name": "r", "match": {"prefix": "/"}}]}]}}]}]}`
 	result, err := parser.Parse(strings.NewReader(dump))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rc := result.Snapshot.Listeners[0].FilterChains[0].HCM.RouteConfig; rc == nil || rc.Name != "good" || len(rc.VirtualHosts) != 1 {
+	ls := result.Snapshot.Listeners
+	if rc := ls[0].FilterChains[0].HCM.RouteConfig; rc == nil || rc.Name != "good" || len(rc.VirtualHosts) != 1 {
 		t.Errorf("good route config not joined: %+v", rc)
 	}
-	if len(result.Warnings) != 1 || !strings.Contains(result.Warnings[0], `route config "bad"`) {
-		t.Errorf("warnings = %q, want one naming route config \"bad\"", result.Warnings)
+	// Neither the bad config nor a nameless one is kept for another HCM to join.
+	if rc := ls[1].FilterChains[0].HCM.RouteConfig; rc != nil {
+		t.Errorf("listener b joined the skipped route config: %+v", rc)
+	}
+	if rc := ls[2].FilterChains[0].HCM.RouteConfig; rc != nil {
+		t.Errorf("listener c (no RDS name) joined a nameless route config: %+v", rc)
+	}
+	if len(result.Warnings) != 3 || !strings.Contains(result.Warnings[0], `route config "bad"`) {
+		t.Errorf("warnings = %q, want three, the first naming route config \"bad\"", result.Warnings)
 	}
 }
 
