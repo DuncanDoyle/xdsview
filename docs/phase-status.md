@@ -25,7 +25,10 @@ Status: design + plan reviewed (Codex, triaged); reordered certainty-first (D-01
 - [ ] phase-8-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-none (8.1 closed 2026-11-22, `v0.5.0`)
+Sub-phase: 8.2 — enterprise corpus out, OSS coverage kept
+Kind: planned
+Base: da82d0d
+Brief: docs/phases/phase-8/phase-8.2-brief.md
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `7288049`)
