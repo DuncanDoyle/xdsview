@@ -143,3 +143,9 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 **Decision:** No change to D-014 itself: the tie-break still goes. The claim about dump 09 is corrected. That link stays, labelled `(extAuth, inferred)`.
 **Alternatives:** n/a (a factual correction).
 **Consequences:** The tie-break decided only the hand-built `TestAnnotate_DisableBesideInheritedProvider` case, which 8.1 replaces with `TestCertainty_OneCandidate`. The goldens show whether any recorded dump drops a contribution.
+
+## D-018 — The enterprise corpus moves downstream (amends D-013) (2026-11-22, phase 8)
+**Context:** D-013 deletes the enterprise dumps. The owner decided that a downstream consumer keeps them, in its own private repository. That repository also holds its `origin` plugin behind the `origin.Chain` seam (P-002).
+**Decision:** D-013's "delete" becomes "move". For xdsview, 8.2's scope is unchanged: the corpus leaves this repository, and git history stays. The downstream copy is that repository's own work, taken from this history; xdsview pushes nothing there. Where an enterprise-only test shows parser behaviour that no OSS dump covers, xdsview keeps a neutral hand-built fixture (as D-013 does for upstream filters).
+**Alternatives:** keep the corpus here (rejected: P-002, E6).
+**Consequences:** No change to 8.2's plan or to consumers.

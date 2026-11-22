@@ -198,7 +198,7 @@ func TestText_Certainty(t *testing.T) {
 		{"metadata indices", model.RouteOrigin{Route: web, RuleIndex: 1, MatchIndex: 0},
 			"   └─ route /orders (prefix) · HTTPRoute shop/web · rule 1 · match 0"},
 		{"indices from the name", model.RouteOrigin{Route: web, RuleIndex: 1, RuleName: "api", MatchIndex: 0, IndexCertainty: model.Inferred},
-			"   └─ route /orders (prefix) · HTTPRoute shop/web · rule 1 (api) · match 0 (from name)"},
+			"   └─ route /orders (prefix) · HTTPRoute shop/web · rule 1 (api) · match 0 (partly from name)"},
 	}
 	for _, c := range cases {
 		r.Origin = &model.RouteAnnotation{Certainty: model.Exact, Candidates: []model.RouteOrigin{c.o}}

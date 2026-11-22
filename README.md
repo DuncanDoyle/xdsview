@@ -102,7 +102,7 @@ A route settled by 1 or 2 is marked "(chosen from known HTTPRoutes)": a route En
 
 With `--file` and none of these, a route prints `ambiguous:` and its readings. `-o json` lists every reading, with a `certainty` of `exact`, `inferred` or `ambiguous`.
 
-Every label states how it was derived. `(inferred)` marks one read from a naming convention or krp's field-to-filter table; `exact` ones, read from metadata, print bare. `(from name)` marks a rule or match index that came from the Envoy route name although the route's identity came from metadata. A policy is linked to a filter only when exactly one filter configured for the route matches its field; otherwise it shows under `policies:` only. `-o json` carries the same as `certainty` on each contribution and policy, and `indexCertainty` on a route origin.
+Every label states how it was derived. `(inferred)` marks one read from a naming convention or krp's field-to-filter table; `exact` ones, read from metadata, print bare. `(partly from name)` marks a route whose identity came from metadata while at least one of its rule index, rule name or match index came from the Envoy route name. A policy is linked to a filter only when exactly one filter configured for the route matches its field; otherwise it shows under `policies:` only. `-o json` carries the same as `certainty` on each contribution and policy, and `indexCertainty` on a route origin.
 
 ### Effective filter chain
 

@@ -179,16 +179,16 @@ func routeFromMetadata(r model.Route) (model.RouteOrigin, bool) {
 	rule, match := str("rule"), str("match")
 	legacy := strings.ToLower(ref.Kind) + "-" + ref.Name + "-" + ref.Namespace + "-"
 	if idx, ok := strings.CutPrefix(rule, "_rule-"); ok {
-		if ri, err := strconv.Atoi(idx); err == nil {
+		if ri, ok := index(idx); ok {
 			o.RuleIndex = ri
 		}
 	} else if rest, ok := strings.CutPrefix(rule, legacy); ok {
 		// v2.4: "<kind>-<name>-<ns>-<rule>-<match>".
 		if r, m, ok := strings.Cut(rest, "-"); ok {
-			if ri, err := strconv.Atoi(r); err == nil {
+			if ri, ok := index(r); ok {
 				o.RuleIndex = ri
 			}
-			if mi, err := strconv.Atoi(m); err == nil {
+			if mi, ok := index(m); ok {
 				o.MatchIndex = mi
 			}
 		}
@@ -196,7 +196,7 @@ func routeFromMetadata(r model.Route) (model.RouteOrigin, bool) {
 		o.RuleName = rule
 	}
 	if idx, ok := strings.CutPrefix(match, "_match-"); ok {
-		if mi, err := strconv.Atoi(idx); err == nil {
+		if mi, ok := index(idx); ok {
 			o.MatchIndex = mi
 		}
 	}
@@ -221,6 +221,15 @@ func routeFromMetadata(r model.Route) (model.RouteOrigin, bool) {
 		}
 	}
 	return o, true
+}
+
+// index parses an unsigned decimal index. strconv.Atoi alone accepts a sign.
+func index(s string) (int, bool) {
+	if s == "" || strings.Trim(s, "0123456789") != "" {
+		return 0, false
+	}
+	n, err := strconv.Atoi(s)
+	return n, err == nil
 }
 
 func (k kgateway) Cluster(name string) model.BackendOrigin {

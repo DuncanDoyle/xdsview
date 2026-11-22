@@ -20,8 +20,8 @@ Order (D-015): certainty first, because kgwctl `proxy routes` already ships unla
       - The built-in reader's refs are `exact`.
       - A metadata entry whose ID group/kind disagree with its `merge.` key is skipped. Fails today.
    4. **Route indices.**
-      - `route_source` with a rule name and no `_rule-N` gives `indexCertainty: inferred`, and text `(from name)`.
-      - Full `_rule-N`/`_match-N` gives no `indexCertainty`, and bare text.
+      - `route_source` with a rule name and no `_rule-N` gives `indexCertainty: inferred`, and text `(partly from name)`.
+      - Full `_rule-N`/`_match-N`, with nothing taken from the name, gives no `indexCertainty`, and bare text. A rule name taken from the name still marks it (8.1 review #5).
       - Narrowing by rule index still selects the route in both cases.
    5. **Text.**
       - A single-reading route origin renders `… (inferred)`.

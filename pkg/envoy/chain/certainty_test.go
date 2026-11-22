@@ -204,7 +204,7 @@ func TestCertainty_ComposedOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := out.String()
-	if !strings.Contains(text, "HTTPRoute ns/web · rule 1 (api) · match 0 (from name)") {
+	if !strings.Contains(text, "HTTPRoute ns/web · rule 1 (api) · match 0 (partly from name)") {
 		t.Errorf("text lacks the name-derived indices:\n%s", text)
 	}
 	// Exact prints bare: no qualifier after the extension.

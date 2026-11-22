@@ -503,7 +503,7 @@ func routeOrigin(a *model.RouteAnnotation) string {
 		s += fmt.Sprintf(" · match %d", o.MatchIndex)
 	}
 	if o.IndexCertainty == model.Inferred {
-		s += " (from name)"
+		s += " (partly from name)"
 	}
 	// "chosen from known HTTPRoutes" already says the reading was inferred.
 	if a.NarrowedByKnown {

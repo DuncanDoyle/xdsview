@@ -75,7 +75,12 @@ func TestRoute_MalformedIndices(t *testing.T) {
 	ref := model.Ref{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute", Namespace: "ns", Name: "web"}
 	meta := map[string]any{"dev.kgateway.route_source": map[string]any{
 		"kind": "HTTPRoute", "group": "gateway.networking.k8s.io", "namespace": "ns", "name": "web", "rule": "_rule-bad", "match": "_match-bad"}}
+	signed := map[string]any{"dev.kgateway.route_source": map[string]any{
+		"kind": "HTTPRoute", "group": "gateway.networking.k8s.io", "namespace": "ns", "name": "web", "rule": "_rule--0", "match": "_match-+0"}}
 	m := origin.Kgateway(origin.KgatewayOptions{})
+	if got := m.Route(model.Route{Name: "custom", Metadata: signed}); got.Candidates[0].RuleIndex != -1 || got.Candidates[0].MatchIndex != -1 {
+		t.Errorf("signed indices: got %+v, want both unknown", got.Candidates[0])
+	}
 	cases := []struct {
 		name string
 		want model.RouteOrigin
