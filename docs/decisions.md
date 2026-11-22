@@ -71,3 +71,37 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 - Pass a route ref to `Style` for `ClassRoute` (rejected: `Style` styles text; adding lines is `Extra`'s job).
 - Ship it alone as `v0.5.0` (owner chose `v0.4.1`).
 **Consequences:** Additive. Consumers drop traversal-order assumptions.
+
+## D-011 — Defer intended vs accepted; no generic xDS diff (2026-11-22, phase 7)
+**Context:** Phase 7 planned to diff kgateway's `/snapshots/xds` against Envoy's `/config_dump`. An architecture review questioned its operational value. The evidence is in `docs/phases/phase-7/assessment.md`. In a converged system the diff is empty by construction. Every difference is a convergence state that controller metrics and proxy stats already report (Snellius KGWUI-001, 024, 025, 026). A wrong translation that Envoy accepts doesn't show up in the diff. The controller keeps no per-proxy ACK record. Its admin API is kgateway-specific, unauthenticated, and encoded differently from `config_dump`.
+**Decision:** Option C. Phase 7 is deferred, not designed. xdsview builds no generic intended-vs-accepted diff. Convergence diagnostics (ACK/NACK, staleness, warming and draining, replica drift, version correlation) are a program-level investigation. xdsview takes a phase only when that investigation names a question that needs Envoy-config evidence, with an operator scenario. Small Envoy-side additions, such as accepted versions per resource or a replica comparison, can then be scoped on their own.
+**Alternatives:**
+- A, keep Phase 7: rejected for the reasons above.
+- B, convergence diagnostics as an xdsview phase: rejected for now. Most inputs are controller metrics and per-pod stats outside this library, which Snellius already reads.
+**Consequences:** Phase 8 is next. E4's "intended vs accepted" and kgwctl's deferred `proxy diff` have no provider until the program decides. D-009's per-backend config stays, because `chain` uses it.
+
+## D-012 — Attribution states its certainty; policy semantics stay with the controller (2026-11-22, phase 8)
+**Context:** The program agreed that the kgateway controller owns policy semantics: no tool reimplements attachment, precedence, inheritance, merge or override, and heuristics are labelled. An audit of `origin` and `chain` found claims stated as fact:
+- policy contributions carry no certainty and render like facts;
+- the OSS field table applies to any policy Kind;
+- extension contributions drop their origin's `Inferred`;
+- text output doesn't separate inferred from exact.
+
+**Decision:**
+1. Every contribution carries a certainty. A policy contribution is at most `inferred`. The `merge.*` metadata proves that kgateway merged the field into the route. Which filter config the field produced comes from a table.
+2. The OSS field table applies only to kgateway's own policy Kind. Other Kinds attribute only through a plugin.
+3. Text output marks `inferred`, as it already marks `ambiguous`.
+4. Exact stays for `route_source` identity, and `Route.Policies` stays as metadata-backed.
+
+**Alternatives:**
+- Drop policy contributions entirely: rejected, because the metadata is real evidence, and consumers show it.
+- Move the most-specific-level rule out of `chain`: rejected, because no requirement needs it. It is labelled `inferred` instead.
+**Consequences:** JSON gains `certainty` on contributions (additive). Text output changes, so consumer goldens change. Released as a minor version.
+
+## D-013 — Phase 8 removes the enterprise corpus (supersedes D-003's enterprise part) (2026-11-22, phase 8)
+**Context:** D-003 kept the enterprise dumps as extra parser coverage until the move into kgateway (E6). kgwctl's move now waits on it (#32). An inventory showed that the OSS dumps (2.4.7, 2.5.0, 2.5.1) already cover every enterprise-backed test, except a real dump with router upstream filters.
+**Decision:** Delete `testdata/enterprise/` and its goldens. Repoint the tests to OSS dumps, and cover upstream filters with a hand-built fixture at the render boundary. Hand-built fixtures use neutral names. The enterprise transformation type leaves the core mapper and the sides table, and a test plugin shows the seam instead. Git history isn't rewritten unless the owner asks.
+**Alternatives:**
+- Keep the corpus in a separate module: rejected, because nothing outside this repo needs it.
+- Rewrite history: owner decision, not assumed.
+**Consequences:** Enterprise dumps lose their transformation attribution and show `?` sides for that filter. A plugin can restore the attribution but not the sides; a sides hook waits for a consumer that needs one.

@@ -78,11 +78,13 @@ Make the model faithful to what Envoy runs, and own the mapping back to Gateway 
 The effective HTTP filter chain per route (request and response order, and what turned each filter on or off), listener state (warming, draining, rejected), and an exported stdlib-only text renderer that the `krp` CLI and TUI style. See D-008.
 
 ### Phase 7 — Intended vs Accepted Configuration
-**Status:** Not started (was Phase 6 until D-008)
+**Status:** Deferred (D-011, 2026-11-22). Not designed. Assessment: `docs/phases/phase-7/assessment.md`.
 **Docs:** `docs/phases/phase-7/`
-**Unblocks:** program edge E4 (Snellius Phase 12, second half)
+**Was to unblock:** program edge E4 (Snellius Phase 12, second half); the program decides its replacement.
 
-Compare the controller's intended xDS (kgateway admin `/snapshots/xds`) with what Envoy accepted (`/config_dump`), and report differences per route and filter. Covers the "Config Mismatches" TODO: a filter the controller produced that Envoy does not run, or the reverse.
+Resumes only when the program's convergence investigation names a question that needs Envoy-config evidence, with an operator scenario. No generic diff. The notes below stay as constraints for any such phase.
+
+Original scope: compare the controller's intended xDS (kgateway admin `/snapshots/xds`) with what Envoy accepted (`/config_dump`), and report differences per route and filter. Covers the "Config Mismatches" TODO: a filter the controller produced that Envoy does not run, or the reverse.
 
 - New source for the controller snapshot.
 - Lifecycle matters for comparison: the parser shows a warming-only or draining-only listener's config like an active one, so compare on `Listener.State`, not without it (Phase 6 review #13).
@@ -90,15 +92,16 @@ Compare the controller's intended xDS (kgateway admin `/snapshots/xds`) with wha
 - Diff model (added / missing / changed) exposed by the library and rendered by the `krp` CLI.
 
 ### Phase 8 — Vendor-Neutral Core
-**Status:** Not started. May run before Phase 7: it gates kgwctl's move into kgateway.
+**Status:** Design (2026-11-22). Next phase: it gates kgwctl's move into kgateway.
 **Docs:** `docs/phases/phase-8/`
 **Unblocks:** program edge E6 (CLI move into kgateway)
 **Issue:** #32
 
-Make the module license-clean and vendor-neutral (program P-002).
+Make the module license-clean and vendor-neutral (program P-002, D-013), and make attribution state its certainty (D-012).
 
 - Remove `testdata/enterprise/`; move the tests that read it onto OSS dumps.
 - Move the enterprise transformation type out of the core kgateway mapper, behind the `origin.Chain` seam.
+- Contributions carry a certainty; policy attribution is at most inferred and only for kgateway's own policy Kind; text output marks inferred.
 
 ---
 

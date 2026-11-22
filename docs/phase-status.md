@@ -1,36 +1,43 @@
 # Phase status
 
 ## Phase
-Phase: 7 — Intended vs Accepted Configuration
-Base: n/a (not started)
-Docs: docs/phases/phase-7/
-Status: not started. Phase 6 complete 2026-11-21 (`v0.4.0`, docs/phases/phase-6/phase-6-complete.md). Starts when a consumer needs it (E4 second half).
+Phase: 8 — Vendor-Neutral Core
+Base: f8b4af6
+Author: anthropic (claude-opus-5-5)
+Advisory: none
+Docs: docs/phases/phase-8/
+Status: design + plan written; awaiting Codex review and owner approval. Phase 7 deferred (D-011, docs/phases/phase-7/assessment.md).
 
 ### Queue
-- [ ] Q1 Phase 7 design + plan
+- [ ] Q1 design + plan cross-model review, triage, owner approval ← CURRENT
+- [ ] Q2 8.1 corpus out, OSS coverage kept
+- [ ] Q3 8.2 mapper vendor-neutral
+- [ ] Q4 8.3 certainty on attribution
+- [ ] Q5 phase review, close, `v0.5.0`, handoff
 
 ### Exit gates
 - [ ] tests/vet pass (observed)
 - [ ] all queue items done or deferred
-- [ ] design+plan cross-model review + triage
+- [ ] design+plan cross-model review + triage: docs/phases/phase-8/reviews/design-codex.md
 - [ ] phase cross-model review + triage
 - [ ] decisions.md / design / plan in sync with code
-- [ ] phase-7-complete.md written, roadmap updated, tracked items closed
+- [ ] phase-8-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
 none
 
 ## Program
-Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `3b71687`)
-Waiting on: nothing
-Consumers: E11 available (`v0.4.3`, kgwctl#10); E4 effective chain available, intended vs accepted is Phase 7 (snellius#63)
+Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `7288049`)
+Waiting on: nothing. Phase 8 needs no edge from another repo.
+Consumers: E6 (kgwctl move into kgateway) waits on this phase. E11 available (`v0.4.3`). E4: effective chain available; intended vs accepted deferred (D-011), replacement is the program's call.
 
 ## Carry-over (deferred to later phases)
 - #26 (P2) kube source: cancellation through an API-server proxy — deferred, not a requirement (owner, 2026-11-05). kgwctl fixed the same gap in its own dialer and offered its code.
-- Phase 6 review #13: Phase 7 must compare listeners on `Listener.State` (roadmap Phase 7).
-- #32 E6 cleanup (enterprise corpus, enterprise type in the core mapper): its own phase, before kgwctl moves into kgateway (owner, 2026-11-21).
+- Phase 7 deferred (D-011): resumes only on a named convergence question from the program. Its roadmap notes (listener state, parser warnings) stay as constraints.
+- `origin.ObjectForName` drops certainty (Phase 8 audit P2-e): no consumer; revisit when one appears.
 
 ## Notes
+- 2026-11-22: architectural review. Phase 7 deferred (D-011), attribution states its certainty (D-012), enterprise corpus removed (D-013). Phase 8 started.
 - 2026-11-21: Phase 6 patch `v0.4.3` (sub-phase 6.7, #31): warning for a skipped HCM; narrowing keeps listeners mid-update. E6 cleanup planned as Phase 8 (#32).
 - 2026-11-21: Phase 6 patch `v0.4.2` (sub-phase 6.6, #29): narrowing edge cases. #30 open (unmapped policy fields).
 - 2026-11-21: Phase 6 patch `v0.4.1` (sub-phase 6.5, #28, D-010): attribution gaps and `RouteExtra`.
