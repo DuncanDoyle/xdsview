@@ -92,7 +92,7 @@ Original scope: compare the controller's intended xDS (kgateway admin `/snapshot
 - Diff model (added / missing / changed) exposed by the library and rendered by the `krp` CLI.
 
 ### Phase 8 — Vendor-Neutral Core
-**Status:** Design (2026-11-22). Next phase: it gates kgwctl's move into kgateway.
+**Status:** In progress (approved 2026-11-22, D-016). Current phase: it gates kgwctl's move into kgateway.
 **Docs:** `docs/phases/phase-8/`
 **Unblocks:** program edges E13 (certainty on kgwctl `proxy routes`, 8.1) and E6 (CLI move into kgateway)
 **Issue:** #32
@@ -102,7 +102,7 @@ Make the module license-clean and vendor-neutral (program P-002, D-013), and mak
 - Remove `testdata/enterprise/`; move the tests that read it onto OSS dumps.
 - Move the enterprise transformation type out of the core kgateway mapper, behind the `origin.Chain` seam.
 - Contributions carry a certainty; policy attribution is at most inferred and only for kgateway's own policy Kind; text output marks inferred.
-- Order (D-015): 8.1 certainty and the filter link, 8.2 corpus, 8.3 mapper. One release, `v0.5.0`.
+- Order (D-015): 8.1 certainty and the filter link, 8.2 corpus, 8.3 mapper. Releases (D-016): `v0.5.0` after 8.1, `v0.6.0` after 8.3.
 
 ### Investigation — xDS convergence (program P-009)
 **Status:** Queued after Phase 8 (owner decision, 2026-11-22). Design only; no code until the owner approves.

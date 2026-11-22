@@ -6,14 +6,15 @@ Base: f8b4af6
 Author: anthropic (claude-opus-5-5)
 Advisory: none
 Docs: docs/phases/phase-8/
-Status: design + plan reviewed (Codex, triaged); reordered certainty-first (D-015); awaiting owner approval. Phase 7 deferred (D-011, docs/phases/phase-7/assessment.md).
+Status: design + plan reviewed (Codex, triaged); reordered certainty-first (D-015); approved (D-016). Phase 7 deferred (D-011, docs/phases/phase-7/assessment.md).
 
 ### Queue
-- [ ] Q1 design + plan cross-model review, triage, owner approval ← CURRENT
-- [ ] Q2 8.1 certainty and the filter link (D-015)
+- [x] Q1 design + plan cross-model review, triage, owner approval (D-016)
+- [ ] Q2 8.1 certainty and the filter link (D-015) ← CURRENT
+- [ ] Q2b review of 8.1, tag `v0.5.0`, kgwctl notice (E13)
 - [ ] Q3 8.2 corpus out, OSS coverage kept
 - [ ] Q4 8.3 mapper vendor-neutral
-- [ ] Q5 phase review, close, `v0.5.0`, handoff
+- [ ] Q5 phase review, close, `v0.6.0`, handoff (E6)
 
 ### Exit gates
 - [ ] tests/vet pass (observed)

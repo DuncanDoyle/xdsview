@@ -126,3 +126,14 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 **Decision:** Sub-phase order becomes 8.1 certainty and the filter link, 8.2 corpus, 8.3 mapper. Scope is unchanged.
 **Alternatives:** the reviewed order (corpus, mapper, certainty): rejected, because it delays the labels kgwctl needs.
 **Consequences:** 8.1 regenerates the enterprise goldens that 8.2 then deletes. The design review's findings still apply; only the order changed.
+
+## D-016 — Owner approval of Phase 8; two releases (2026-11-22, phase 8)
+**Context:** the design and plan (D-012 to D-015) needed owner approval, with four open questions.
+**Decision:** The owner approved the following:
+1. The Phase 8 design and plan, in the D-015 order.
+2. Dropping the 6.5 level tie-break (D-014 item 2). The `global_disable/*` table entries stay.
+3. No git history rewrite. Tags `v0.1.0`–`v0.4.3` are in the Go checksum database, so a rewrite can't remove published content.
+4. Two releases: `v0.5.0` after 8.1 (certainty, E13), and `v0.6.0` after 8.3 (vendor-neutral core, E6).
+
+**Alternatives:** one `v0.5.0` at the end (rejected: E13 would wait for unrelated work).
+**Consequences:** A phase cross-model review of `f8b4af6..` runs before the `v0.5.0` tag, and again before `v0.6.0`. kgwctl bumps twice; the second bump changes no OSS output. An exact policy-to-filter link needs controller metadata that names the filter; this is proposed to the program as an upstream ask.

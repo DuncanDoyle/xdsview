@@ -72,9 +72,9 @@ Order (D-015): certainty first, because kgwctl `proxy routes` already ships unla
 
 1. Phase cross-model review of `f8b4af6..HEAD` (both dimensions), with triage.
 2. `phase-8-complete.md`, roadmap, `phase-status.md`; close #32.
-3. Tag `v0.5.0` (owner approval).
+3. Tag `v0.6.0` (owner approval). `v0.5.0` is tagged after 8.1, following a cross-model review of `f8b4af6..HEAD` at that point (D-016).
 4. Program handoff:
-   - a `cross-repo` issue in kgwctl naming E6, E13 and `v0.5.0`, with its golden impact;
+   - a `cross-repo` issue in kgwctl for each release: E13 with `v0.5.0`, E6 with `v0.6.0`, with its golden impact;
    - an E6/E13 row update sent through the program session, which owns `program.md` edits while it amends it.
 
 ## Order and size
