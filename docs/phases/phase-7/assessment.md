@@ -48,7 +48,7 @@ Not covered today: per-replica version drift (`version_text` per pod across a Ga
 ## 4. Options
 
 **A. Keep Phase 7 (full intended-vs-accepted diff).** Rejected.
-1. In a converged system the diff is empty by construction: Envoy accepted what was sent. Every non-empty diff is a convergence state (NACK, in flight, parked, disconnected, rollout split), which the signals above already report more directly.
+1. In a converged system the diff is empty by construction: Envoy accepted what was sent. Every non-empty diff is a convergence state (NACK, in flight, parked, disconnected, rollout split). The signals above report most of these more directly. Two of them they don't cover: per-replica version drift, and a non-LDS rejection whose counter has stopped moving. Aggregate signals also lack per-resource detail. Those are questions for a targeted check, not for a whole-tree diff (D-014).
 2. It doesn't catch the case Snellius D-006 cites, a wrong translation that Envoy accepts: then intended and accepted agree.
 3. The cost is high: a second encoding (Go JSON vs protojson), per-client scoping, subscribed-names-only delivery, EDS and secrets excluded, non-atomic publish, `-carry-` versions. All need normalising before a diff means anything.
 4. It reads kgateway's admin API, which is kgateway-specific, unauthenticated and localhost-bound. That is not a vendor-neutral Envoy library's input.

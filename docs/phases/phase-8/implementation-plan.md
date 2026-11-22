@@ -1,45 +1,73 @@
 # Phase 8 — Vendor-Neutral Core: implementation plan
 
-Design: `design.md`. Three planned sub-phases, each a reviewable change of its own. The tests come first in each one. A test that guards a change must fail before the change.
+Design: `design.md` (amended after the design review, D-014). There are three planned sub-phases, each a reviewable change of its own. Each starts with tests.
+- A test for **changed** behaviour must fail before the change.
+- A **replacement** test, which moves coverage off the enterprise corpus, must pass before the deletion.
 
 ## 8.1 — Corpus out, OSS coverage kept (R1–R3)
 
-1. Port `TestE2E_UpstreamFilters`'s render assertion onto the hand-built `accuracy` fixture. The render boundary must print `router upstream filters (as configured): …`. It passes on the current code; the parser side is already covered by `TestParse_UpstreamFiltersAndTypes`.
-2. Repoint the `parser_test.go` tests to OSS dumps (00, 02_x on `kgateway-v2.5.0`). Change the enterprise-only expectations to the OSS values: the first filter on 443, and the rate-limit key `ratelimit/kgateway-system/ratelimit`.
+1. Replacement tests, which pass on the current code:
+   - a render check on the hand-built `accuracy` fixture: `router upstream filters (as configured): …`;
+   - a neutral hand-built dump at `testdata/fixtures/upstream-extproc/envoy/config_dump.json`, with router upstream filters (typed config) and a route with `ExtProcPerRoute` `disabled`. Its JSON golden comes from `TestDumpJSON_Golden`. Check the golden for the `upstreamFilters` subtree and the per-route config.
+2. Repoint the `parser_test.go` tests to OSS dumps (00 and 02_x on `kgateway-v2.5.0`). Enterprise-only expectations become the OSS values: the first filter on 443, and the rate-limit key `ratelimit/kgateway-system/ratelimit`.
 3. Remove the enterprise globs and the skip from `parser/e2e_test.go`, `accuracy_e2e_test.go` and `filter/e2e_test.go`, and drop `TestFilter_E2E_EnterpriseScenarios`.
 4. Delete `testdata/enterprise/` and `testdata/golden/enterprise/`. `TestDumpJSON_Golden` must still find every OSS dump.
-5. Rename vendor names in the hand-built fixtures: `render_test.go`, `internal/renderer/renderer_test.go`, `resolve_test.go`, `tui_test.go`, `model/envoy_test.go`, `clone_test.go`, `origin_test.go`. Expected outputs change only by the names.
+5. Replace vendor names in the hand-built fixtures with neutral ones: `render_test.go`, `internal/renderer/renderer_test.go`, `resolve_test.go`, `tui_test.go`, `model/envoy_test.go`, `clone_test.go`, `origin_test.go`. Where a fixture's filter type matters to its output (sides), use a stock Envoy type, so expected output changes only by names. The `FilterTransformations` cases in `origin_test.go` stay until 8.2.
 6. Docs: README corpus section, and a D-003 pointer to D-013.
 
-**Done:** `grep -rniE 'enterprise|solo|gloo|_ee\b|io\.solo' --include='*.go' --include='*.json' --include='*.yaml' .` finds nothing outside `docs/`. All tests and vet pass. Test count per package is reported, with each dropped test named and the reason given.
+**Done:**
+- `grep -rniE 'enterprise|solo|gloo|_ee\b' --include='*.go' pkg cmd internal` finds only `origin/kgateway.go`'s transformation type and its tests, which 8.2 removes.
+- The same grep over `testdata/` finds only recorded OSS manifests (the `solo-public/docs/hey` image). These are inputs, not library names.
+- All tests and vet pass. Test counts per package are reported before and after, with each dropped test named and the reason given.
 
-## 8.2 — Mapper vendor-neutral (R4, R6, R8)
+## 8.2 — Mapper vendor-neutral (R4, R6)
 
-1. Tests first, at the `chain.Annotate` boundary on a hand-built route with `merge.*` metadata:
-   - A `TrafficPolicy` `extAuth` field is attributed to the `ext_authz` entry (unchanged).
-   - An `AcmePolicy` (another group/Kind) with an `extAuth` field gets no contribution, but is still listed in `Route.Policies` (fails today).
-   - A filter of type `FilterTransformations` with a `transformation` field gets no contribution and shows unknown sides (fails today).
-   - The same, with a test plugin in `origin.Chain` whose `PolicyFilter` claims that type, is attributed (passes once the plugin exists).
+1. Tests first, through the composed path `origin.Annotate` then `chain.Annotate` (as `cmd/krp` runs it). Each is a hand-built route with `merge.*` metadata:
+   - A `gateway.kgateway.dev/TrafficPolicy` `extAuth` field is attributed to the `ext_authz` entry (unchanged).
+   - The same field from `example.com/TrafficPolicy` (wrong group) is in `Route.Policies` with no contribution. Fails today.
+   - The same field from `gateway.kgateway.dev/AcmePolicy` (wrong kind) is in `Route.Policies` with no contribution. Fails today.
+   - A `FilterTransformations` filter with a `transformation` field gets no contribution and shows unknown sides. Fails today.
+   - The same, with a test plugin in `origin.Chain` whose `PolicyFilter` claims that type, is attributed. Passes once the plugin exists.
 2. Restrict `PolicyFilter` to `gateway.kgateway.dev/TrafficPolicy`. Remove `transformationType` and its sides entry.
-3. Move the `FilterTransformations` cases in `origin_test.go` to the plugin test.
+3. Direct `PolicyFilter` tests in `origin_test.go` pass full refs, and the `FilterTransformations` cases move to the plugin test.
 
-**Done:** the tests above pass, all OSS goldens are unchanged, `grep FilterTransformations pkg/ cmd/ internal/ --include='*.go'` finds only the plugin test, and vet passes.
+**Done:** the tests above pass. OSS goldens are unchanged. `grep -rn FilterTransformations --include='*.go' .` finds only the plugin test. The 8.1 vendor grep finds nothing in `pkg cmd internal` outside that test. Vet passes.
 
-## 8.3 — Certainty on attribution (R5, R7)
+## 8.3 — Certainty and the filter link (R5, R7, R8, R9)
 
-1. Tests first:
-   - JSON: each contribution in a `chain.Annotate` result carries `"certainty": "inferred"`, both on a hand-built route and in the OSS goldens (`02_7`, `09-kgwctl-policies`).
-   - Text: a route origin from a single name reading renders `… (inferred)`; a `route_source` origin renders bare; an ambiguous origin is unchanged.
-   - Text: a listener or vhost origin renders `(inferred)`; a contribution renders `· TrafficPolicy ns/x (extAuth, inferred)`.
-2. Add `Contribution.Certainty`, set it in `chain/annotate.go`, and fix the doc comments (design §3).
-3. Update `render` and regenerate the text and JSON goldens with `-update`. Review the golden diff: only the suffixes and the `certainty` fields change.
-4. README: certainty now shows in text output too.
+1. Tests first, through the composed path, at the JSON and text boundaries:
+   1. **Filter link.**
+      - One ext_authz instance with config: one policy contribution.
+      - A route-level `global_disable/ext_auth` beside a vhost-level `ext_authz`, both matching `extAuth`: no contribution, and the policy is still listed. This fails today: it reverses `TestAnnotate_DisableBesideInheritedProvider` (6.5), and `TestAnnotate_Corpus09` loses the `public-no-extauth` link on `global_disable/ext_auth` (the policy stays under `policies:`).
+      - Two instances at the same level: no contribution (unchanged).
+   2. **Contribution certainty.**
+      - The OSS mapper's contributions are `"certainty": "inferred"`.
+      - A plugin whose `FilterOrigin` is `Exact` yields an `exact` extension contribution, so a hard-coded `inferred` fails.
+   3. **`PolicyRef`.**
+      - The built-in reader's refs are `exact`.
+      - A metadata entry whose ID group/kind disagree with its `merge.` key is skipped. Fails today.
+   4. **Route indices.**
+      - `route_source` with a rule name and no `_rule-N` gives `indexCertainty: inferred`, and text `(from name)`.
+      - Full `_rule-N`/`_match-N` gives no `indexCertainty`, and bare text.
+      - Narrowing by rule index still selects the route in both cases.
+   5. **Text.**
+      - A single-reading route origin renders `… (inferred)`.
+      - A `route_source` identity renders bare.
+      - Ambiguous output is unchanged.
+      - Listener and vhost origins render `(inferred)`.
+      - A contribution renders `· TrafficPolicy ns/x (extAuth, inferred)`.
+2. Implement design §3: the filter link, the three model fields, the reader check, and the doc comments.
+3. Update `render`, and regenerate the text and JSON goldens with `-update`. Review the golden diff: it may hold only certainty fields, the suffixes, and contributions dropped by the one-candidate rule. Each dropped contribution is listed in the sub-phase record.
+4. README: text output now shows certainty too.
 
-**Done:** the tests above pass. The golden diff holds only certainty changes. Vet passes. `krp` text and TUI output is checked by hand on `09-kgwctl-policies`.
+**Done:**
+- The tests above pass, and the golden diff matches step 3.
+- Vet passes.
+- `krp` text and TUI output is checked by hand on `09-kgwctl-policies`.
 
 ## Close
 
-1. Phase cross-model review of `<base>..HEAD` (both dimensions), with triage.
+1. Phase cross-model review of `f8b4af6..HEAD` (both dimensions), with triage.
 2. `phase-8-complete.md`, roadmap, `phase-status.md`; close #32.
 3. Tag `v0.5.0` (owner approval).
 4. Program handoff:
@@ -48,4 +76,8 @@ Design: `design.md`. Three planned sub-phases, each a reviewable change of its o
 
 ## Order and size
 
-8.1 → 8.2 → 8.3. 8.2 depends on 8.1's neutral fixtures, and 8.3 changes the goldens that 8.1 and 8.2 must leave stable. Each sub-phase touches more than five files, mostly tests. Approving this plan is the approval for that size. No new dependencies.
+8.1 → 8.2 → 8.3.
+- 8.2 depends on 8.1's neutral fixtures.
+- 8.3 changes the goldens that 8.1 and 8.2 must leave stable.
+
+Each sub-phase touches more than five files, mostly tests, and 8.3 adds three exported fields. Approving this plan approves that size and those API additions. No new dependencies.

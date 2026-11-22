@@ -105,3 +105,18 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 - Keep the corpus in a separate module: rejected, because nothing outside this repo needs it.
 - Rewrite history: owner decision, not assumed.
 **Consequences:** Enterprise dumps lose their transformation attribution and show `?` sides for that filter. A plugin can restore the attribution but not the sides; a sides hook waits for a consumer that needs one.
+
+## D-014 — Design-review amendments to D-011 and D-012 (2026-11-22, phase 8)
+**Context:** Codex's design review (`docs/phases/phase-8/reviews/design-codex.md`) found three things:
+- D-011 overstated what existing signals explain;
+- D-012 still let `Exact` route origins carry name-parsed indices;
+- D-012 kept a level rule that picks a filter on a translation assumption.
+
+**Decision:**
+1. D-011 stands (option C), qualified. Existing signals don't cover per-replica version drift, or a non-LDS rejection whose counter has stopped. Those are candidate questions for the program's convergence investigation, not reasons to diff.
+2. A policy field is linked to a filter entry only when exactly one entry on the route matches it, at any config level. Otherwise it stays on `Route.Policies` only. This supersedes D-012's rejected alternative 2. It also reverses the 6.5 rule that gave a route's disable policy to the route-level helper beside an inherited provider.
+3. `RouteOrigin` records an index certainty. It is `inferred` when an index came from the route name under `route_source` identity.
+4. `PolicyRef` carries a certainty. The built-in reader returns `exact`, and only when the ID's group and kind match the metadata key.
+
+**Alternatives:** keep the level rule, labelled `inferred` (rejected: `inferred` still names one winner, based on how kgateway translates inheritance).
+**Consequences:** Fewer policy contributions where several filters match. JSON gains `certainty` on `PolicyRef` and `indexCertainty` on `RouteOrigin`, both additive.
