@@ -1,6 +1,6 @@
 # krp — Roadmap
 
-**Last updated:** 2026-11-21
+**Last updated:** 2026-11-22
 Program: [kgateway-tooling `program.md`](https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md) (local checkout: `../kgateway-tooling-claude`)
 
 ## Goal
@@ -9,7 +9,7 @@ Program: [kgateway-tooling `program.md`](https://github.com/DuncanDoyle/kgateway
 
 krp is the **Envoy data-plane library** of the kgateway tooling program. Its packages are consumed by:
 - a new kgateway CLI (first consumer, `proxy routes`-style commands);
-- kgateway-ui Phase 9 "Runtime Filter Chain".
+- Snellius (formerly kgateway-ui) Phase 12 "Runtime Filter Chain".
 
 The `krp` binary stays as the library's reference CLI/TUI and test bed. The Gateway API resource graph, policy attachment and status errors belong to kgateway-ui and the CLI, not to krp (program decisions P-001 to P-005).
 
@@ -42,7 +42,7 @@ Interactive mode (`--interactive`/`-i`): navigate filters, expand/collapse typed
 ### Phase 4 — Library Extraction
 **Status:** Complete (2026-11-04, `v0.1.0`) — `docs/phases/phase-4/phase-4-complete.md`
 **Docs:** `docs/phases/phase-4/`
-**Unblocks:** program edges E1 (CLI), E4 (kgateway-ui Phase 9), E6 (move into kgateway)
+**Unblocks:** program edges E1 (CLI), E4 (Snellius Phase 12), E6 (move into kgateway)
 
 Turn krp's core into an importable, stable Go library without changing CLI behaviour.
 
@@ -75,7 +75,7 @@ Make the model faithful to what Envoy runs, and own the mapping back to Gateway 
 **Docs:** `docs/phases/phase-6/`
 **Unblocks:** program edge E11 (kgwctl Phase 3.2 `proxy routes`, #27), and the same model for E4 (Snellius Phase 12)
 
-The effective HTTP filter chain per route (request and response order, and what turned each filter on or off), listener state (warming, draining, rejected), and an exported stdlib-only text renderer that the `krp` CLI and TUI style. See D-008.
+The runtime filter chain (`EffectiveChain`) per route (request and response order, and what turned each filter on or off), listener state (warming, draining, rejected), and an exported stdlib-only text renderer that the `krp` CLI and TUI style. See D-008.
 
 ### Phase 7 — Intended vs Accepted Configuration
 **Status:** Deferred (D-011, 2026-11-22). Not designed. Assessment: `docs/phases/phase-7/assessment.md`.
@@ -94,7 +94,7 @@ Original scope: compare the controller's intended xDS (kgateway admin `/snapshot
 ### Phase 8 — Vendor-Neutral Core
 **Status:** Design (2026-11-22). Next phase: it gates kgwctl's move into kgateway.
 **Docs:** `docs/phases/phase-8/`
-**Unblocks:** program edge E6 (CLI move into kgateway)
+**Unblocks:** program edges E13 (certainty on kgwctl `proxy routes`, 8.1) and E6 (CLI move into kgateway)
 **Issue:** #32
 
 Make the module license-clean and vendor-neutral (program P-002, D-013), and make attribution state its certainty (D-012).
@@ -102,6 +102,13 @@ Make the module license-clean and vendor-neutral (program P-002, D-013), and mak
 - Remove `testdata/enterprise/`; move the tests that read it onto OSS dumps.
 - Move the enterprise transformation type out of the core kgateway mapper, behind the `origin.Chain` seam.
 - Contributions carry a certainty; policy attribution is at most inferred and only for kgateway's own policy Kind; text output marks inferred.
+- Order (D-015): 8.1 certainty and the filter link, 8.2 corpus, 8.3 mapper. One release, `v0.5.0`.
+
+### Investigation — xDS convergence (program P-009)
+**Status:** Queued after Phase 8 (owner decision, 2026-11-22). Design only; no code until the owner approves.
+**Output:** `docs/investigations/xds-convergence.md`, cross-model reviewed. It names the operator scenarios, the provider of each piece (E14), and the upstream asks (U7–U9).
+
+Scope, evidence rules and questions 1–6 are in the program file's "xDS convergence" section. Controller-side captures come from a kind cluster. Snellius is asked which questions its checks already answer. Using the key mirror (M-3) needs owner approval under the program's mirror rules.
 
 ---
 

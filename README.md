@@ -239,7 +239,7 @@ opts := filter.Options{HTTPRouteName: "orders", HTTPRouteNamespace: "shop", Rule
 narrowed := filter.Filter(annotated, opts)
 maybe := filter.Ambiguous(annotated, opts)
 
-// Each route's effective chain, attributed to extensions and policy fields,
+// Each route's runtime filter chain (EffectiveChain), attributed to extensions and policy fields,
 // then the same text krp prints, without colour.
 withChains := chain.Annotate(narrowed, m)
 err = render.Text(os.Stdout, withChains, render.Options{Header: "Gateway kgateway-system/gw"})
