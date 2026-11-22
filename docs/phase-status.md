@@ -25,7 +25,10 @@ Status: design + plan reviewed (Codex, triaged); reordered certainty-first (D-01
 - [ ] phase-8-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-none
+Sub-phase: 8.1 — certainty on attribution, one-candidate filter link
+Kind: planned
+Base: d39f5db
+Brief: docs/phases/phase-8/phase-8.1-brief.md
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `7288049`)
