@@ -238,7 +238,8 @@
                               "namespace": "kgateway-system",
                               "name": "cors"
                             },
-                            "field": "cors"
+                            "field": "cors",
+                            "certainty": "exact"
                           },
                           {
                             "policy": {
@@ -247,7 +248,8 @@
                               "namespace": "kgateway-system",
                               "name": "ext-auth"
                             },
-                            "field": "extAuth"
+                            "field": "extAuth",
+                            "certainty": "exact"
                           },
                           {
                             "policy": {
@@ -256,7 +258,8 @@
                               "namespace": "kgateway-system",
                               "name": "rate-limit"
                             },
-                            "field": "rateLimit.global"
+                            "field": "rateLimit.global",
+                            "certainty": "exact"
                           }
                         ],
                         "effectiveChain": {
@@ -287,7 +290,8 @@
                                     "namespace": "kgateway-system",
                                     "name": "cors"
                                   },
-                                  "field": "cors"
+                                  "field": "cors",
+                                  "certainty": "inferred"
                                 }
                               ]
                             },
@@ -308,7 +312,8 @@
                                     "kind": "GatewayExtension",
                                     "namespace": "kgateway-system",
                                     "name": "ext-authz"
-                                  }
+                                  },
+                                  "certainty": "inferred"
                                 },
                                 {
                                   "kind": "policy",
@@ -318,7 +323,8 @@
                                     "namespace": "kgateway-system",
                                     "name": "ext-auth"
                                   },
-                                  "field": "extAuth"
+                                  "field": "extAuth",
+                                  "certainty": "inferred"
                                 }
                               ]
                             },
@@ -339,7 +345,8 @@
                                     "kind": "GatewayExtension",
                                     "namespace": "kgateway-system",
                                     "name": "ratelimit"
-                                  }
+                                  },
+                                  "certainty": "inferred"
                                 },
                                 {
                                   "kind": "policy",
@@ -349,7 +356,8 @@
                                     "namespace": "kgateway-system",
                                     "name": "rate-limit"
                                   },
-                                  "field": "rateLimit.global"
+                                  "field": "rateLimit.global",
+                                  "certainty": "inferred"
                                 }
                               ]
                             },

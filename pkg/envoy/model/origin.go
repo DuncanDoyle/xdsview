@@ -18,7 +18,7 @@ type Certainty int
 const (
 	Unknown   Certainty = iota // not recognised
 	Ambiguous                  // several candidates
-	Inferred                   // parsed from a name
+	Inferred                   // from a naming convention or the mapper's tables
 	Exact                      // read from metadata
 )
 
@@ -46,11 +46,16 @@ func (c *Certainty) UnmarshalText(b []byte) error {
 }
 
 // RouteOrigin is the HTTPRoute rule and match an Envoy route came from.
+//
+// IndexCertainty is [Inferred] when the rule index, rule name or match index
+// came from the Envoy route name rather than metadata. It is unset ([Unknown])
+// when they share the annotation's certainty.
 type RouteOrigin struct {
-	Route      Ref    `json:"route"`
-	RuleIndex  int    `json:"ruleIndex"`          // -1 when unknown
-	RuleName   string `json:"ruleName,omitempty"` // empty when the rule has no name
-	MatchIndex int    `json:"matchIndex"`         // -1 when unknown
+	Route          Ref       `json:"route"`
+	RuleIndex      int       `json:"ruleIndex"`          // -1 when unknown
+	RuleName       string    `json:"ruleName,omitempty"` // empty when the rule has no name
+	MatchIndex     int       `json:"matchIndex"`         // -1 when unknown
+	IndexCertainty Certainty `json:"indexCertainty,omitempty"`
 }
 
 // RouteAnnotation holds a route's origin: one candidate unless Ambiguous.
@@ -94,8 +99,11 @@ type FilterOrigin struct {
 	Helper    bool      `json:"helper,omitempty"`    // control-plane plumbing, not a policy
 }
 
-// PolicyRef is a policy that contributed to a route, and the policy field it set.
+// PolicyRef is a policy the dump records against a route, and the field it set.
+// Certainty says what backs the record: [Exact] when route metadata names this
+// policy ID for this field.
 type PolicyRef struct {
-	Policy Ref    `json:"policy"`
-	Field  string `json:"field,omitempty"` // e.g. "extAuth"
+	Policy    Ref       `json:"policy"`
+	Field     string    `json:"field,omitempty"` // e.g. "extAuth"
+	Certainty Certainty `json:"certainty"`
 }

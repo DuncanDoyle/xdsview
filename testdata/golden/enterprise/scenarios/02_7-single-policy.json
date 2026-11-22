@@ -162,7 +162,8 @@
                               "namespace": "kgateway-system",
                               "name": "ext-auth"
                             },
-                            "field": "entExtAuth"
+                            "field": "entExtAuth",
+                            "certainty": "exact"
                           }
                         ],
                         "effectiveChain": {

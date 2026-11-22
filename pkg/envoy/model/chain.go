@@ -61,12 +61,17 @@ const (
 	ContributionPolicy    ContributionKind = "policy"    // configures the filter on this route
 )
 
-// Contribution is one object behind a chain entry: the extension that defines
-// the filter instance, or a policy field that configures it on this route.
+// Contribution is one object attributed to a chain entry: the extension that
+// defines the filter instance, or a policy field attributed to it on this route.
+//
+// Certainty is the mapper's [FilterOrigin] certainty for an extension. A policy
+// contribution is at most [Inferred]: the route metadata records the field, and
+// the link to this one entry comes from the mapper's field-to-filter table.
 type Contribution struct {
-	Kind  ContributionKind `json:"kind"`
-	Ref   Ref              `json:"ref"`
-	Field string           `json:"field,omitempty"` // policy field, e.g. "extAuth"
+	Kind      ContributionKind `json:"kind"`
+	Ref       Ref              `json:"ref"`
+	Field     string           `json:"field,omitempty"` // policy field, e.g. "extAuth"
+	Certainty Certainty        `json:"certainty"`
 }
 
 // RequestOrder returns the running entries that handle requests, in HCM order.

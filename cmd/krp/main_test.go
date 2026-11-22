@@ -256,7 +256,7 @@ func TestDumpInteractive_NothingSelectable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "listener~80 · rejected · port 80 · error: duplicate filter chain match") {
+	if !strings.Contains(out, "listener~80 · rejected · port 80 (inferred) · error: duplicate filter chain match") {
 		t.Errorf("stdout lacks the rejected listener:\n%s", out)
 	}
 }

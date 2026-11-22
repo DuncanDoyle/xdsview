@@ -148,7 +148,8 @@
                               "namespace": "kgateway-system",
                               "name": "rate-limit"
                             },
-                            "field": "entRateLimit"
+                            "field": "entRateLimit",
+                            "certainty": "exact"
                           }
                         ],
                         "effectiveChain": {

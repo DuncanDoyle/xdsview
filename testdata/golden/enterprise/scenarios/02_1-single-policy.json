@@ -138,7 +138,8 @@
                               "namespace": "kgateway-system",
                               "name": "transformation"
                             },
-                            "field": "entTransformation"
+                            "field": "entTransformation",
+                            "certainty": "exact"
                           }
                         ],
                         "effectiveChain": {
@@ -310,7 +311,8 @@
                               "namespace": "kgateway-system",
                               "name": "transformation"
                             },
-                            "field": "entTransformation"
+                            "field": "entTransformation",
+                            "certainty": "exact"
                           }
                         ],
                         "effectiveChain": {

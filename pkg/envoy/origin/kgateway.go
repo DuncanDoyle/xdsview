@@ -196,17 +196,22 @@ func routeFromMetadata(r model.Route) (model.RouteOrigin, bool) {
 	if idx, ok := strings.CutPrefix(match, "_match-"); ok {
 		o.MatchIndex, _ = strconv.Atoi(idx)
 	}
-	// Fill the rest from the name, restricted to this route's identity.
+	// Fill the rest from the name, restricted to this route's identity. Those
+	// fields rest on the naming convention, so mark them inferred.
 	for _, c := range parseRouteName(r.Name) {
 		if c.Route.Name == ref.Name && c.Route.Namespace == ref.Namespace {
-			if o.RuleIndex < 0 {
-				o.RuleIndex = c.RuleIndex
+			fromName := false
+			if o.RuleIndex < 0 && c.RuleIndex >= 0 {
+				o.RuleIndex, fromName = c.RuleIndex, true
 			}
-			if o.MatchIndex < 0 {
-				o.MatchIndex = c.MatchIndex
+			if o.MatchIndex < 0 && c.MatchIndex >= 0 {
+				o.MatchIndex, fromName = c.MatchIndex, true
 			}
-			if o.RuleName == "" {
-				o.RuleName = c.RuleName
+			if o.RuleName == "" && c.RuleName != "" {
+				o.RuleName, fromName = c.RuleName, true
+			}
+			if fromName {
+				o.IndexCertainty = model.Inferred
 			}
 			break
 		}
@@ -297,13 +302,17 @@ func (k kgateway) PolicyFilter(p model.PolicyRef, f model.HTTPFilter) bool {
 
 // Policies reads every "merge.<Kind>.<group>" route metadata entry, which maps
 // a policy field to "<group>/<Kind>/<ns>/<name>" policy IDs. Any Kind is read,
-// so a vendor policy Kind appears without a plugin.
+// so a vendor policy Kind appears without a plugin. Each ref is [model.Exact]:
+// the metadata names that ID for that field. An ID whose group or kind differs
+// from its key's is skipped.
 func (k kgateway) Policies(r model.Route) []model.PolicyRef {
 	var out []model.PolicyRef
 	for key, v := range r.Metadata {
-		if !strings.HasPrefix(key, mergeKeyPrefix) {
+		gk, ok := strings.CutPrefix(key, mergeKeyPrefix)
+		if !ok {
 			continue
 		}
+		kind, group, _ := strings.Cut(gk, ".")
 		fields, ok := v.(map[string]any)
 		if !ok {
 			continue
@@ -313,10 +322,10 @@ func (k kgateway) Policies(r model.Route) []model.PolicyRef {
 			for _, id := range list {
 				s, _ := id.(string)
 				p := strings.Split(s, "/")
-				if len(p) != 4 {
+				if len(p) != 4 || p[0] != group || p[1] != kind {
 					continue
 				}
-				out = append(out, model.PolicyRef{Policy: model.Ref{Group: p[0], Kind: p[1], Namespace: p[2], Name: p[3]}, Field: field})
+				out = append(out, model.PolicyRef{Policy: model.Ref{Group: p[0], Kind: p[1], Namespace: p[2], Name: p[3]}, Field: field, Certainty: model.Exact})
 			}
 		}
 	}

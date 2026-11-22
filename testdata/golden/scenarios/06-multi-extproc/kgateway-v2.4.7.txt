@@ -1,15 +1,15 @@
-listener~80 [::]:80 · active · port 80
-└─ vhost listener~80~api_example_com [api.example.com] · port 80
+listener~80 [::]:80 · active · port 80 (inferred)
+└─ vhost listener~80~api_example_com [api.example.com] · port 80 (inferred)
    ├─ route /admin (path-prefix) · HTTPRoute kgateway-system/api-example-com-admin · rule 0 · match 0 (chosen from known HTTPRoutes)
    │  filters (request order):
-   │    1 ext_proc/kgateway-system/ext-proc-b  enabled by route · GatewayExtension kgateway-system/ext-proc-b · TrafficPolicy kgateway-system/ext-proc-b (extProc)
+   │    1 ext_proc/kgateway-system/ext-proc-b  enabled by route · GatewayExtension kgateway-system/ext-proc-b (inferred) · TrafficPolicy kgateway-system/ext-proc-b (extProc, inferred)
    │    2 envoy.filters.http.router            on
    │  not run: global_disable/ext_proc (off), ext_proc/kgateway-system/ext-proc-a (off)
    │  policies: TrafficPolicy kgateway-system/ext-proc-b (extProc)
    │  backend: kube_httpbin_httpbin_8000
    └─ route / (prefix) · HTTPRoute kgateway-system/api-example-com · rule 0 · match 0 (chosen from known HTTPRoutes)
       filters (request order):
-        1 ext_proc/kgateway-system/ext-proc-a  enabled by route · GatewayExtension kgateway-system/ext-proc-a · TrafficPolicy kgateway-system/ext-proc-a (extProc)
+        1 ext_proc/kgateway-system/ext-proc-a  enabled by route · GatewayExtension kgateway-system/ext-proc-a (inferred) · TrafficPolicy kgateway-system/ext-proc-a (extProc, inferred)
         2 envoy.filters.http.router            on
       not run: global_disable/ext_proc (off), ext_proc/kgateway-system/ext-proc-b (off)
       policies: TrafficPolicy kgateway-system/ext-proc-a (extProc)

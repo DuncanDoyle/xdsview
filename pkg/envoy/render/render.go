@@ -220,7 +220,7 @@ func (p *printer) chainBody(fc model.NetworkFilterChain, indent string) {
 			line += " " + p.style(ClassOrigin, nil, "["+strings.Join(vh.Domains, ", ")+"]")
 		}
 		if o := vh.Origin; o != nil {
-			line += " · " + p.style(ClassOrigin, nil, listenerOrigin(model.ListenerOrigin{Port: o.Listener.Port, Section: o.Listener.Section}))
+			line += " · " + p.style(ClassOrigin, nil, listenerOrigin(model.ListenerOrigin{Certainty: o.Certainty, Port: o.Listener.Port, Section: o.Listener.Section}))
 		}
 		p.line(prefix + line)
 		for j, r := range vh.Routes {
@@ -272,7 +272,7 @@ func (p *printer) route(hcm model.HCMConfig, vh model.VirtualHost, r model.Route
 	if len(r.Policies) > 0 {
 		var parts []string
 		for _, pr := range r.Policies {
-			parts = append(parts, policy(pr.Policy, pr.Field))
+			parts = append(parts, policy(pr.Policy, pr.Field, pr.Certainty))
 		}
 		p.line(body + "policies: " + p.style(ClassOrigin, nil, strings.Join(parts, ", ")))
 	}
@@ -437,16 +437,32 @@ func describeState(e model.ChainEntry) string {
 
 func contribution(c model.Contribution) string {
 	if c.Kind == model.ContributionPolicy {
-		return policy(c.Ref, c.Field)
+		return policy(c.Ref, c.Field, c.Certainty)
 	}
-	return c.Ref.String()
+	return c.Ref.String() + suffix(c.Certainty)
 }
 
-func policy(r model.Ref, field string) string {
-	if field == "" {
+// policy formats a policy and its field, e.g. "TrafficPolicy ns/x (extAuth, inferred)".
+func policy(r model.Ref, field string, c model.Certainty) string {
+	var notes []string
+	if field != "" {
+		notes = append(notes, field)
+	}
+	if c == model.Inferred {
+		notes = append(notes, "inferred")
+	}
+	if len(notes) == 0 {
 		return r.String()
 	}
-	return r.String() + " (" + field + ")"
+	return r.String() + " (" + strings.Join(notes, ", ") + ")"
+}
+
+// suffix marks an inferred origin. Exact prints bare; ambiguous has its own form.
+func suffix(c model.Certainty) string {
+	if c == model.Inferred {
+		return " (inferred)"
+	}
+	return ""
 }
 
 func listenerOrigin(o model.ListenerOrigin) string {
@@ -460,7 +476,7 @@ func listenerOrigin(o model.ListenerOrigin) string {
 	case o.Port > 0:
 		parts = append(parts, fmt.Sprintf("port %d", o.Port))
 	}
-	return strings.Join(parts, " ")
+	return strings.Join(parts, " ") + suffix(o.Certainty)
 }
 
 // routeOrigin formats a route's origin, e.g. "HTTPRoute ns/web · rule 1 (api) · match 0".
@@ -486,10 +502,14 @@ func routeOrigin(a *model.RouteAnnotation) string {
 	if o.MatchIndex >= 0 {
 		s += fmt.Sprintf(" · match %d", o.MatchIndex)
 	}
-	if a.NarrowedByKnown {
-		s += " (chosen from known HTTPRoutes)"
+	if o.IndexCertainty == model.Inferred {
+		s += " (from name)"
 	}
-	return s
+	// "chosen from known HTTPRoutes" already says the reading was inferred.
+	if a.NarrowedByKnown {
+		return s + " (chosen from known HTTPRoutes)"
+	}
+	return s + suffix(a.Certainty)
 }
 
 // formatMatch writes a route match compactly. Several conditions are joined

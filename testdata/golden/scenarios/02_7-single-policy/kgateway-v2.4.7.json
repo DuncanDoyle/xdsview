@@ -163,7 +163,8 @@
                               "namespace": "kgateway-system",
                               "name": "ext-auth"
                             },
-                            "field": "extAuth"
+                            "field": "extAuth",
+                            "certainty": "exact"
                           }
                         ],
                         "effectiveChain": {
@@ -193,7 +194,8 @@
                                     "kind": "GatewayExtension",
                                     "namespace": "kgateway-system",
                                     "name": "ext-authz"
-                                  }
+                                  },
+                                  "certainty": "inferred"
                                 },
                                 {
                                   "kind": "policy",
@@ -203,7 +205,8 @@
                                     "namespace": "kgateway-system",
                                     "name": "ext-auth"
                                   },
-                                  "field": "extAuth"
+                                  "field": "extAuth",
+                                  "certainty": "inferred"
                                 }
                               ]
                             },

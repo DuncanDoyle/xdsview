@@ -24,7 +24,7 @@ kgwctl `proxy routes` shows policy-to-filter links and route indices as fact, al
 | 11 | Route origin from the name only, single reading | Text `… (inferred)` |
 | 12 | Ambiguous route origin | Text unchanged (`ambiguous: …`) |
 | 13 | Listener and vhost origins | Text `(inferred)` |
-| 14 | `09-kgwctl-policies` dump | `global_disable/ext_auth` row names no policy; `policies:` still lists `public-no-extauth` |
+| 14 | `09-kgwctl-policies` dump | `global_disable/ext_auth` row keeps `TrafficPolicy kgwctl-proxy/public-no-extauth (extAuth, inferred)`: the provider has no per-filter config on that route, so the helper is the one candidate |
 
 ## Root cause (if known)
 - `model.Contribution`, `PolicyRef` and `RouteOrigin` carry no certainty (audit P1-a, P2-a, design-review #1, #3).

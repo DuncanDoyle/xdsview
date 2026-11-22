@@ -11,7 +11,7 @@ import (
 )
 
 func tp(ns, name, field string) model.Contribution {
-	return model.Contribution{Kind: model.ContributionPolicy, Field: field,
+	return model.Contribution{Kind: model.ContributionPolicy, Field: field, Certainty: model.Inferred,
 		Ref: model.Ref{Group: "gateway.kgateway.dev", Kind: "TrafficPolicy", Namespace: ns, Name: name}}
 }
 
@@ -29,7 +29,7 @@ func contributionsOf(r model.Route) map[string][]model.Contribution {
 // rate limit, the OSS transformation filter, and an ext auth disable.
 func TestAnnotate_Corpus09(t *testing.T) {
 	snap := parseFile(t, "../../../testdata/scenarios/09-kgwctl-policies/envoy/kgateway-v2.5.1/config_dump.json")
-	ext := model.Contribution{Kind: model.ContributionExtension,
+	ext := model.Contribution{Kind: model.ContributionExtension, Certainty: model.Inferred,
 		Ref: model.Ref{Group: "gateway.kgateway.dev", Kind: "GatewayExtension", Namespace: "kgwctl-proxy", Name: "authz"}}
 	want := map[string]map[string][]model.Contribution{
 		"orders_kgwctl_example-route-0-httproute-orders-": {
@@ -40,7 +40,7 @@ func TestAnnotate_Corpus09(t *testing.T) {
 			"envoy.filters.http.router":        nil,
 		},
 		"public_kgwctl_example-route-0-httproute-public-": {
-			"global_disable/ext_auth":          {tp("kgwctl-proxy", "public-no-extauth", "extAuth")},
+			"global_disable/ext_auth":          {tp("kgwctl-proxy", "public-no-extauth", "extAuth")}, // the provider has no per-filter config here: one candidate
 			"ext_auth/kgwctl-proxy/authz":      {ext},
 			"ratelimit/local":                  nil,
 			"dynamic_modules/simple_mutations": nil,
@@ -121,32 +121,5 @@ func TestAnnotate_TransformationBesideAuthMetadata(t *testing.T) {
 	})
 	if want := []model.Contribution{tp("ns", "tx", "transformation")}; !reflect.DeepEqual(got["dynamic_modules/simple_mutations"], want) || got["ext_auth_enabled"] != nil {
 		t.Errorf("contributions = %+v, want transformation on simple_mutations only", got)
-	}
-}
-
-// TestAnnotate_DisableBesideInheritedProvider: a provider configured at route
-// config level and a route-level disable helper both match extAuth; the most
-// specific one gets the route's policy. Also covers ext_proc's helper.
-func TestAnnotate_DisableBesideInheritedProvider(t *testing.T) {
-	enable := map[string]any{"@type": filterConfigType, "config": map[string]any{}}
-	for _, c := range []struct{ field, helper, provider, typ string }{
-		{"extAuth", "global_disable/ext_auth", "ext_auth/ns/authz", extAuthzType},
-		{"extProc", "global_disable/ext_proc", "ext_proc/ns/proc", extProcType},
-	} {
-		got := annotateOne(t, []model.HTTPFilter{
-			{Name: c.helper, Type: setMetaType, Disabled: true},
-			{Name: c.provider, Type: c.typ, Disabled: true},
-		}, map[string]any{c.provider: enable}, model.Route{
-			TypedPerFilterConfig: map[string]any{c.helper: enable},
-			Metadata:             merge(map[string]string{c.field: "off"}),
-		})
-		if want := []model.Contribution{tp("ns", "off", c.field)}; !reflect.DeepEqual(got[c.helper], want) {
-			t.Errorf("%s: helper contributions = %+v, want %+v", c.field, got[c.helper], want)
-		}
-		for _, ct := range got[c.provider] {
-			if ct.Kind == model.ContributionPolicy {
-				t.Errorf("%s: provider got policy %+v", c.field, ct)
-			}
-		}
 	}
 }

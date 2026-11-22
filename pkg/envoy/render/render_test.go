@@ -68,19 +68,19 @@ func text(t *testing.T, snap *model.EnvoySnapshot, opts render.Options) string {
 // TestText_Default is the design's text shape, literally.
 func TestText_Default(t *testing.T) {
 	want := `Gateway shop/gw · file dump.json
-listener~80 [::]:80 · active · Gateway shop/gw port 80
-└─ vhost listener~80~orders_example [orders.example] · port 80
-   └─ route /orders (prefix) · HTTPRoute shop/orders · rule 0 · match 0
+listener~80 [::]:80 · active · Gateway shop/gw port 80 (inferred)
+└─ vhost listener~80~orders_example [orders.example] · port 80 (inferred)
+   └─ route /orders (prefix) · HTTPRoute shop/orders · rule 0 · match 0 (inferred)
       filters (request order):
         1 io.solo.transformation     on
-        2 ext_auth/shop/auth         enabled by route · GatewayExtension shop/auth · TrafficPolicy shop/auth (extAuth)
+        2 ext_auth/shop/auth         enabled by route · GatewayExtension shop/auth (inferred) · TrafficPolicy shop/auth (extAuth, inferred)
         3 envoy.filters.http.router  on
       not run: ratelimit/shop/rl (off), envoy.filters.http.cors (off)
       router upstream filters (as configured): envoy.filters.http.upstream_codec
       policies: TrafficPolicy shop/auth (extAuth)
       request headers: + x-a: 1
       backend: kube_shop_orders_8080
-listener~8443 [::]:8443 · warming · Gateway shop/gw port 8443 · error: bad cert (2026-11-20T19:39:58Z)
+listener~8443 [::]:8443 · warming · Gateway shop/gw port 8443 (inferred) · error: bad cert (2026-11-20T19:39:58Z)
 `
 	if got := text(t, sample(), render.Options{Header: "Gateway shop/gw · file dump.json"}); got != want {
 		t.Errorf("Text =\n%s\nwant\n%s", got, want)
@@ -103,8 +103,8 @@ func TestText_AllFilters(t *testing.T) {
 	out := text(t, sample(), render.Options{AllFilters: true})
 	for _, l := range []string{
 		"        1 io.solo.transformation     on",
-		"        2 ext_auth/shop/auth         enabled by route · GatewayExtension shop/auth · TrafficPolicy shop/auth (extAuth)",
-		"        3 ratelimit/shop/rl          off · GatewayExtension shop/rl",
+		"        2 ext_auth/shop/auth         enabled by route · GatewayExtension shop/auth (inferred) · TrafficPolicy shop/auth (extAuth, inferred)",
+		"        3 ratelimit/shop/rl          off · GatewayExtension shop/rl (inferred)",
 		"        4 envoy.filters.http.cors    off",
 		"        5 envoy.filters.http.router  on",
 	} {
@@ -118,7 +118,7 @@ func TestText_AllFilters(t *testing.T) {
 func TestText_ResponseOrder(t *testing.T) {
 	out := text(t, sample(), render.Options{ResponseOrder: true})
 	want := "      filters (response order):\n" +
-		"        1 ext_auth/shop/auth      enabled by route · GatewayExtension shop/auth · TrafficPolicy shop/auth (extAuth)\n" +
+		"        1 ext_auth/shop/auth      enabled by route · GatewayExtension shop/auth (inferred) · TrafficPolicy shop/auth (extAuth, inferred)\n" +
 		"        2 io.solo.transformation  on\n"
 	if !strings.Contains(out, want) {
 		t.Errorf("no response order block\n%s\nin\n%s", want, out)
@@ -184,6 +184,31 @@ func TestText_RouteOrigins(t *testing.T) {
 	hasLine(t, text(t, snap, render.Options{}), "   └─ route /orders (prefix) · ambiguous: HTTPRoute a/b, HTTPRoute c/d")
 }
 
+// TestText_Certainty: exact origins print bare, inferred ones say so, and
+// route indices parsed from the name say where they came from.
+func TestText_Certainty(t *testing.T) {
+	snap := sample()
+	r := &snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes[0]
+	web := model.Ref{Kind: "HTTPRoute", Namespace: "shop", Name: "web"}
+	cases := []struct {
+		label string
+		o     model.RouteOrigin
+		want  string
+	}{
+		{"metadata indices", model.RouteOrigin{Route: web, RuleIndex: 1, MatchIndex: 0},
+			"   └─ route /orders (prefix) · HTTPRoute shop/web · rule 1 · match 0"},
+		{"indices from the name", model.RouteOrigin{Route: web, RuleIndex: 1, RuleName: "api", MatchIndex: 0, IndexCertainty: model.Inferred},
+			"   └─ route /orders (prefix) · HTTPRoute shop/web · rule 1 (api) · match 0 (from name)"},
+	}
+	for _, c := range cases {
+		r.Origin = &model.RouteAnnotation{Certainty: model.Exact, Candidates: []model.RouteOrigin{c.o}}
+		hasLine(t, text(t, snap, render.Options{}), c.want)
+	}
+
+	r.Policies = []model.PolicyRef{{Policy: model.Ref{Kind: "AcmePolicy", Namespace: "shop", Name: "p"}, Field: "x", Certainty: model.Inferred}}
+	hasLine(t, text(t, snap, render.Options{}), "      policies: AcmePolicy shop/p (x, inferred)")
+}
+
 // TestText_Unannotated computes chains when the snapshot has none, and prints no origins.
 func TestText_Unannotated(t *testing.T) {
 	snap := sample()
@@ -223,7 +248,7 @@ func TestText_Hooks(t *testing.T) {
 	if len(refs) != 5 || refs[4] != (render.FilterRef{FilterIdx: 4}) {
 		t.Errorf("refs = %+v, want 5, the last at FilterIdx 4", refs)
 	}
-	want := "        2 <ext_auth/shop/auth>         enabled by route · GatewayExtension shop/auth · TrafficPolicy shop/auth (extAuth)\n" +
+	want := "        2 <ext_auth/shop/auth>         enabled by route · GatewayExtension shop/auth (inferred) · TrafficPolicy shop/auth (extAuth, inferred)\n" +
 		"            {\n" +
 		"              \"config\": {}\n" +
 		"            }\n"

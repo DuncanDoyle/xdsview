@@ -137,3 +137,9 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 
 **Alternatives:** one `v0.5.0` at the end (rejected: E13 would wait for unrelated work).
 **Consequences:** A phase cross-model review of `f8b4af6..` runs before the `v0.5.0` tag, and again before `v0.6.0`. kgwctl bumps twice; the second bump changes no OSS output. An exact policy-to-filter link needs controller metadata that names the filter; this is proposed to the program as an upstream ask.
+
+## D-017 — Correction: the 6.5 tie-break doesn't affect kgwctl's dump (2026-11-22, phase 8)
+**Context:** D-014, the plan and the owner briefing said that kgwctl's `09-kgwctl-policies` dump would lose the `public-no-extauth` link on `global_disable/ext_auth`. 8.1's tests showed this was wrong. The provider `ext_auth/kgwctl-proxy/authz` has per-filter config only on the orders route. On the public route it runs on the HCM default, so it isn't a candidate.
+**Decision:** No change to D-014 itself: the tie-break still goes. The claim about dump 09 is corrected. That link stays, labelled `(extAuth, inferred)`.
+**Alternatives:** n/a (a factual correction).
+**Consequences:** The tie-break decided only the hand-built `TestAnnotate_DisableBesideInheritedProvider` case, which 8.1 replaces with `TestCertainty_OneCandidate`. The goldens show whether any recorded dump drops a contribution.

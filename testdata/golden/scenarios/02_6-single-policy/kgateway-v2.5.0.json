@@ -126,7 +126,8 @@
                               "namespace": "kgateway-system",
                               "name": "cors"
                             },
-                            "field": "cors"
+                            "field": "cors",
+                            "certainty": "exact"
                           }
                         ],
                         "effectiveChain": {
@@ -149,7 +150,8 @@
                                     "namespace": "kgateway-system",
                                     "name": "cors"
                                   },
-                                  "field": "cors"
+                                  "field": "cors",
+                                  "certainty": "inferred"
                                 }
                               ]
                             },

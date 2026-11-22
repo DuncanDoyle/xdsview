@@ -11,7 +11,7 @@ Order (D-015): certainty first, because kgwctl `proxy routes` already ships unla
 1. Tests first, through the composed path `origin.Annotate` then `chain.Annotate` (as `cmd/krp` runs it), at the JSON and text boundaries:
    1. **Filter link.**
       - One ext_authz instance with config: one policy contribution.
-      - A route-level `global_disable/ext_auth` beside a vhost-level `ext_authz`, both matching `extAuth`: no contribution, and the policy is still listed. This fails today: it reverses `TestAnnotate_DisableBesideInheritedProvider` (6.5), and `TestAnnotate_Corpus09` loses the `public-no-extauth` link on `global_disable/ext_auth` (the policy stays under `policies:`).
+      - A route-level `global_disable/ext_auth` beside a vhost-level `ext_authz`, both matching `extAuth`: no contribution, and the policy is still listed. This fails today: it reverses `TestAnnotate_DisableBesideInheritedProvider` (6.5). `TestAnnotate_Corpus09` keeps its `public-no-extauth` link: on that dump the provider has no per-filter config for the public route, so the helper is the one candidate.
       - Two instances at the same level: no contribution (unchanged).
    2. **Contribution certainty.**
       - The OSS mapper's contributions are `"certainty": "inferred"`.

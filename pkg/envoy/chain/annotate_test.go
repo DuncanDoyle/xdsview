@@ -75,12 +75,12 @@ const (
 )
 
 func trafficPolicy(name, field string) model.Contribution {
-	return model.Contribution{Kind: model.ContributionPolicy, Field: field,
+	return model.Contribution{Kind: model.ContributionPolicy, Field: field, Certainty: model.Inferred,
 		Ref: model.Ref{Group: "gateway.kgateway.dev", Kind: "TrafficPolicy", Namespace: "kgateway-system", Name: name}}
 }
 
 func gatewayExtension(name string) model.Contribution {
-	return model.Contribution{Kind: model.ContributionExtension,
+	return model.Contribution{Kind: model.ContributionExtension, Certainty: model.Inferred,
 		Ref: model.Ref{Group: "gateway.kgateway.dev", Kind: "GatewayExtension", Namespace: "kgateway-system", Name: name}}
 }
 
@@ -215,11 +215,11 @@ func contributions(t *testing.T, snap *model.EnvoySnapshot, m origin.Mapper) map
 func TestAnnotate_Contributions(t *testing.T) {
 	snap := parseString(t, pluginDump)
 	kgw := origin.Kgateway(origin.KgatewayOptions{})
-	auth := model.Contribution{Kind: model.ContributionPolicy, Field: "extAuth",
+	auth := model.Contribution{Kind: model.ContributionPolicy, Field: "extAuth", Certainty: model.Inferred,
 		Ref: model.Ref{Group: "gateway.kgateway.dev", Kind: "TrafficPolicy", Namespace: "ns", Name: "auth"}}
-	ext := model.Contribution{Kind: model.ContributionExtension,
+	ext := model.Contribution{Kind: model.ContributionExtension, Certainty: model.Inferred,
 		Ref: model.Ref{Group: "gateway.kgateway.dev", Kind: "GatewayExtension", Namespace: "ns", Name: "authz"}}
-	waf := model.Contribution{Kind: model.ContributionPolicy, Field: "acmeWaf",
+	waf := model.Contribution{Kind: model.ContributionPolicy, Field: "acmeWaf", Certainty: model.Inferred,
 		Ref: model.Ref{Group: "acme.io", Kind: "AcmePolicy", Namespace: "ns", Name: "waf"}}
 
 	tests := []struct {
@@ -251,7 +251,7 @@ func TestAnnotate_PolicyNeedsPerRouteLevel(t *testing.T) {
 	dump := strings.Replace(pluginDump, `"ext_auth/ns/authz": {"@type": "type.googleapis.com/envoy.config.route.v3.FilterConfig", "config": {}}`, `"unused": {}`, 1)
 	dump = strings.ReplaceAll(dump, `{"name": "ext_auth/ns/authz", "disabled": true,`, `{"name": "ext_auth/ns/authz",`)
 	got := contributions(t, parseString(t, dump), origin.Kgateway(origin.KgatewayOptions{}))["ext_auth/ns/authz"]
-	want := []model.Contribution{{Kind: model.ContributionExtension,
+	want := []model.Contribution{{Kind: model.ContributionExtension, Certainty: model.Inferred,
 		Ref: model.Ref{Group: "gateway.kgateway.dev", Kind: "GatewayExtension", Namespace: "ns", Name: "authz"}}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("contributions = %+v, want the extension only %+v", got, want)

@@ -94,7 +94,7 @@ var policyFilters = map[string]map[string]model.FilterOrigin{
 }
 
 func trafficPolicy(name, field string) model.PolicyRef {
-	return model.PolicyRef{Policy: model.Ref{Group: "gateway.kgateway.dev", Kind: "TrafficPolicy", Namespace: "kgateway-system", Name: name}, Field: field}
+	return model.PolicyRef{Policy: model.Ref{Group: "gateway.kgateway.dev", Kind: "TrafficPolicy", Namespace: "kgateway-system", Name: name}, Field: field, Certainty: model.Exact}
 }
 
 // routePolicies maps route names to the policies their metadata names.

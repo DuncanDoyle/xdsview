@@ -1,17 +1,17 @@
-listener~443 [::]:443 · active · port 443
+listener~443 [::]:443 · active · port 443 (inferred)
 ├─ chain https-api · TLS api.example.com
-│  └─ vhost https-api~api_example_com [api.example.com] · listener https-api
+│  └─ vhost https-api~api_example_com [api.example.com] · listener https-api (inferred)
 │     └─ route / (prefix) · HTTPRoute kgateway-system/api-example-com · rule 0 · match 0 (chosen from known HTTPRoutes)
 │        filters (request order):
-│          1 dynamic_modules/simple_mutations  enabled by route · TrafficPolicy kgateway-system/transformation (transformation)
+│          1 dynamic_modules/simple_mutations  enabled by route · TrafficPolicy kgateway-system/transformation (transformation, inferred)
 │          2 envoy.filters.http.router         on
 │        policies: TrafficPolicy kgateway-system/transformation (transformation)
 │        backend: kube_httpbin_httpbin_8000
 └─ chain https-developer · TLS developer.example.com
-   └─ vhost https-developer~developer_example_com [developer.example.com] · listener https-developer
+   └─ vhost https-developer~developer_example_com [developer.example.com] · listener https-developer (inferred)
       └─ route / (prefix) · HTTPRoute kgateway-system/api-example-com · rule 0 · match 0 (chosen from known HTTPRoutes)
          filters (request order):
-           1 dynamic_modules/simple_mutations  enabled by route · TrafficPolicy kgateway-system/transformation (transformation)
+           1 dynamic_modules/simple_mutations  enabled by route · TrafficPolicy kgateway-system/transformation (transformation, inferred)
            2 envoy.filters.http.router         on
          policies: TrafficPolicy kgateway-system/transformation (transformation)
          backend: kube_httpbin_httpbin_8000

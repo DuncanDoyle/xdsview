@@ -143,7 +143,8 @@
                               "namespace": "kgateway-system",
                               "name": "rate-limit"
                             },
-                            "field": "rateLimit.global"
+                            "field": "rateLimit.global",
+                            "certainty": "exact"
                           }
                         ],
                         "effectiveChain": {
@@ -165,7 +166,8 @@
                                     "kind": "GatewayExtension",
                                     "namespace": "kgateway-system",
                                     "name": "ratelimit"
-                                  }
+                                  },
+                                  "certainty": "inferred"
                                 },
                                 {
                                   "kind": "policy",
@@ -175,7 +177,8 @@
                                     "namespace": "kgateway-system",
                                     "name": "rate-limit"
                                   },
-                                  "field": "rateLimit.global"
+                                  "field": "rateLimit.global",
+                                  "certainty": "inferred"
                                 }
                               ]
                             },

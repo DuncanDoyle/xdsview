@@ -252,7 +252,8 @@
                               "namespace": "kgateway-system",
                               "name": "ext-proc-a"
                             },
-                            "field": "extProc"
+                            "field": "extProc",
+                            "certainty": "exact"
                           }
                         ],
                         "effectiveChain": {
@@ -282,7 +283,8 @@
                                     "kind": "GatewayExtension",
                                     "namespace": "kgateway-system",
                                     "name": "ext-proc-a"
-                                  }
+                                  },
+                                  "certainty": "inferred"
                                 },
                                 {
                                   "kind": "policy",
@@ -292,7 +294,8 @@
                                     "namespace": "kgateway-system",
                                     "name": "ext-proc-a"
                                   },
-                                  "field": "extProc"
+                                  "field": "extProc",
+                                  "certainty": "inferred"
                                 }
                               ]
                             },
@@ -311,7 +314,8 @@
                                     "kind": "GatewayExtension",
                                     "namespace": "kgateway-system",
                                     "name": "ext-proc-b"
-                                  }
+                                  },
+                                  "certainty": "inferred"
                                 }
                               ]
                             },

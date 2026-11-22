@@ -86,7 +86,7 @@ krp dump --file config_dump.json --route my-route --route-ns default --rule api
 ```
 └─ route / (prefix) · HTTPRoute kgateway-system/api-example-com · rule 0 · match 0 (chosen from known HTTPRoutes)
    filters (request order):
-     1 ext_auth/kgateway-system/ext-authz  enabled by route · GatewayExtension kgateway-system/ext-authz · TrafficPolicy kgateway-system/ext-auth (extAuth)
+     1 ext_auth/kgateway-system/ext-authz  enabled by route · GatewayExtension kgateway-system/ext-authz (inferred) · TrafficPolicy kgateway-system/ext-auth (extAuth, inferred)
      2 envoy.filters.http.router           on
    not run: global_disable/ext_auth (off)
    policies: TrafficPolicy kgateway-system/ext-auth (extAuth)
@@ -101,6 +101,8 @@ A route name can be read several ways, because HTTPRoute names and namespaces ma
 A route settled by 1 or 2 is marked "(chosen from known HTTPRoutes)": a route Envoy still serves for a deleted HTTPRoute can resolve to a live one.
 
 With `--file` and none of these, a route prints `ambiguous:` and its readings. `-o json` lists every reading, with a `certainty` of `exact`, `inferred` or `ambiguous`.
+
+Every label states how it was derived. `(inferred)` marks one read from a naming convention or krp's field-to-filter table; `exact` ones, read from metadata, print bare. `(from name)` marks a rule or match index that came from the Envoy route name although the route's identity came from metadata. A policy is linked to a filter only when exactly one filter configured for the route matches its field; otherwise it shows under `policies:` only. `-o json` carries the same as `certainty` on each contribution and policy, and `indexCertainty` on a route origin.
 
 ### Effective filter chain
 

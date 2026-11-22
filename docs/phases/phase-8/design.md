@@ -54,7 +54,7 @@ The module ships no vendor or edition data or names in its core (program P-002).
 
 ### 3. Certainty and the filter link (R5, R7, R8, R9)
 
-- **Filter link.** `chain` links a policy field to a filter entry only when exactly one entry on the route matches it (`PolicyFilter`), at whatever config level. Two or more candidates, at any levels: no contribution. The policy stays on `Route.Policies`. The most-specific-level rule goes (D-014).
+- **Filter link.** `chain` links a policy field to a filter entry only when exactly one entry on the route matches it (`PolicyFilter`) and has per-filter config for the route, at whatever config level. An entry on the HCM default is not a candidate. Two or more candidates, at any levels: no contribution. The policy stays on `Route.Policies`. The most-specific-level rule goes (D-014).
 - **`model.Contribution`** gains `Certainty model.Certainty` (`json:"certainty"`), with the same text values as origins.
   - Extension contribution: the `FilterOrigin`'s certainty. The OSS mapper's is `inferred`, from the filter-name convention. A plugin's may be `exact`.
   - Policy contribution: `inferred`. The metadata records the field against the route. The link to the one filter comes from the mapper's field table.
@@ -67,7 +67,7 @@ The module ships no vendor or edition data or names in its core (program P-002).
 
 | Consumer | Uses | Effect |
 |---|---|---|
-| kgwctl (`v0.4.3`) | `parser`, `origin.Kgateway`, `origin.Annotate`, `chain.Annotate`, `filter.*`, `render.Text` with `Style`/`RouteExtra`, `RouteAnnotation.Certainty`, `NarrowedByKnown`; `Contribution` in one test | Go API: additive. JSON: `certainty` on each contribution and policy, and `indexCertainty` on route origins built partly from the name. Text: ` (inferred)` on origin and contribution lines, and `(from name)` on such indices, so goldens update. All 29 contribution kinds in its goldens are TrafficPolicy, so the Kind restriction drops none. A contribution where several filters match the field is dropped (D-014). Its goldens show which. |
+| kgwctl (`v0.4.3`) | `parser`, `origin.Kgateway`, `origin.Annotate`, `chain.Annotate`, `filter.*`, `render.Text` with `Style`/`RouteExtra`, `RouteAnnotation.Certainty`, `NarrowedByKnown`; `Contribution` in one test | Go API: additive. JSON: `certainty` on each contribution and policy, and `indexCertainty` on route origins built partly from the name. Text: ` (inferred)` on origin and contribution lines, and `(from name)` on such indices, so goldens update. All 29 contribution kinds in its goldens are TrafficPolicy, so the Kind restriction drops none. A contribution where several filters match the field is dropped (D-014); dump 09 keeps its links (D-017). |
 | Snellius | none (no import today) | none. E4 can import `v0.5.0` directly. |
 | enterprise dumps (anyone) | transformation attribution, sides | lost without a plugin (D-013) |
 
