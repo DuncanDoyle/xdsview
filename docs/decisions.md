@@ -120,3 +120,9 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 
 **Alternatives:** keep the level rule, labelled `inferred` (rejected: `inferred` still names one winner, based on how kgateway translates inheritance).
 **Consequences:** Fewer policy contributions where several filters match. JSON gains `certainty` on `PolicyRef` and `indexCertainty` on `RouteOrigin`, both additive.
+
+## D-015 — Phase 8 runs certainty first (2026-11-22, phase 8)
+**Context:** kgwctl `proxy routes` already ships policy contributions with no certainty (program edge E13). The owner decided, relayed by the program session, that attribution certainty goes first.
+**Decision:** Sub-phase order becomes 8.1 certainty and the filter link, 8.2 corpus, 8.3 mapper. Scope is unchanged.
+**Alternatives:** the reviewed order (corpus, mapper, certainty): rejected, because it delays the labels kgwctl needs.
+**Consequences:** 8.1 regenerates the enterprise goldens that 8.2 then deletes. The design review's findings still apply; only the order changed.

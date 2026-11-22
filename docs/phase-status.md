@@ -6,13 +6,13 @@ Base: f8b4af6
 Author: anthropic (claude-opus-5-5)
 Advisory: none
 Docs: docs/phases/phase-8/
-Status: design + plan written; awaiting Codex review and owner approval. Phase 7 deferred (D-011, docs/phases/phase-7/assessment.md).
+Status: design + plan reviewed (Codex, triaged); reordered certainty-first (D-015); awaiting owner approval. Phase 7 deferred (D-011, docs/phases/phase-7/assessment.md).
 
 ### Queue
 - [ ] Q1 design + plan cross-model review, triage, owner approval ← CURRENT
-- [ ] Q2 8.1 corpus out, OSS coverage kept
-- [ ] Q3 8.2 mapper vendor-neutral
-- [ ] Q4 8.3 certainty on attribution
+- [ ] Q2 8.1 certainty and the filter link (D-015)
+- [ ] Q3 8.2 corpus out, OSS coverage kept
+- [ ] Q4 8.3 mapper vendor-neutral
 - [ ] Q5 phase review, close, `v0.5.0`, handoff
 
 ### Exit gates
@@ -37,6 +37,7 @@ Consumers: E6 (kgwctl move into kgateway) waits on this phase. E11 available (`v
 - `origin.ObjectForName` drops certainty (Phase 8 audit P2-e): no consumer; revisit when one appears.
 
 ## Notes
+- 2026-11-22: owner reordered Phase 8 certainty-first (D-015, via program session). After Phase 8, this session runs the xDS convergence investigation (design only).
 - 2026-11-22: architectural review. Phase 7 deferred (D-011), attribution states its certainty (D-012), enterprise corpus removed (D-013). Phase 8 started.
 - 2026-11-21: Phase 6 patch `v0.4.3` (sub-phase 6.7, #31): warning for a skipped HCM; narrowing keeps listeners mid-update. E6 cleanup planned as Phase 8 (#32).
 - 2026-11-21: Phase 6 patch `v0.4.2` (sub-phase 6.6, #29): narrowing edge cases. #30 open (unmapped policy fields).

@@ -1,7 +1,7 @@
 # Phase 8 — Vendor-Neutral Core: design
 
 **Status:** draft for review (2026-11-22)
-**Issue:** #32 | **Edge:** E6 (CLI move into kgateway) | **Decisions:** D-012, D-013, D-014 (design-review amendments)
+**Issue:** #32 | **Edge:** E6 (CLI move into kgateway) | **Decisions:** D-012, D-013, D-014 (design-review amendments), D-015 (sub-phase order)
 **Release:** `v0.5.0` (text output changes; JSON additive)
 
 ## Goal
