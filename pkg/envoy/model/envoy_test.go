@@ -81,7 +81,7 @@ func TestEnvoySnapshotTLS(t *testing.T) {
 						HCM: &model.HCMConfig{
 							RouteConfigName: "https-api",
 							HTTPFilters: []model.HTTPFilter{
-								{Name: "io.solo.transformation", Disabled: true},
+								{Name: "example.transformation", Disabled: true},
 								{Name: "envoy.filters.http.router"},
 							},
 						},

@@ -22,10 +22,10 @@ func TestCloneRouteConfig_MapsAreIndependent(t *testing.T) {
 						Match:   model.RouteMatch{Prefix: "/"},
 						Cluster: "kube_default_svc_8080",
 						TypedPerFilterConfig: map[string]any{
-							"io.solo.transformation": map[string]any{"key": "value"},
+							"example.transformation": map[string]any{"key": "value"},
 						},
 						Metadata: map[string]any{
-							"merge.EKTP": []any{"solo.io/EKTP/default/my-policy"},
+							"merge.AcmePolicy.example.com": []any{"example.com/AcmePolicy/default/my-policy"},
 						},
 					},
 				},

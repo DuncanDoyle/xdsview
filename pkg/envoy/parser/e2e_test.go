@@ -11,26 +11,23 @@ import (
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/parser"
 )
 
-// dumpsOf returns every config dump of scenario across the OSS corpus (one per
-// kgateway version) and the enterprise corpus. It fails if there are none.
+// dumpsOf returns every config dump of scenario, one per kgateway version. It
+// fails if there are none.
 func dumpsOf(t *testing.T, scenario string) []string {
 	t.Helper()
 	oss, _ := filepath.Glob(filepath.Join("../../../testdata/scenarios", scenario, "envoy/kgateway-*/config_dump.json"))
-	ent, _ := filepath.Glob(filepath.Join("../../../testdata/enterprise/scenarios", scenario, "envoy/config_dump.json"))
-	dumps := append(oss, ent...)
-	if len(dumps) == 0 {
+	if len(oss) == 0 {
 		t.Fatalf("no config dumps for scenario %s", scenario)
 	}
-	return dumps
+	return oss
 }
 
-// TestParseAllScenarios parses every config_dump.json in both corpora, so the
+// TestParseAllScenarios parses every recorded config_dump.json, so the
 // parser handles all real config dump variants without errors.
 func TestParseAllScenarios(t *testing.T) {
 	var dumps []string
 	for _, pattern := range []string{
 		"../../../testdata/scenarios/*/envoy/kgateway-*/config_dump.json",
-		"../../../testdata/enterprise/scenarios/*/envoy/config_dump.json",
 	} {
 		matches, _ := filepath.Glob(pattern)
 		if len(matches) == 0 {
@@ -86,7 +83,7 @@ func firstRoute(t *testing.T, snapshot *model.EnvoySnapshot) model.Route {
 }
 
 // matcherSnapshots parses every dump of a 01_x-matchers scenario, keyed by path,
-// so each matcher assertion runs on the enterprise dump and on every OSS version.
+// so each matcher assertion runs on every kgateway version.
 func matcherSnapshots(t *testing.T, scenario string) map[string]*model.EnvoySnapshot {
 	t.Helper()
 	snaps := map[string]*model.EnvoySnapshot{}

@@ -198,6 +198,8 @@ internal/
 docs/             Roadmap, phase status, decisions, per-phase docs (docs/phases/)
 testdata/
   scenarios/      Real K8S + Envoy config dump pairs for testing
+  fixtures/       Hand-built config dumps
+  golden/         Expected CLI output
 ```
 
 ### Using xdsview as a library
@@ -253,7 +255,7 @@ err = render.Text(os.Stdout, withChains, render.Options{Header: "Gateway kgatewa
 
 ## Testdata Scenarios
 
-`testdata/scenarios/` holds Kubernetes manifests and Envoy config dumps recorded on OSS kgateway v2.4.7 and v2.5.0 (`envoy/kgateway-<version>/`). `testdata/enterprise/` holds older recordings from the enterprise distribution, kept as extra parser coverage. See the Test Scenarios table in [docs/roadmap.md](docs/roadmap.md).
+`testdata/scenarios/` holds Kubernetes manifests and Envoy config dumps recorded on OSS kgateway v2.4.7 and v2.5.0 (`envoy/kgateway-<version>/`). `testdata/fixtures/` holds hand-built dumps for config no recording has (router upstream filters). `testdata/golden/` holds the expected CLI output for both. See the Test Scenarios table in [docs/roadmap.md](docs/roadmap.md).
 
 Re-record the OSS corpus on a throwaway kind cluster (needs Docker, kind, Helm, kubectl, jq):
 

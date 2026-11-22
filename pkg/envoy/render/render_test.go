@@ -25,7 +25,7 @@ func sample() *model.EnvoySnapshot {
 	hcm := &model.HCMConfig{
 		RouteConfigName: "listener~80",
 		HTTPFilters: []model.HTTPFilter{
-			{Name: "io.solo.transformation", Type: typePrefix + "envoy.api.v2.filter.http.FilterTransformations"},
+			{Name: "example.transformation", Type: httpFilters + "dynamic_modules.v3.DynamicModuleFilter"},
 			{Name: "ext_auth/shop/auth", Type: httpFilters + "ext_authz.v3.ExtAuthz", Disabled: true},
 			{Name: "ratelimit/shop/rl", Type: httpFilters + "ratelimit.v3.RateLimit", Disabled: true},
 			{Name: "envoy.filters.http.cors", Type: httpFilters + "cors.v3.Cors", Disabled: true},
@@ -72,7 +72,7 @@ listener~80 [::]:80 · active · Gateway shop/gw port 80 (inferred)
 └─ vhost listener~80~orders_example [orders.example] · port 80 (inferred)
    └─ route /orders (prefix) · HTTPRoute shop/orders · rule 0 · match 0 (inferred)
       filters (request order):
-        1 io.solo.transformation     on
+        1 example.transformation     on
         2 ext_auth/shop/auth         enabled by route · GatewayExtension shop/auth (inferred) · TrafficPolicy shop/auth (extAuth, inferred)
         3 envoy.filters.http.router  on
       not run: ratelimit/shop/rl (off), envoy.filters.http.cors (off)
@@ -102,7 +102,7 @@ func hasLine(t *testing.T, out, line string) {
 func TestText_AllFilters(t *testing.T) {
 	out := text(t, sample(), render.Options{AllFilters: true})
 	for _, l := range []string{
-		"        1 io.solo.transformation     on",
+		"        1 example.transformation     on",
 		"        2 ext_auth/shop/auth         enabled by route · GatewayExtension shop/auth (inferred) · TrafficPolicy shop/auth (extAuth, inferred)",
 		"        3 ratelimit/shop/rl          off · GatewayExtension shop/rl (inferred)",
 		"        4 envoy.filters.http.cors    off",
@@ -119,7 +119,7 @@ func TestText_ResponseOrder(t *testing.T) {
 	out := text(t, sample(), render.Options{ResponseOrder: true})
 	want := "      filters (response order):\n" +
 		"        1 ext_auth/shop/auth      enabled by route · GatewayExtension shop/auth (inferred) · TrafficPolicy shop/auth (extAuth, inferred)\n" +
-		"        2 io.solo.transformation  on\n"
+		"        2 example.transformation  on\n"
 	if !strings.Contains(out, want) {
 		t.Errorf("no response order block\n%s\nin\n%s", want, out)
 	}

@@ -1,0 +1,105 @@
+{
+ "configs": [
+  {
+   "@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
+   "dynamic_listeners": [
+    {
+     "name": "listener~8080",
+     "active_state": {
+      "version_info": "1",
+      "listener": {
+       "@type": "type.googleapis.com/envoy.config.listener.v3.Listener",
+       "name": "listener~8080",
+       "address": {"socket_address": {"address": "::", "port_value": 8080}},
+       "filter_chains": [
+        {
+         "name": "listener~8080",
+         "filters": [
+          {
+           "name": "envoy.filters.network.http_connection_manager",
+           "typed_config": {
+            "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+            "stat_prefix": "http",
+            "rds": {"route_config_name": "listener~8080", "config_source": {"ads": {}, "resource_api_version": "V3"}},
+            "http_filters": [
+             {
+              "name": "envoy.filters.http.ext_proc",
+              "typed_config": {
+               "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+               "grpc_service": {"envoy_grpc": {"cluster_name": "ext-proc_example"}},
+               "processing_mode": {"request_header_mode": "SEND", "response_header_mode": "SKIP"}
+              }
+             },
+             {
+              "name": "envoy.filters.http.router",
+              "typed_config": {
+               "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+               "upstream_http_filters": [
+                {
+                 "name": "envoy.filters.http.upstream_ext_proc",
+                 "typed_config": {
+                  "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+                  "grpc_service": {"envoy_grpc": {"cluster_name": "upstream-ext-proc_example"}},
+                  "processing_mode": {"request_header_mode": "SEND", "response_header_mode": "SEND"}
+                 }
+                },
+                {
+                 "name": "envoy.filters.http.upstream_codec",
+                 "typed_config": {
+                  "@type": "type.googleapis.com/envoy.extensions.filters.http.upstream_codec.v3.UpstreamCodec"
+                 }
+                }
+               ]
+              }
+             }
+            ]
+           }
+          }
+         ]
+        }
+       ]
+      },
+      "last_updated": "2026-11-22T12:00:00Z"
+     }
+    }
+   ]
+  },
+  {
+   "@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump",
+   "dynamic_route_configs": [
+    {
+     "version_info": "1",
+     "route_config": {
+      "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
+      "name": "listener~8080",
+      "virtual_hosts": [
+       {
+        "name": "listener~8080~app_example",
+        "domains": ["app.example"],
+        "routes": [
+         {
+          "name": "listener~8080~app_example-route-0-httproute-app-default-0-0-matcher-0",
+          "match": {"prefix": "/private"},
+          "route": {"cluster": "kube_default_app_8080"},
+          "typed_per_filter_config": {
+           "envoy.filters.http.ext_proc": {
+            "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExtProcPerRoute",
+            "disabled": true
+           }
+          }
+         },
+         {
+          "name": "listener~8080~app_example-route-1-httproute-app-default-1-0-matcher-0",
+          "match": {"prefix": "/"},
+          "route": {"cluster": "kube_default_app_8080"}
+         }
+        ]
+       }
+      ]
+     },
+     "last_updated": "2026-11-22T12:00:00Z"
+    }
+   ]
+  }
+ ]
+}

@@ -18,7 +18,7 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 **Context:** Every existing dump came from the enterprise distribution, and four scenarios use enterprise policy APIs. krp is headed into kgateway OSS (program E6).
 **Decision:** Re-record all scenarios on OSS kgateway v2.4.7 and v2.5.0 as the main corpus, rewriting the four enterprise scenarios (and adding manifests for 06, which had none) with OSS `TrafficPolicy`/`GatewayExtension`. Keep the existing enterprise dumps and manifests in `testdata/enterprise/` as extra parser coverage (owner's choice).
 **Alternatives:** OSS only, removing the enterprise corpus — not chosen; OSS v2.5.0 only — rejected: 2.4 is still supported.
-**Consequences:** `testdata/enterprise/` is removed before the move into kgateway. Tests run on both corpora.
+**Consequences:** `testdata/enterprise/` is removed before the move into kgateway. Tests run on both corpora. Superseded by D-013 and D-018: removed in Phase 8.2.
 
 ## D-004 — Standard-library core; Kubernetes in `source/kube` (2026-11-04, phase 4)
 **Context:** kgateway-ui's core may not import client-go (UI D-016), and kgwctl brings its own `*rest.Config`.

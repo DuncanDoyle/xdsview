@@ -36,7 +36,7 @@ func TestBuildItems_SimpleSnapshot(t *testing.T) {
 						HCM: &envoymodel.HCMConfig{
 							RouteConfigName: "listener~80",
 							HTTPFilters: []envoymodel.HTTPFilter{
-								{Name: "io.solo.transformation"},
+								{Name: "example.transformation"},
 								{Name: "envoy.filters.http.router"},
 							},
 							RouteConfig: &envoymodel.RouteConfig{

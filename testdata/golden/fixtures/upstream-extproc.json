@@ -1,0 +1,230 @@
+{
+  "schemaVersion": "v1alpha1",
+  "snapshot": {
+    "listeners": [
+      {
+        "name": "listener~8080",
+        "address": ":::8080",
+        "filterChains": [
+          {
+            "name": "listener~8080",
+            "hcm": {
+              "routeConfigName": "listener~8080",
+              "httpFilters": [
+                {
+                  "name": "envoy.filters.http.ext_proc",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+                    "grpc_service": {
+                      "envoy_grpc": {
+                        "cluster_name": "ext-proc_example"
+                      }
+                    },
+                    "processing_mode": {
+                      "request_header_mode": "SEND",
+                      "response_header_mode": "SKIP"
+                    }
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "ext_proc"
+                  }
+                },
+                {
+                  "name": "envoy.filters.http.router",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                    "upstream_http_filters": [
+                      {
+                        "name": "envoy.filters.http.upstream_ext_proc",
+                        "typed_config": {
+                          "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+                          "grpc_service": {
+                            "envoy_grpc": {
+                              "cluster_name": "upstream-ext-proc_example"
+                            }
+                          },
+                          "processing_mode": {
+                            "request_header_mode": "SEND",
+                            "response_header_mode": "SEND"
+                          }
+                        }
+                      },
+                      {
+                        "name": "envoy.filters.http.upstream_codec",
+                        "typed_config": {
+                          "@type": "type.googleapis.com/envoy.extensions.filters.http.upstream_codec.v3.UpstreamCodec"
+                        }
+                      }
+                    ]
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "router"
+                  }
+                }
+              ],
+              "upstreamFilters": [
+                {
+                  "name": "envoy.filters.http.upstream_ext_proc",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+                    "grpc_service": {
+                      "envoy_grpc": {
+                        "cluster_name": "upstream-ext-proc_example"
+                      }
+                    },
+                    "processing_mode": {
+                      "request_header_mode": "SEND",
+                      "response_header_mode": "SEND"
+                    }
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "ext_proc"
+                  }
+                },
+                {
+                  "name": "envoy.filters.http.upstream_codec",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.upstream_codec.v3.UpstreamCodec",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.upstream_codec.v3.UpstreamCodec"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "upstream_codec"
+                  }
+                }
+              ],
+              "routeConfig": {
+                "name": "listener~8080",
+                "virtualHosts": [
+                  {
+                    "name": "listener~8080~app_example",
+                    "domains": [
+                      "app.example"
+                    ],
+                    "routes": [
+                      {
+                        "name": "listener~8080~app_example-route-0-httproute-app-default-0-0-matcher-0",
+                        "match": {
+                          "prefix": "/private"
+                        },
+                        "cluster": "kube_default_app_8080",
+                        "typedPerFilterConfig": {
+                          "envoy.filters.http.ext_proc": {
+                            "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExtProcPerRoute",
+                            "disabled": true
+                          }
+                        },
+                        "origin": {
+                          "certainty": "inferred",
+                          "candidates": [
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "default",
+                                "name": "app"
+                              },
+                              "ruleIndex": 0,
+                              "matchIndex": 0
+                            }
+                          ]
+                        },
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "name": "envoy.filters.http.ext_proc",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+                              "runs": true,
+                              "state": "on",
+                              "level": "route",
+                              "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExtProcPerRoute",
+                              "request": "yes",
+                              "response": "yes"
+                            },
+                            {
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": true,
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "name": "listener~8080~app_example-route-1-httproute-app-default-1-0-matcher-0",
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "cluster": "kube_default_app_8080",
+                        "origin": {
+                          "certainty": "inferred",
+                          "candidates": [
+                            {
+                              "route": {
+                                "group": "gateway.networking.k8s.io",
+                                "kind": "HTTPRoute",
+                                "namespace": "default",
+                                "name": "app"
+                              },
+                              "ruleIndex": 1,
+                              "matchIndex": 0
+                            }
+                          ]
+                        },
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "name": "envoy.filters.http.ext_proc",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+                              "runs": true,
+                              "state": "on",
+                              "request": "yes",
+                              "response": "yes"
+                            },
+                            {
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": true,
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no"
+                            }
+                          ]
+                        }
+                      }
+                    ],
+                    "origin": {
+                      "certainty": "inferred",
+                      "listener": {
+                        "certainty": "inferred",
+                        "port": 8080
+                      },
+                      "hostname": "app.example"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "state": {
+          "status": "active",
+          "lastUpdated": "2026-11-22T12:00:00Z"
+        },
+        "origin": {
+          "certainty": "inferred",
+          "port": 8080
+        }
+      }
+    ]
+  },
+  "warnings": []
+}

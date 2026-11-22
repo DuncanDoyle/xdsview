@@ -10,11 +10,9 @@ import (
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/parser"
 )
 
-// testdataPath returns the path to a file of an enterprise-corpus scenario. The
-// policy assertions below check enterprise-specific filters and metadata.
-// Tests are run from the package directory, so we need to go up to the project root.
-func testdataPath(scenario, file string) string {
-	return "../../../testdata/enterprise/scenarios/" + scenario + "/" + file
+// testdataPath returns the kgateway v2.5.0 recording of a scenario's config dump.
+func testdataPath(scenario, _ string) string {
+	return "../../../testdata/scenarios/" + scenario + "/envoy/kgateway-v2.5.0/config_dump.json"
 }
 
 func TestParse_SimpleHTTP(t *testing.T) {
@@ -140,8 +138,8 @@ func TestParse_HTTPSWithSNI(t *testing.T) {
 		if len(fc0.HCM.HTTPFilters) < 2 {
 			t.Fatalf("expected at least 2 HTTP filters, got %d", len(fc0.HCM.HTTPFilters))
 		}
-		if fc0.HCM.HTTPFilters[0].Name != "io.solo.transformation" {
-			t.Errorf("expected first filter 'io.solo.transformation', got %q", fc0.HCM.HTTPFilters[0].Name)
+		if fc0.HCM.HTTPFilters[0].Name != "dynamic_modules/simple_mutations" {
+			t.Errorf("expected first filter 'dynamic_modules/simple_mutations', got %q", fc0.HCM.HTTPFilters[0].Name)
 		}
 
 		// RouteConfig should be joined
@@ -383,9 +381,9 @@ func TestParse_RateLimit(t *testing.T) {
 		if len(route.TypedPerFilterConfig) == 0 {
 			t.Fatal("expected TypedPerFilterConfig to be populated for rate limit scenario")
 		}
-		// kgateway uses "ratelimit_ee/default" as the filter name key
-		if _, ok := route.TypedPerFilterConfig["ratelimit_ee/default"]; !ok {
-			t.Error("expected 'ratelimit_ee/default' entry in TypedPerFilterConfig")
+		// kgateway names the filter "ratelimit/<ns>/<GatewayExtension>"
+		if _, ok := route.TypedPerFilterConfig["ratelimit/kgateway-system/ratelimit"]; !ok {
+			t.Error("expected 'ratelimit/kgateway-system/ratelimit' entry in TypedPerFilterConfig")
 		}
 		return
 	}

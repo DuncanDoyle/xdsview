@@ -69,16 +69,16 @@ func TestResolveFilterConfig(t *testing.T) {
 	}{
 		{
 			name:                 "per-route config takes precedence over HCM config",
-			filterName:           "io.solo.transformation",
+			filterName:           "example.transformation",
 			filterTypedConfig:    hmcConfig,
-			typedPerFilterConfig: map[string]any{"io.solo.transformation": perRouteConfig},
+			typedPerFilterConfig: map[string]any{"example.transformation": perRouteConfig},
 			wantValue:            perRouteConfig,
 		},
 		{
 			name:                 "per-route key present but value nil falls through to HCM config",
-			filterName:           "io.solo.transformation",
+			filterName:           "example.transformation",
 			filterTypedConfig:    hmcConfig,
-			typedPerFilterConfig: map[string]any{"io.solo.transformation": nil},
+			typedPerFilterConfig: map[string]any{"example.transformation": nil},
 			wantValue:            hmcConfig,
 		},
 		{
@@ -90,7 +90,7 @@ func TestResolveFilterConfig(t *testing.T) {
 		},
 		{
 			name:                 "HCM config set, no per-route config returns HCM config",
-			filterName:           "io.solo.transformation",
+			filterName:           "example.transformation",
 			filterTypedConfig:    hmcConfig,
 			typedPerFilterConfig: nil,
 			wantValue:            hmcConfig,
@@ -108,7 +108,7 @@ func TestResolveFilterConfig(t *testing.T) {
 			name:                 "per-route config for different filter name does not apply",
 			filterName:           "envoy.filters.http.router",
 			filterTypedConfig:    hmcConfig,
-			typedPerFilterConfig: map[string]any{"io.solo.transformation": perRouteConfig},
+			typedPerFilterConfig: map[string]any{"example.transformation": perRouteConfig},
 			wantValue:            hmcConfig, // falls through to HCM config
 		},
 	}

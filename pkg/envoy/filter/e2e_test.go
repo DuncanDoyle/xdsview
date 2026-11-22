@@ -85,26 +85,6 @@ var scenarioRoutes = map[string][]httpRoute{
 	},
 }
 
-// enterpriseRoutes lists the enterprise corpus explicitly. Its 00-simple
-// HTTPRoute lives in "default". Its 06 dump is Gloo Gateway v1, whose route
-// names carry no HTTPRoute identity to filter on, so 06 is left out.
-func enterpriseRoutes() map[string][]httpRoute {
-	m := map[string][]httpRoute{
-		"00-simple": {{"api-example-com", "default", [][]string{{
-			"listener~80~api_example_com-route-0-httproute-api-example-com-default-0-0-matcher-0",
-		}}}},
-	}
-	for _, s := range []string{
-		"01_1-matchers", "01_2-matchers", "01_3-matchers", "01_4-matchers", "01_5-matchers",
-		"01_6-matchers", "01_7-matchers", "01_8-matchers", "01_9-matchers",
-		"02_1-single-policy", "02_2-single-policy", "02_3-single-policy", "02_4-single-policy",
-		"02_5-single-policy", "02_6-single-policy", "02_7-single-policy", "02_8-single-policy",
-	} {
-		m[s] = scenarioRoutes[s]
-	}
-	return m
-}
-
 func parseDump(t *testing.T, path string) *model.EnvoySnapshot {
 	t.Helper()
 	f, err := os.Open(path)
@@ -178,15 +158,6 @@ func TestFilter_E2E_OSSScenarios(t *testing.T) {
 				checkScenario(t, parseDump(t, filepath.Join("../../../testdata/scenarios", scenario, "envoy", version, "config_dump.json")), routes)
 			})
 		}
-	}
-}
-
-// TestFilter_E2E_EnterpriseScenarios runs checkScenario on the enterprise corpus.
-func TestFilter_E2E_EnterpriseScenarios(t *testing.T) {
-	for scenario, routes := range enterpriseRoutes() {
-		t.Run(scenario, func(t *testing.T) {
-			checkScenario(t, parseDump(t, filepath.Join("../../../testdata/enterprise/scenarios", scenario, "envoy", "config_dump.json")), routes)
-		})
 	}
 }
 

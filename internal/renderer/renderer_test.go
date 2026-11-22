@@ -88,7 +88,7 @@ func TestRender_HTTPS_TwoFilterChains(t *testing.T) {
 						HCM: &model.HCMConfig{
 							RouteConfigName: "https-api",
 							HTTPFilters: []model.HTTPFilter{
-								{Name: "io.solo.transformation", Disabled: true},
+								{Name: "example.transformation", Disabled: true},
 								{Name: "envoy.filters.http.router"},
 							},
 							RouteConfig: &model.RouteConfig{
@@ -115,7 +115,7 @@ func TestRender_HTTPS_TwoFilterChains(t *testing.T) {
 						HCM: &model.HCMConfig{
 							RouteConfigName: "https-developer",
 							HTTPFilters: []model.HTTPFilter{
-								{Name: "io.solo.transformation", Disabled: true},
+								{Name: "example.transformation", Disabled: true},
 								{Name: "envoy.filters.http.router"},
 							},
 						},
@@ -133,7 +133,7 @@ func TestRender_HTTPS_TwoFilterChains(t *testing.T) {
 		"https-developer",
 		"api.example.com",
 		"developer.example.com",
-		"io.solo.transformation",
+		"example.transformation",
 	}
 	for _, s := range checks {
 		if !strings.Contains(output, s) {
@@ -248,7 +248,7 @@ func TestRender_DisabledFilter_ActiveOnRoute(t *testing.T) {
 						HCM: &model.HCMConfig{
 							RouteConfigName: "https-api",
 							HTTPFilters: []model.HTTPFilter{
-								{Name: "io.solo.transformation", Disabled: true},
+								{Name: "example.transformation", Disabled: true},
 								{Name: "envoy.filters.http.router"},
 							},
 							RouteConfig: &model.RouteConfig{
@@ -263,7 +263,7 @@ func TestRender_DisabledFilter_ActiveOnRoute(t *testing.T) {
 												Cluster: "kube_httpbin_httpbin_8000",
 												// Route has per-filter config: transformation is active here
 												TypedPerFilterConfig: map[string]any{
-													"io.solo.transformation": map[string]any{"@type": "type.googleapis.com/envoy.api.v2.filter.http.RouteTransformations"},
+													"example.transformation": map[string]any{"@type": "type.googleapis.com/example.v1.RouteTransformations"},
 												},
 											},
 										},
@@ -282,7 +282,7 @@ func TestRender_DisabledFilter_ActiveOnRoute(t *testing.T) {
 	if strings.Contains(output, "disabled") {
 		t.Errorf("expected filter to NOT show as disabled when active via typed_per_filter_config\nOutput:\n%s", output)
 	}
-	if !strings.Contains(output, "io.solo.transformation") {
+	if !strings.Contains(output, "example.transformation") {
 		t.Errorf("expected filter name to appear in output\nOutput:\n%s", output)
 	}
 }
@@ -456,8 +456,8 @@ func interactiveSnapshot() *model.EnvoySnapshot {
 							RouteConfigName: "listener~80",
 							HTTPFilters: []model.HTTPFilter{
 								{
-									Name:        "io.solo.transformation",
-									TypedConfig: map[string]any{"@type": "type.googleapis.com/envoy.api.v2.filter.http.RouteTransformations"},
+									Name:        "example.transformation",
+									TypedConfig: map[string]any{"@type": "type.googleapis.com/example.v1.RouteTransformations"},
 								},
 								{Name: "envoy.filters.http.router"},
 							},
@@ -502,7 +502,7 @@ func TestRenderInteractive_CursorOnFirstFilter(t *testing.T) {
 	cursor := render.FilterRef{ListenerIdx: 0, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 0}
 	output := renderer.RenderInteractive(snapshot, renderer.RenderOpts{Cursor: &cursor})
 
-	if !strings.Contains(output, "io.solo.transformation") {
+	if !strings.Contains(output, "example.transformation") {
 		t.Errorf("expected filter name to still be present in output\nOutput:\n%s", output)
 	}
 	static := renderer.Render(snapshot)
@@ -524,7 +524,7 @@ func TestRenderInteractive_ExpandedPerRouteConfig(t *testing.T) {
 						HCM: &model.HCMConfig{
 							RouteConfigName: "listener~80",
 							HTTPFilters: []model.HTTPFilter{
-								{Name: "io.solo.transformation", Disabled: true},
+								{Name: "example.transformation", Disabled: true},
 								{Name: "envoy.filters.http.router"},
 							},
 							RouteConfig: &model.RouteConfig{
@@ -538,8 +538,8 @@ func TestRenderInteractive_ExpandedPerRouteConfig(t *testing.T) {
 												Match:   model.RouteMatch{Prefix: "/"},
 												Cluster: "kube_httpbin_httpbin_8000",
 												TypedPerFilterConfig: map[string]any{
-													"io.solo.transformation": map[string]any{
-														"@type":        "type.googleapis.com/solo.transformation",
+													"example.transformation": map[string]any{
+														"@type":        "type.googleapis.com/example.transformation",
 														"request_body": "passthrough",
 													},
 												},
@@ -709,7 +709,7 @@ func TestRenderInteractive_NoOpts_RicherSnapshot(t *testing.T) {
 						HCM: &model.HCMConfig{
 							RouteConfigName: "listener~80",
 							HTTPFilters: []model.HTTPFilter{
-								{Name: "io.solo.transformation", Disabled: true},
+								{Name: "example.transformation", Disabled: true},
 								{Name: "envoy.filters.http.router"},
 							},
 							RouteConfig: &model.RouteConfig{
@@ -724,8 +724,8 @@ func TestRenderInteractive_NoOpts_RicherSnapshot(t *testing.T) {
 												Cluster: "kube_default_backend_8080",
 												// Disabled filter is active on this route.
 												TypedPerFilterConfig: map[string]any{
-													"io.solo.transformation": map[string]any{
-														"@type": "type.googleapis.com/solo.transformation",
+													"example.transformation": map[string]any{
+														"@type": "type.googleapis.com/example.transformation",
 													},
 												},
 											},
@@ -822,8 +822,8 @@ func TestRenderInteractive_CursorAndExpanded(t *testing.T) {
 		t.Errorf("expected HCM-level TypedConfig 'RouteTransformations' in output when expanded\nOutput:\n%s", output)
 	}
 	// The filter name itself must still appear.
-	if !strings.Contains(output, "io.solo.transformation") {
-		t.Errorf("expected filter name 'io.solo.transformation' in output\nOutput:\n%s", output)
+	if !strings.Contains(output, "example.transformation") {
+		t.Errorf("expected filter name 'example.transformation' in output\nOutput:\n%s", output)
 	}
 }
 
