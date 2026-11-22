@@ -36,7 +36,7 @@ Consumers: E6 (kgwctl move into kgateway) waits on this phase. E11 available (`v
 - #26 (P2) kube source: cancellation through an API-server proxy — deferred, not a requirement (owner, 2026-11-05). kgwctl fixed the same gap in its own dialer and offered its code.
 - Phase 7 deferred (D-011): resumes only on a named convergence question from the program. Its roadmap notes (listener state, parser warnings) stay as constraints.
 - `origin.ObjectForName` drops certainty (Phase 8 audit P2-e): no consumer; revisit when one appears.
-- xDS convergence investigation (P-009), after Phase 8, design only: see roadmap. Program handoff 2026-11-22 (program merged to kgateway-tooling main, `090fd7e`).
+- xDS convergence investigation (P-009), after Phase 8, design only: see roadmap. Program handoff 2026-11-22 (program merged to kgateway-tooling main, `841f508`).
 - Ownership (program): `origin` is the only decoder of `merge.*` and `route_source` metadata. Only route-level `merge.*` is read; listener, RouteConfiguration and vhost levels have no provider. Add one only when a consumer asks.
 
 ## Notes
