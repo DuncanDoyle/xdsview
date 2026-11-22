@@ -52,4 +52,4 @@ None beyond D-014 to D-016. Golden diff may hold only certainty fields, the suff
 - [ ] `go test ./...`, `go vet ./...` pass
 - [ ] `krp` text and TUI checked by hand on `09-kgwctl-policies`
 - [ ] cross-model review of `f8b4af6..HEAD` (both dimensions), triaged, before `v0.5.0` (D-016)
-- [ ] phase-8.1-complete.md; `v0.5.0` (owner OK given in D-016); kgwctl `cross-repo` issue for E13 (ask before filing)
+- [ ] phase-8.1-complete.md; `v0.5.0` (owner OK given in D-016); kgwctl `cross-repo` issue for E13 (filed: DuncanDoyle/kgwctl#11)
