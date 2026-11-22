@@ -207,6 +207,10 @@ func TestText_Certainty(t *testing.T) {
 
 	r.Policies = []model.PolicyRef{{Policy: model.Ref{Kind: "AcmePolicy", Namespace: "shop", Name: "p"}, Field: "x", Certainty: model.Inferred}}
 	hasLine(t, text(t, snap, render.Options{}), "      policies: AcmePolicy shop/p (x, inferred)")
+	for _, c := range []model.Certainty{model.Unknown, model.Ambiguous} {
+		r.Policies[0].Certainty = c
+		hasLine(t, text(t, snap, render.Options{}), "      policies: AcmePolicy shop/p (x, "+c.String()+")")
+	}
 }
 
 // TestText_Unannotated computes chains when the snapshot has none, and prints no origins.

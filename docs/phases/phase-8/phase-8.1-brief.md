@@ -19,7 +19,7 @@ kgwctl `proxy routes` shows policy-to-filter links and route indices as fact, al
 | 6 | `merge.` entry whose ID group/kind match the key | `PolicyRef` with `"certainty": "exact"`; text under `policies:` bare |
 | 7 | `merge.` entry whose ID group or kind disagrees with the key | Entry skipped; not in `Route.Policies` |
 | 8 | `route_source` metadata with a rule name and no `_rule-N` in the Envoy name | `RouteOrigin.Certainty` exact, `"indexCertainty": "inferred"`; text `· rule 1 · match 0 (from name)` |
-| 9 | `route_source` with full `_rule-N`/`_match-N` | No `indexCertainty` in JSON; text bare |
+| 9 | `route_source` with full `_rule-N`/`_match-N`, and nothing taken from the name | No `indexCertainty` in JSON; text bare. A rule name taken from the name still makes it `inferred` (design §3; 8.1 review #5) |
 | 10 | Narrowing by HTTPRoute rule index on cases 8 and 9 | Route selected in both (unchanged) |
 | 11 | Route origin from the name only, single reading | Text `… (inferred)` |
 | 12 | Ambiguous route origin | Text unchanged (`ambiguous: …`) |

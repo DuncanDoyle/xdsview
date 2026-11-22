@@ -1,6 +1,8 @@
 package chain_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -8,6 +10,7 @@ import (
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/chain"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/origin"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/render"
 )
 
 // composed runs origin.Annotate then chain.Annotate, as krp does, and returns
@@ -115,4 +118,97 @@ func hasPolicy(r model.Route, want model.PolicyRef) bool {
 		}
 	}
 	return false
+}
+
+// unsureAcme is a plugin whose policy records carry no certainty.
+type unsureAcme struct{ origin.Mapper }
+
+func (unsureAcme) Policies(model.Route) []model.PolicyRef {
+	return []model.PolicyRef{{Policy: model.Ref{Group: "acme.io", Kind: "AcmePolicy", Namespace: "ns", Name: "waf"}, Field: "acmeWaf"}}
+}
+
+func (unsureAcme) PolicyFilter(p model.PolicyRef, f model.HTTPFilter) bool {
+	return p.Field == "acmeWaf" && f.Type == "type.googleapis.com/acme.waf.v1.Waf"
+}
+
+// TestCertainty_PolicyLinkNoStrongerThanRef: a unique filter match adds no
+// evidence for the policy's identity, so an unknown ref stays unknown (8.1 review #3).
+func TestCertainty_PolicyLinkNoStrongerThanRef(t *testing.T) {
+	kgw := origin.Kgateway(origin.KgatewayOptions{})
+	r := composed(t, parseString(t, pluginDump), origin.Chain(unsureAcme{kgw}, kgw))
+	got := contributionsOf(r)["acme_waf/ns"]
+	if len(got) != 1 || got[0].Certainty != model.Unknown {
+		t.Errorf("acme_waf contributions = %+v, want one with unknown certainty", got)
+	}
+}
+
+// TestCertainty_BackendOverrideIsACandidate: a matching filter that a weighted
+// backend configures counts as a candidate, so the route-level one alone
+// doesn't get the policy (8.1 review #4).
+func TestCertainty_BackendOverrideIsACandidate(t *testing.T) {
+	enable := map[string]any{"@type": filterConfigType, "config": map[string]any{}}
+	snap := func(backendFilter string) *model.EnvoySnapshot {
+		return &model.EnvoySnapshot{Listeners: []model.Listener{{FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
+			HTTPFilters: []model.HTTPFilter{
+				{Name: "ext_auth/ns/a", Type: extAuthzType, Disabled: true},
+				{Name: "ext_auth/ns/b", Type: extAuthzType, Disabled: true},
+			},
+			RouteConfig: &model.RouteConfig{VirtualHosts: []model.VirtualHost{{Routes: []model.Route{{
+				TypedPerFilterConfig: map[string]any{"ext_auth/ns/a": enable},
+				WeightedClusters:     []model.WeightedCluster{{Name: "c", Weight: 1, TypedPerFilterConfig: map[string]any{backendFilter: enable}}},
+				Metadata:             merge(map[string]string{"extAuth": "auth"}),
+			}}}}},
+		}}}}}}
+	}
+	policies := func(s *model.EnvoySnapshot) int {
+		n := 0
+		for _, cts := range contributionsOf(composed(t, s, origin.Kgateway(origin.KgatewayOptions{}))) {
+			for _, c := range cts {
+				if c.Kind == model.ContributionPolicy {
+					n++
+				}
+			}
+		}
+		return n
+	}
+	if got := policies(snap("ext_auth/ns/b")); got != 0 {
+		t.Errorf("backend configures another match: %d policy contributions, want 0", got)
+	}
+	if got := policies(snap("ext_auth/ns/a")); got != 1 {
+		t.Errorf("backend configures the same filter: %d policy contributions, want 1", got)
+	}
+}
+
+// TestCertainty_ComposedOutput: an exact plugin contribution and name-derived
+// route indices reach the JSON and text output (8.1 review #7).
+func TestCertainty_ComposedOutput(t *testing.T) {
+	dump := strings.Replace(pluginDump, `"routes": [{"name": "r",`,
+		`"routes": [{"name": "listener~80~*-route-0-httproute-web-ns-1-0-api-matcher-0",`, 1)
+	dump = strings.Replace(dump, `"metadata": {"filter_metadata": {`,
+		`"metadata": {"filter_metadata": {"dev.kgateway.route_source": {"kind": "HTTPRoute", "group": "gateway.networking.k8s.io", "namespace": "ns", "name": "web", "rule": "api", "match": "_match-0"},`, 1)
+	kgw := origin.Kgateway(origin.KgatewayOptions{})
+	m := origin.Chain(exactWaf{kgw}, kgw)
+	snap := chain.Annotate(origin.Annotate(parseString(t, dump), m), m)
+
+	b, err := json.Marshal(routes(snap)[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"indexCertainty":"inferred"`, `"name":"waf"},"certainty":"exact"`} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("JSON lacks %s:\n%s", want, b)
+		}
+	}
+	var out bytes.Buffer
+	if err := render.Text(&out, snap, render.Options{}); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	if !strings.Contains(text, "HTTPRoute ns/web · rule 1 (api) · match 0 (from name)") {
+		t.Errorf("text lacks the name-derived indices:\n%s", text)
+	}
+	// Exact prints bare: no qualifier after the extension.
+	if !strings.Contains(text, "WafExtension ns/waf") || strings.Contains(text, "WafExtension ns/waf (") {
+		t.Errorf("want the exact extension bare:\n%s", text)
+	}
 }

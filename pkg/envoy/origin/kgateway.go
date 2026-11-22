@@ -179,7 +179,9 @@ func routeFromMetadata(r model.Route) (model.RouteOrigin, bool) {
 	rule, match := str("rule"), str("match")
 	legacy := strings.ToLower(ref.Kind) + "-" + ref.Name + "-" + ref.Namespace + "-"
 	if idx, ok := strings.CutPrefix(rule, "_rule-"); ok {
-		o.RuleIndex, _ = strconv.Atoi(idx)
+		if ri, err := strconv.Atoi(idx); err == nil {
+			o.RuleIndex = ri
+		}
 	} else if rest, ok := strings.CutPrefix(rule, legacy); ok {
 		// v2.4: "<kind>-<name>-<ns>-<rule>-<match>".
 		if r, m, ok := strings.Cut(rest, "-"); ok {
@@ -194,7 +196,9 @@ func routeFromMetadata(r model.Route) (model.RouteOrigin, bool) {
 		o.RuleName = rule
 	}
 	if idx, ok := strings.CutPrefix(match, "_match-"); ok {
-		o.MatchIndex, _ = strconv.Atoi(idx)
+		if mi, err := strconv.Atoi(idx); err == nil {
+			o.MatchIndex = mi
+		}
 	}
 	// Fill the rest from the name, restricted to this route's identity. Those
 	// fields rest on the naming convention, so mark them inferred.

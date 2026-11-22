@@ -74,7 +74,7 @@ func TestRender_Origins(t *testing.T) {
 	route := model.Route{Cluster: "c",
 		Origin: &model.RouteAnnotation{Certainty: model.Inferred, Candidates: []model.RouteOrigin{
 			{Route: testRoute, RuleIndex: 1, RuleName: "api", MatchIndex: 0}}},
-		Policies: []model.PolicyRef{{Policy: model.Ref{Group: "gateway.kgateway.dev", Kind: "TrafficPolicy", Namespace: "shop", Name: "auth"}, Field: "extAuth"}},
+		Policies: []model.PolicyRef{{Policy: model.Ref{Group: "gateway.kgateway.dev", Kind: "TrafficPolicy", Namespace: "shop", Name: "auth"}, Field: "extAuth", Certainty: model.Exact}},
 	}
 	out := renderRoute(hcm, route)
 	for _, want := range []string{

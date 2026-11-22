@@ -68,3 +68,25 @@ func TestRoute_IndexCertainty(t *testing.T) {
 		}
 	}
 }
+
+// TestRoute_MalformedIndices: an index route_source carries but that doesn't
+// parse stays unknown, so a valid name can supply it as inferred (8.1 review #1).
+func TestRoute_MalformedIndices(t *testing.T) {
+	ref := model.Ref{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute", Namespace: "ns", Name: "web"}
+	meta := map[string]any{"dev.kgateway.route_source": map[string]any{
+		"kind": "HTTPRoute", "group": "gateway.networking.k8s.io", "namespace": "ns", "name": "web", "rule": "_rule-bad", "match": "_match-bad"}}
+	m := origin.Kgateway(origin.KgatewayOptions{})
+	cases := []struct {
+		name string
+		want model.RouteOrigin
+	}{
+		{"custom", model.RouteOrigin{Route: ref, RuleIndex: -1, MatchIndex: -1}},
+		{"listener~80~*-route-0-httproute-web-ns-2-1-matcher-1", model.RouteOrigin{Route: ref, RuleIndex: 2, MatchIndex: 1, IndexCertainty: model.Inferred}},
+	}
+	for _, c := range cases {
+		got := m.Route(model.Route{Name: c.name, Metadata: meta})
+		if got.Certainty != model.Exact || !reflect.DeepEqual(got.Candidates, []model.RouteOrigin{c.want}) {
+			t.Errorf("%s: got %v %+v, want exact %+v", c.name, got.Certainty, got.Candidates, c.want)
+		}
+	}
+}

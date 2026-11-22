@@ -448,8 +448,8 @@ func policy(r model.Ref, field string, c model.Certainty) string {
 	if field != "" {
 		notes = append(notes, field)
 	}
-	if c == model.Inferred {
-		notes = append(notes, "inferred")
+	if c != model.Exact {
+		notes = append(notes, c.String())
 	}
 	if len(notes) == 0 {
 		return r.String()
@@ -457,12 +457,12 @@ func policy(r model.Ref, field string, c model.Certainty) string {
 	return r.String() + " (" + strings.Join(notes, ", ") + ")"
 }
 
-// suffix marks an inferred origin. Exact prints bare; ambiguous has its own form.
+// suffix names an origin's certainty unless it is exact, which prints bare.
 func suffix(c model.Certainty) string {
-	if c == model.Inferred {
-		return " (inferred)"
+	if c == model.Exact {
+		return ""
 	}
-	return ""
+	return " (" + c.String() + ")"
 }
 
 func listenerOrigin(o model.ListenerOrigin) string {

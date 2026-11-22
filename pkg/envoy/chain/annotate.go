@@ -46,8 +46,9 @@ func Annotate(snap *model.EnvoySnapshot, m origin.Mapper) *model.EnvoySnapshot {
 //
 // An extension contribution carries the mapper's filter origin certainty. A
 // policy field is attributed only when exactly one entry with per-filter
-// config matches it, at any level, and then as [model.Inferred]: the metadata
-// names the field, not the filter, so with several candidates none gets it.
+// config for the route matches it, at any level or on a weighted backend. The
+// link is at most [model.Inferred], and no stronger than the policy ref: the
+// metadata names the field, not the filter, so with several candidates none gets it.
 func attribute(c *model.EffectiveChain, filters []model.HTTPFilter, r model.Route, m origin.Mapper) {
 	if m == nil {
 		return
@@ -65,13 +66,27 @@ func attribute(c *model.EffectiveChain, filters []model.HTTPFilter, r model.Rout
 	for _, p := range m.Policies(r) {
 		match, n := -1, 0
 		for i, f := range filters {
-			if c.Filters[i].Level != "" && pf.PolicyFilter(p, f) {
+			if configured(c.Filters[i], r) && pf.PolicyFilter(p, f) {
 				match, n = i, n+1
 			}
 		}
 		if n == 1 {
 			c.Filters[match].Contributions = append(c.Filters[match].Contributions,
-				model.Contribution{Kind: model.ContributionPolicy, Ref: p.Policy, Field: p.Field, Certainty: model.Inferred})
+				model.Contribution{Kind: model.ContributionPolicy, Ref: p.Policy, Field: p.Field, Certainty: min(p.Certainty, model.Inferred)})
 		}
 	}
+}
+
+// configured reports whether e has per-filter config for r: at a route-config
+// level, or on one of r's weighted backends, which may override the route's.
+func configured(e model.ChainEntry, r model.Route) bool {
+	if e.Level != "" {
+		return true
+	}
+	for _, wc := range r.WeightedClusters {
+		if _, ok := wc.TypedPerFilterConfig[e.Name]; ok {
+			return true
+		}
+	}
+	return false
 }
