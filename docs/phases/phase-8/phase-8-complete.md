@@ -1,7 +1,7 @@
 # Phase 8 — Vendor-Neutral Core (Complete)
 
 **Completed:** 2026-11-23
-**Range:** f8b4af6..c1348fb (`v0.6.0` once tagged)
+**Range:** f8b4af6..c1348fb (released as `v0.6.0` at 10512f6)
 
 ## Summary
 Every attribution now states how it was derived. A policy is linked to a filter only when exactly one filter configured for the route matches it, and only for kgateway's TrafficPolicy. The enterprise dumps, goldens and transformation type left the module; neutral hand-built fixtures keep the coverage they gave. `v0.5.0` delivered E13 (certainty); this release delivers E6's cleanup. OSS output is byte-for-byte the same as `v0.5.0`.

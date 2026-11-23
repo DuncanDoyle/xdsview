@@ -9,8 +9,8 @@ Docs: docs/investigations/ (to be created)
 Status: Phase 8 closed 2026-11-23 (docs/phases/phase-8/phase-8-complete.md). Release handoff below still open.
 
 ### Queue
-- [ ] Q1 tag `v0.6.0` at c1348fb or later (owner approval, D-016) ← CURRENT
-- [ ] Q2 kgwctl `cross-repo` notice for E6 / `v0.6.0` (ask before filing)
+- [x] Q1 tag `v0.6.0` at 10512f6 (owner approved 2026-11-23)
+- [ ] Q2 kgwctl `cross-repo` notice for E6 / `v0.6.0` (ask before filing) ← CURRENT
 - [ ] Q3 E6 row update through the program session
 - [ ] Q4 start the P-009 investigation (ask first)
 
@@ -23,7 +23,7 @@ none
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `c304e76`)
 Waiting on: nothing.
-Consumers: E6 (kgwctl move into kgateway) waits on `v0.6.0`. E13 available (`v0.5.0`). E11 available. E15 planned (Phase 9).
+Consumers: E6 (kgwctl move into kgateway): `v0.6.0` released. E13 available (`v0.5.0`). E11 available. E15 planned (Phase 9).
 
 ## Carry-over (deferred to later phases)
 - Phase 8 fix review 4 #2, #4, #5 (P1, owner-deferred to Phase 9 design): dotted rule names lose `--rule <n>`; `dynamic_module_config.module` overrides the library check; Composite-wrapped rustformation loses its link. See phase-8-complete.md.
