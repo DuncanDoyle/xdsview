@@ -278,3 +278,22 @@ func nameConflict(t *testing.T, name string) {
 		t.Errorf("%s, rule name api: selected %v, want the route", name, got)
 	}
 }
+
+// TestFilter_UnnamedRuleNotSelectedByName: "_rule-<n>" is an unnamed rule, so
+// a rule name read from the Envoy name doesn't select it (phase fix review 2 #1).
+func TestFilter_UnnamedRuleNotSelectedByName(t *testing.T) {
+	const name = "listener~80~*-route-0-httproute-web-shop-2-0-api-matcher-0"
+	meta := map[string]any{"dev.kgateway.route_source": map[string]any{
+		"kind": "HTTPRoute", "group": "gateway.networking.k8s.io", "namespace": "shop", "name": "web", "rule": "_rule-2", "match": "_match-0"}}
+	snap := &model.EnvoySnapshot{Listeners: []model.Listener{{Name: "l", FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
+		RouteConfig: &model.RouteConfig{VirtualHosts: []model.VirtualHost{{Name: "listener~80~*", Routes: []model.Route{{Name: name, Metadata: meta}}}}}}}}}}}
+	o := opts("shop", "web")
+	o.RuleName = "api"
+	if got := routeNames(filter.Filter(snap, o)); got != nil {
+		t.Errorf("rule name api: selected %v, want nothing", got)
+	}
+	o.RuleName, o.RuleIndex = "", 2
+	if got := routeNames(filter.Filter(snap, o)); !reflect.DeepEqual(got, []string{name}) {
+		t.Errorf("index 2: selected %v, want the route", got)
+	}
+}

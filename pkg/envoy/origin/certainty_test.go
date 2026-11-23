@@ -20,6 +20,8 @@ func TestPolicies_CertaintyAndKeyCheck(t *testing.T) {
 				// No identity: skipped (phase review #2).
 				"gateway.kgateway.dev/TrafficPolicy/ns/",
 				"gateway.kgateway.dev/TrafficPolicy//no-ns",
+				"gateway.kgateway.dev/TrafficPolicy/ns/ ",
+				"gateway.kgateway.dev/TrafficPolicy/Bad_NS/p",
 			},
 		},
 		"merge..example.com": map[string]any{
@@ -58,8 +60,11 @@ func TestRoute_IndexCertainty(t *testing.T) {
 			model.RouteOrigin{Route: ref, RuleIndex: 1, RuleName: "api", MatchIndex: 0}, model.Inferred},
 		{"rule name, name has no convention", model.Route{Name: "custom", Metadata: md("api", "_match-0")},
 			model.RouteOrigin{Route: ref, RuleIndex: -1, RuleName: "api", MatchIndex: 0}, model.Unknown},
+		// "_rule-<n>" means an unnamed rule, so a name reading a rule name conflicts.
 		{"full indices in metadata", model.Route{Name: named, Metadata: md("_rule-1", "_match-0")},
-			model.RouteOrigin{Route: ref, RuleIndex: 1, RuleName: "api", MatchIndex: 0}, model.Inferred},
+			model.RouteOrigin{Route: ref, RuleIndex: 1, MatchIndex: 0}, model.Unknown},
+		{"full indices, name of an unnamed rule", model.Route{Name: "listener~80~*-route-0-httproute-web-ns-1-0-matcher-0", Metadata: md("_rule-1", "_match-0")},
+			model.RouteOrigin{Route: ref, RuleIndex: 1, MatchIndex: 0}, model.Unknown},
 		{"full indices, no name", model.Route{Name: "custom", Metadata: md("_rule-1", "_match-0")},
 			model.RouteOrigin{Route: ref, RuleIndex: 1, MatchIndex: 0}, model.Unknown},
 		// A name that disagrees with the metadata supplies nothing (phase review #1).
@@ -106,5 +111,17 @@ func TestRoute_MalformedIndices(t *testing.T) {
 		if got.Certainty != model.Exact || !reflect.DeepEqual(got.Candidates, []model.RouteOrigin{c.want}) {
 			t.Errorf("%s: got %v %+v, want exact %+v", c.name, got.Certainty, got.Candidates, c.want)
 		}
+	}
+}
+
+// TestRoute_NameOfOtherKind: an HTTPRoute name reading adds nothing to a
+// route_source of another kind with the same name (phase fix review 2 #2).
+func TestRoute_NameOfOtherKind(t *testing.T) {
+	meta := map[string]any{"dev.kgateway.route_source": map[string]any{
+		"kind": "GRPCRoute", "group": "gateway.networking.k8s.io", "namespace": "ns", "name": "web", "rule": "api", "match": "_match-0"}}
+	got := origin.Kgateway(origin.KgatewayOptions{}).Route(model.Route{Name: "listener~80~*-route-0-httproute-web-ns-2-0-api-matcher-0", Metadata: meta})
+	want := model.RouteOrigin{Route: model.Ref{Group: "gateway.networking.k8s.io", Kind: "GRPCRoute", Namespace: "ns", Name: "web"}, RuleIndex: -1, RuleName: "api", MatchIndex: 0}
+	if !reflect.DeepEqual(got.Candidates, []model.RouteOrigin{want}) {
+		t.Errorf("got %+v, want %+v", got.Candidates, want)
 	}
 }

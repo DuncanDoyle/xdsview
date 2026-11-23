@@ -152,6 +152,7 @@ func parseRouteName(name string) []model.RouteOrigin {
 
 var (
 	dnsLabel     = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
+	kindName     = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]*$`)
 	dnsSubdomain = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`)
 )
 
@@ -178,6 +179,7 @@ func routeFromMetadata(r model.Route) (model.RouteOrigin, bool) {
 	o := model.RouteOrigin{Route: ref, RuleIndex: -1, MatchIndex: -1}
 	rule, match := str("rule"), str("match")
 	legacy := strings.ToLower(ref.Kind) + "-" + ref.Name + "-" + ref.Namespace + "-"
+	unnamed := strings.HasPrefix(rule, "_rule-") // v2.5 writes this only for an unnamed rule
 	if idx, ok := strings.CutPrefix(rule, "_rule-"); ok {
 		if ri, ok := index(idx); ok {
 			o.RuleIndex = ri
@@ -203,8 +205,8 @@ func routeFromMetadata(r model.Route) (model.RouteOrigin, bool) {
 	// Fill the rest from the name, restricted to this route's identity. Those
 	// fields rest on the naming convention, so mark them inferred.
 	for _, c := range parseRouteName(r.Name) {
-		if c.Route.Name == ref.Name && c.Route.Namespace == ref.Namespace {
-			if conflicts(o, c) {
+		if c.Route == ref {
+			if conflicts(o, c) || (unnamed && c.RuleName != "") {
 				break
 			}
 			fromName := false
@@ -304,10 +306,11 @@ var globalDisable = map[string]string{
 
 // rustformationFilter is OSS kgateway's transformation filter instance
 // (traffic_policy_plugin.go). Its module also backs the ext_auth_enabled
-// helper, so the instance name, not the module, identifies it.
+// helper, so the instance name is checked as well as the module.
 const rustformationFilter = "dynamic_modules/simple_mutations"
 
-// dynamicModuleType is Envoy's dynamic module filter, which runs rustformation.
+// dynamicModuleType is Envoy's generic dynamic module loader; filter_name
+// says which module it runs.
 const dynamicModuleType = "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilter"
 
 // PolicyFilter reports whether p's field configures f. It knows only
@@ -321,7 +324,8 @@ func (k kgateway) PolicyFilter(p model.PolicyRef, f model.HTTPFilter) bool {
 		return true
 	}
 	if p.Field == "transformation" {
-		return f.Name == rustformationFilter && f.Type == dynamicModuleType
+		module, _ := f.TypedConfig["filter_name"].(string)
+		return f.Name == rustformationFilter && f.Type == dynamicModuleType && module == "rustformation"
 	}
 	kind, ok := policyFilterKinds[p.Field]
 	return ok && filterKind(f.Type) == kind
@@ -331,7 +335,8 @@ func (k kgateway) PolicyFilter(p model.PolicyRef, f model.HTTPFilter) bool {
 // a policy field to "<group>/<Kind>/<ns>/<name>" policy IDs. Any Kind is read,
 // so a vendor policy Kind appears without a plugin. Each ref is [model.Exact]:
 // the metadata names that ID for that field. An ID whose group or kind differs
-// from its key's, or that lacks a kind, namespace or name, is skipped.
+// from its key's, or whose kind, namespace or name is not a valid
+// Kubernetes one, is skipped.
 func (k kgateway) Policies(r model.Route) []model.PolicyRef {
 	var out []model.PolicyRef
 	for key, v := range r.Metadata {
@@ -349,7 +354,7 @@ func (k kgateway) Policies(r model.Route) []model.PolicyRef {
 			for _, id := range list {
 				s, _ := id.(string)
 				p := strings.Split(s, "/")
-				if len(p) != 4 || p[0] != group || p[1] != kind || p[1] == "" || p[2] == "" || p[3] == "" {
+				if len(p) != 4 || p[0] != group || p[1] != kind || !kindName.MatchString(kind) || !validDNSLabel(p[2]) || !validDNSSubdomain(p[3]) {
 					continue
 				}
 				out = append(out, model.PolicyRef{Policy: model.Ref{Group: p[0], Kind: p[1], Namespace: p[2], Name: p[3]}, Field: field, Certainty: model.Exact})

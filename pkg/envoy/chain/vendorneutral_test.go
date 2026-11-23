@@ -106,3 +106,17 @@ func TestVendorNeutral_TransformationNeedsType(t *testing.T) {
 		}
 	}
 }
+
+// TestVendorNeutral_TransformationModule: DynamicModuleFilter is a generic
+// loader, so the link also needs the rustformation module (phase fix review 2 #4).
+func TestVendorNeutral_TransformationModule(t *testing.T) {
+	meta := mergeID("gateway.kgateway.dev", "TrafficPolicy", "transformation")
+	kgw := origin.Kgateway(origin.KgatewayOptions{})
+	for module, linked := range map[string]bool{"rustformation": true, "other": false} {
+		f := model.HTTPFilter{Name: "dynamic_modules/simple_mutations", Type: dynModType, TypedConfig: map[string]any{"filter_name": module}}
+		r := composed(t, oneFilter(f, meta), kgw)
+		if got := len(r.Chain.Filters[0].Contributions) == 1; got != linked {
+			t.Errorf("module %s: contributions %+v, want linked=%v", module, r.Chain.Filters[0].Contributions, linked)
+		}
+	}
+}
