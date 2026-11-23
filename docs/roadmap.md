@@ -110,6 +110,20 @@ Make the module license-clean and vendor-neutral (program P-002, D-013), and mak
 
 Scope, evidence rules and questions 1–6 are in the program file's "xDS convergence" section. Controller-side captures come from a kind cluster. Snellius is asked which questions its checks already answer. Using the key mirror (M-3) needs owner approval under the program's mirror rules.
 
+### Phase 9 — Control-Plane-Agnostic Contract (program P-010, E15)
+**Status:** Planned, after the P-009 investigation (D-019). Starts with design, plan and cross-model review. kgwctl and Snellius review the design before owner approval.
+**Unblocks:** program edge E15 (kgwctl `proxy routes` migration, kgwctl Phase 6 via E7, Snellius Phase 12)
+
+One coordinated contract break, then core correctness. The program's "Control-plane-agnostic xdsview" section is the contract; this phase designs the Go API.
+
+- Pure execution: the effective chain never calls a module. Execution and provenance are separate results over read-only input.
+- One claim per assertion, with its own certainty, evidence kind and producing module. Results are keyed by snapshot occurrence, not by name.
+- Listener, RouteConfiguration and vhost `merge.*` records beside route records, level-local.
+- The kgateway knowledge in `origin` and `filter` becomes a kgateway module, composed explicitly. Consumers select and prune candidate routes themselves.
+- A separate `NameMapper` for names without a dump (E5).
+- krp JSON `v1alpha2`; one tagged release.
+- Core correctness after the break: static listeners and route configs, non-HCM chains, ECDS and wrapper state, the remaining route matchers and actions, default filter chains, and a coverage policy. OSS output changes; goldens are reviewed.
+
 ---
 
 ## Deferred / out of roadmap

@@ -149,3 +149,13 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 **Decision:** D-013's "delete" becomes "move". For xdsview, 8.2's scope is unchanged: the corpus leaves this repository, and git history stays. The downstream copy is that repository's own work, taken from this history; xdsview pushes nothing there. Where an enterprise-only test shows parser behaviour that no OSS dump covers, xdsview keeps a neutral hand-built fixture (as D-013 does for upstream filters).
 **Alternatives:** keep the corpus here (rejected: P-002, E6).
 **Consequences:** No change to 8.2's plan or to consumers.
+
+## D-019 — Adopt P-010: control-plane-agnostic core, Phase 9 contract break (2026-11-23, phase 8)
+**Context:** The program decided P-010 and edge E15 (program `c304e76`, owner-approved, relayed by the program session). xdsview becomes control-plane agnostic: Envoy semantics in the core, product modules add provenance only.
+**Decision:** xdsview adopts P-010 as written in the program's "Control-plane-agnostic xdsview" section. Phase 8 and the P-009 investigation are unchanged. A new Phase 9 follows them: one coordinated contract break per the program's "Phase 9 scope", then core correctness in the same phase. Phase 9 starts with design, plan and cross-model review; kgwctl and Snellius review the design before owner approval (program open question 7).
+**Alternatives:** additive changes per consumer request (rejected by the program: several consumers need the same break, and P-010 rule 7 allows one).
+**Consequences:**
+1. Supersedes the carry-over "add listener, RouteConfiguration and vhost `merge.*` levels only when a consumer asks". E15 scope 5 is that consumer case.
+2. Retires the carry-over "sides hook on a consumer's request": modules never supply sides (P-010 rule 3).
+3. The kgateway knowledge in `origin` and `filter` moves into a kgateway module. `docs/roadmap.md`'s architecture diagram changes when the package moves.
+4. Public hygiene: tests use neutral fixtures only; other control planes are tested downstream.
