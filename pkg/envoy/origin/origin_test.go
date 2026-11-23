@@ -175,6 +175,7 @@ func TestRoute_Ambiguity(t *testing.T) {
 // TestKgateway_PolicyFilter covers the field-to-filter table.
 func TestKgateway_PolicyFilter(t *testing.T) {
 	pf := origin.Kgateway(origin.KgatewayOptions{}).(origin.PolicyFilters)
+	tp := model.Ref{Group: "gateway.kgateway.dev", Kind: "TrafficPolicy", Namespace: "ns", Name: "p"}
 	const http = "type.googleapis.com/envoy.extensions.filters.http."
 	tests := []struct {
 		field, typ string
@@ -185,7 +186,6 @@ func TestKgateway_PolicyFilter(t *testing.T) {
 		{"rateLimit.global", http + "ratelimit.v3.RateLimit", true},
 		{"rateLimit.global", http + "local_ratelimit.v3.LocalRateLimit", false},
 		{"cors", http + "cors.v3.Cors", true},
-		{"transformation", "type.googleapis.com/envoy.api.v2.filter.http.FilterTransformations", true},
 		{"transformation", http + "ext_authz.v3.ExtAuthz", false},
 		{"extAuth", http + "ext_proc.v3.ExternalProcessor", false},
 		{"entExtAuth", http + "ext_authz.v3.ExtAuthz", false},
@@ -193,7 +193,7 @@ func TestKgateway_PolicyFilter(t *testing.T) {
 		{"rateLimit.local", http + "ratelimit.v3.RateLimit", false},
 	}
 	for _, tt := range tests {
-		p := model.PolicyRef{Field: tt.field}
+		p := model.PolicyRef{Policy: tp, Field: tt.field}
 		if got := pf.PolicyFilter(p, model.HTTPFilter{Type: tt.typ}); got != tt.want {
 			t.Errorf("PolicyFilter(%s, %s) = %v, want %v", tt.field, tt.typ, got, tt.want)
 		}
@@ -216,7 +216,7 @@ func TestKgateway_PolicyFilter(t *testing.T) {
 		{"cors", model.HTTPFilter{Type: setMeta}, false},
 	}
 	for _, tt := range byFilter {
-		if got := pf.PolicyFilter(model.PolicyRef{Field: tt.field}, tt.f); got != tt.want {
+		if got := pf.PolicyFilter(model.PolicyRef{Policy: tp, Field: tt.field}, tt.f); got != tt.want {
 			t.Errorf("PolicyFilter(%s, %s %s) = %v, want %v", tt.field, tt.f.Name, tt.f.Type, got, tt.want)
 		}
 	}

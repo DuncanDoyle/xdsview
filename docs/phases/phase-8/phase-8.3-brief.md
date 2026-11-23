@@ -33,8 +33,8 @@ Out: Policies reading (any Kind stays listed), render, parser.
 None.
 
 ## Definition of done
-- [ ] cases 1–5 pass; OSS goldens unchanged
-- [ ] `grep -rn FilterTransformations` over Go code finds only the plugin test
-- [ ] the 8.2 vendor grep over `pkg cmd internal` finds nothing outside that test
-- [ ] `go test ./...`, `go vet ./...` pass
-- [ ] phase-8.3-complete.md; phase-status updated
+- [x] cases 1–5 pass; OSS goldens unchanged
+- [x] `grep -rn FilterTransformations` over Go code finds only the plugin test
+- [x] the 8.2 vendor grep over `pkg cmd internal` finds nothing outside that test
+- [x] `go test ./...`, `go vet ./...` pass
+- [x] phase-8.3-complete.md; phase-status updated

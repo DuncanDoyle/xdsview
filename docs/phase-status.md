@@ -13,8 +13,8 @@ Status: design + plan reviewed (Codex, triaged); reordered certainty-first (D-01
 - [x] Q2 8.1 certainty and the filter link (D-015): 04c5e07, a3cfd77, 355068a
 - [x] Q2b review of 8.1, tag `v0.5.0`; kgwctl notice DuncanDoyle/kgwctl#11 (E13)
 - [x] Q3 8.2 corpus out, OSS coverage kept (D-018)
-- [ ] Q4 8.3 mapper vendor-neutral ← CURRENT
-- [ ] Q5 phase review, close, `v0.6.0`, handoff (E6)
+- [x] Q4 8.3 mapper vendor-neutral
+- [ ] Q5 phase review, close, `v0.6.0`, handoff (E6) ← CURRENT
 
 ### Exit gates
 - [ ] tests/vet pass (observed)
@@ -25,9 +25,7 @@ Status: design + plan reviewed (Codex, triaged); reordered certainty-first (D-01
 - [ ] phase-8-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-Sub-phase: 8.3 — mapper vendor-neutral (planned)
-Base: 251a451
-Brief: docs/phases/phase-8/phase-8.3-brief.md
+none (8.3 closed 2026-11-23)
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `c304e76`)

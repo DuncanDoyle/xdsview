@@ -31,9 +31,6 @@ var sides = map[string][2]model.Side{
 	"envoy.extensions.filters.http.basic_auth.v3.BasicAuth":                decoder, // basic_auth/config.cc:80
 	"envoy.extensions.filters.http.api_key_auth.v3.ApiKeyAuth":             decoder, // api_key_auth/config.cc:21
 	"envoy.extensions.filters.http.stateful_session.v3.StatefulSession":    both,    // stateful_session/config.cc:21
-	// kgateway's transformation filter, from solo-io/envoy-gloo (2fac0b83):
-	// transformation/transformation_filter_config_factory.cc:29
-	"envoy.api.v2.filter.http.FilterTransformations": both,
 }
 
 var (
