@@ -188,7 +188,7 @@ func TestKgateway_PolicyFilter(t *testing.T) {
 		{"cors", http + "cors.v3.Cors", true},
 		{"transformation", http + "ext_authz.v3.ExtAuthz", false},
 		{"extAuth", http + "ext_proc.v3.ExternalProcessor", false},
-		{"entExtAuth", http + "ext_authz.v3.ExtAuthz", false},
+		{"acmeAuth", http + "ext_authz.v3.ExtAuthz", false},
 		{"rateLimit.local", http + "local_ratelimit.v3.LocalRateLimit", true},
 		{"rateLimit.local", http + "ratelimit.v3.RateLimit", false},
 	}

@@ -204,6 +204,9 @@ func routeFromMetadata(r model.Route) (model.RouteOrigin, bool) {
 	// fields rest on the naming convention, so mark them inferred.
 	for _, c := range parseRouteName(r.Name) {
 		if c.Route.Name == ref.Name && c.Route.Namespace == ref.Namespace {
+			if conflicts(o, c) {
+				break
+			}
 			fromName := false
 			if o.RuleIndex < 0 && c.RuleIndex >= 0 {
 				o.RuleIndex, fromName = c.RuleIndex, true
@@ -221,6 +224,14 @@ func routeFromMetadata(r model.Route) (model.RouteOrigin, bool) {
 		}
 	}
 	return o, true
+}
+
+// conflicts reports whether a name reading c disagrees with a field that the
+// metadata set in o. Such a name is not evidence for the missing fields.
+func conflicts(o, c model.RouteOrigin) bool {
+	return (o.RuleIndex >= 0 && c.RuleIndex >= 0 && o.RuleIndex != c.RuleIndex) ||
+		(o.MatchIndex >= 0 && c.MatchIndex >= 0 && o.MatchIndex != c.MatchIndex) ||
+		(o.RuleName != "" && c.RuleName != "" && o.RuleName != c.RuleName)
 }
 
 // index parses an unsigned decimal index. strconv.Atoi alone accepts a sign.
@@ -307,7 +318,7 @@ func (k kgateway) PolicyFilter(p model.PolicyRef, f model.HTTPFilter) bool {
 		return true
 	}
 	if p.Field == "transformation" {
-		return f.Name == rustformationFilter
+		return f.Name == rustformationFilter && filterKind(f.Type) == "dynamic_modules"
 	}
 	kind, ok := policyFilterKinds[p.Field]
 	return ok && filterKind(f.Type) == kind
@@ -317,7 +328,7 @@ func (k kgateway) PolicyFilter(p model.PolicyRef, f model.HTTPFilter) bool {
 // a policy field to "<group>/<Kind>/<ns>/<name>" policy IDs. Any Kind is read,
 // so a vendor policy Kind appears without a plugin. Each ref is [model.Exact]:
 // the metadata names that ID for that field. An ID whose group or kind differs
-// from its key's is skipped.
+// from its key's, or that lacks a namespace or name, is skipped.
 func (k kgateway) Policies(r model.Route) []model.PolicyRef {
 	var out []model.PolicyRef
 	for key, v := range r.Metadata {
@@ -335,7 +346,7 @@ func (k kgateway) Policies(r model.Route) []model.PolicyRef {
 			for _, id := range list {
 				s, _ := id.(string)
 				p := strings.Split(s, "/")
-				if len(p) != 4 || p[0] != group || p[1] != kind {
+				if len(p) != 4 || p[0] != group || p[1] != kind || p[2] == "" || p[3] == "" {
 					continue
 				}
 				out = append(out, model.PolicyRef{Policy: model.Ref{Group: p[0], Kind: p[1], Namespace: p[2], Name: p[3]}, Field: field, Certainty: model.Exact})

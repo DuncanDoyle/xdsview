@@ -17,7 +17,7 @@ Tests: `TestVendorNeutral_PolicyKind`, `TestVendorNeutral_Transformation` (`pkg/
 
 ## Gates
 - `go test ./...` and `go vet ./...` pass. No golden changed.
-- `FilterTransformations` in Go: only the plugin test.
+- `FilterTransformations` in Go: only the plugin test at close; after the phase review, nowhere (synthetic type).
 - `enterprise|solo|gloo|_ee` in Go under `pkg cmd internal`: no match.
 
 ## Reviews

@@ -40,7 +40,8 @@
                  "typed_config": {
                   "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
                   "grpc_service": {"envoy_grpc": {"cluster_name": "upstream-ext-proc_example"}},
-                  "processing_mode": {"request_header_mode": "SEND", "response_header_mode": "SEND"}
+                  "processing_mode": {"request_header_mode": "SEND", "response_header_mode": "SEND"},
+                  "metadata_options": {"receiving_namespaces": {"untyped": ["example.one", "example.two"]}}
                  }
                 },
                 {

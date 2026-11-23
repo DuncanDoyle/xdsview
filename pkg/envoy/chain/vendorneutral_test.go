@@ -8,8 +8,8 @@ import (
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/origin"
 )
 
-// xformType is a vendor transformation filter that the core does not know.
-const xformType = "type.googleapis.com/envoy.api.v2.filter.http.FilterTransformations"
+// xformType is a downstream transformation filter that the core does not know.
+const xformType = "type.googleapis.com/example.transformation.v1.Transformation"
 
 // oneFilter is one route that enables filter f per route and carries meta.
 func oneFilter(f model.HTTPFilter, meta map[string]any) *model.EnvoySnapshot {
@@ -91,5 +91,18 @@ func TestVendorNeutral_Transformation(t *testing.T) {
 	want := []model.Contribution{{Kind: model.ContributionPolicy, Ref: ref, Field: "transformation", Certainty: model.Inferred}}
 	if got := contributionsOf(r)[xf.Name]; !reflect.DeepEqual(got, want) {
 		t.Errorf("with plugin: contributions = %+v, want %+v", got, want)
+	}
+}
+
+// TestVendorNeutral_TransformationNeedsType: the OSS transformation instance
+// name alone is not evidence; a different type under it gets no link (phase review #3).
+func TestVendorNeutral_TransformationNeedsType(t *testing.T) {
+	meta := mergeID("gateway.kgateway.dev", "TrafficPolicy", "transformation")
+	kgw := origin.Kgateway(origin.KgatewayOptions{})
+	for _, typ := range []string{xformType, "type.googleapis.com/example.custom.v1.Custom"} {
+		r := composed(t, oneFilter(model.HTTPFilter{Name: "dynamic_modules/simple_mutations", Type: typ}, meta), kgw)
+		if got := r.Chain.Filters[0].Contributions; len(got) != 0 {
+			t.Errorf("%s: contributions = %+v, want none", typ, got)
+		}
 	}
 }

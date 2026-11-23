@@ -46,6 +46,14 @@
                               "cluster_name": "upstream-ext-proc_example"
                             }
                           },
+                          "metadata_options": {
+                            "receiving_namespaces": {
+                              "untyped": [
+                                "example.one",
+                                "example.two"
+                              ]
+                            }
+                          },
                           "processing_mode": {
                             "request_header_mode": "SEND",
                             "response_header_mode": "SEND"
@@ -75,6 +83,14 @@
                     "grpc_service": {
                       "envoy_grpc": {
                         "cluster_name": "upstream-ext-proc_example"
+                      }
+                    },
+                    "metadata_options": {
+                      "receiving_namespaces": {
+                        "untyped": [
+                          "example.one",
+                          "example.two"
+                        ]
                       }
                     },
                     "processing_mode": {

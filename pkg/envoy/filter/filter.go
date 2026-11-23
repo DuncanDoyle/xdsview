@@ -278,6 +278,9 @@ func Ambiguous(snapshot *model.EnvoySnapshot, opts Options) []string {
 // vhost name out of the readings.
 func possibleOrigins(vh model.VirtualHost, r model.Route) []model.RouteOrigin {
 	out := append([]model.RouteOrigin(nil), r.Origin.Candidates...)
+	if r.Origin.Certainty == model.Exact {
+		return out // route_source metadata: the name adds nothing, and may disagree
+	}
 	if part := routePart(vh.Name, r.Name); part != r.Name {
 		// metadataMapper has no Known, so it returns all readings.
 		out = append(out, metadataMapper.Route(model.Route{Name: "-route-0-" + part}).Candidates...)
