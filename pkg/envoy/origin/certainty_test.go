@@ -22,6 +22,9 @@ func TestPolicies_CertaintyAndKeyCheck(t *testing.T) {
 				"gateway.kgateway.dev/TrafficPolicy//no-ns",
 			},
 		},
+		"merge..example.com": map[string]any{
+			"acmeWaf": []any{"example.com//ns/no-kind"},
+		},
 		"merge.AcmePolicy.example.com": map[string]any{"acmeWaf": []any{"example.com/AcmePolicy/ns/waf"}},
 	}}
 	want := []model.PolicyRef{
@@ -61,6 +64,8 @@ func TestRoute_IndexCertainty(t *testing.T) {
 			model.RouteOrigin{Route: ref, RuleIndex: 1, MatchIndex: 0}, model.Unknown},
 		// A name that disagrees with the metadata supplies nothing (phase review #1).
 		{"rule name conflicts with the name", model.Route{Name: "listener~80~*-route-0-httproute-web-ns-2-0-admin-matcher-0", Metadata: md("api", "_match-0")},
+			model.RouteOrigin{Route: ref, RuleIndex: -1, RuleName: "api", MatchIndex: 0}, model.Unknown},
+		{"rule name, name reads an unnamed rule", model.Route{Name: "listener~80~*-route-0-httproute-web-ns-2-0-matcher-0", Metadata: md("api", "_match-0")},
 			model.RouteOrigin{Route: ref, RuleIndex: -1, RuleName: "api", MatchIndex: 0}, model.Unknown},
 		{"match index conflicts with the name", model.Route{Name: named, Metadata: md("_rule-1", "_match-1")},
 			model.RouteOrigin{Route: ref, RuleIndex: 1, MatchIndex: 1}, model.Unknown},

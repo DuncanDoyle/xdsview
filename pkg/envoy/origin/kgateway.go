@@ -231,7 +231,7 @@ func routeFromMetadata(r model.Route) (model.RouteOrigin, bool) {
 func conflicts(o, c model.RouteOrigin) bool {
 	return (o.RuleIndex >= 0 && c.RuleIndex >= 0 && o.RuleIndex != c.RuleIndex) ||
 		(o.MatchIndex >= 0 && c.MatchIndex >= 0 && o.MatchIndex != c.MatchIndex) ||
-		(o.RuleName != "" && c.RuleName != "" && o.RuleName != c.RuleName)
+		(o.RuleName != "" && o.RuleName != c.RuleName) // an unnamed reading conflicts too
 }
 
 // index parses an unsigned decimal index. strconv.Atoi alone accepts a sign.
@@ -307,6 +307,9 @@ var globalDisable = map[string]string{
 // helper, so the instance name, not the module, identifies it.
 const rustformationFilter = "dynamic_modules/simple_mutations"
 
+// dynamicModuleType is Envoy's dynamic module filter, which runs rustformation.
+const dynamicModuleType = "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilter"
+
 // PolicyFilter reports whether p's field configures f. It knows only
 // kgateway's TrafficPolicy; other kinds belong to a plugin. f.Type is the
 // delegate's type for a composite filter whose delegate is known.
@@ -318,7 +321,7 @@ func (k kgateway) PolicyFilter(p model.PolicyRef, f model.HTTPFilter) bool {
 		return true
 	}
 	if p.Field == "transformation" {
-		return f.Name == rustformationFilter && filterKind(f.Type) == "dynamic_modules"
+		return f.Name == rustformationFilter && f.Type == dynamicModuleType
 	}
 	kind, ok := policyFilterKinds[p.Field]
 	return ok && filterKind(f.Type) == kind
@@ -328,7 +331,7 @@ func (k kgateway) PolicyFilter(p model.PolicyRef, f model.HTTPFilter) bool {
 // a policy field to "<group>/<Kind>/<ns>/<name>" policy IDs. Any Kind is read,
 // so a vendor policy Kind appears without a plugin. Each ref is [model.Exact]:
 // the metadata names that ID for that field. An ID whose group or kind differs
-// from its key's, or that lacks a namespace or name, is skipped.
+// from its key's, or that lacks a kind, namespace or name, is skipped.
 func (k kgateway) Policies(r model.Route) []model.PolicyRef {
 	var out []model.PolicyRef
 	for key, v := range r.Metadata {
@@ -346,7 +349,7 @@ func (k kgateway) Policies(r model.Route) []model.PolicyRef {
 			for _, id := range list {
 				s, _ := id.(string)
 				p := strings.Split(s, "/")
-				if len(p) != 4 || p[0] != group || p[1] != kind || p[2] == "" || p[3] == "" {
+				if len(p) != 4 || p[0] != group || p[1] != kind || p[1] == "" || p[2] == "" || p[3] == "" {
 					continue
 				}
 				out = append(out, model.PolicyRef{Policy: model.Ref{Group: p[0], Kind: p[1], Namespace: p[2], Name: p[3]}, Field: field, Certainty: model.Exact})

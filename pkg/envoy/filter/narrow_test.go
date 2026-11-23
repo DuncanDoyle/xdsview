@@ -254,7 +254,16 @@ func TestFilter_RuleIndexFromName(t *testing.T) {
 // TestFilter_NameConflictsWithMetadata: a route name whose rule disagrees with
 // route_source is not evidence for that rule (phase review #1).
 func TestFilter_NameConflictsWithMetadata(t *testing.T) {
-	const name = "listener~80~*-route-0-httproute-web-shop-2-0-admin-matcher-0"
+	for _, name := range []string{
+		"listener~80~*-route-0-httproute-web-shop-2-0-admin-matcher-0",
+		"listener~80~*-route-0-httproute-web-shop-2-0-matcher-0", // unnamed rule 2
+	} {
+		nameConflict(t, name)
+	}
+}
+
+func nameConflict(t *testing.T, name string) {
+	t.Helper()
 	meta := map[string]any{"dev.kgateway.route_source": map[string]any{
 		"kind": "HTTPRoute", "group": "gateway.networking.k8s.io", "namespace": "shop", "name": "web", "rule": "api", "match": "_match-0"}}
 	snap := &model.EnvoySnapshot{Listeners: []model.Listener{{Name: "l", FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
@@ -262,10 +271,10 @@ func TestFilter_NameConflictsWithMetadata(t *testing.T) {
 	o := opts("shop", "web")
 	o.RuleIndex = 2
 	if got := routeNames(filter.Filter(snap, o)); got != nil {
-		t.Errorf("index 2: selected %v, want nothing", got)
+		t.Errorf("%s, index 2: selected %v, want nothing", name, got)
 	}
 	o.RuleIndex, o.RuleName = -1, "api"
 	if got := routeNames(filter.Filter(snap, o)); !reflect.DeepEqual(got, []string{name}) {
-		t.Errorf("rule name api: selected %v, want the route", got)
+		t.Errorf("%s, rule name api: selected %v, want the route", name, got)
 	}
 }

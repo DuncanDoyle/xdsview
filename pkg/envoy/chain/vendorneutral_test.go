@@ -99,7 +99,7 @@ func TestVendorNeutral_Transformation(t *testing.T) {
 func TestVendorNeutral_TransformationNeedsType(t *testing.T) {
 	meta := mergeID("gateway.kgateway.dev", "TrafficPolicy", "transformation")
 	kgw := origin.Kgateway(origin.KgatewayOptions{})
-	for _, typ := range []string{xformType, "type.googleapis.com/example.custom.v1.Custom"} {
+	for _, typ := range []string{xformType, "type.googleapis.com/example.filters.http.dynamic_modules.v1.Other"} {
 		r := composed(t, oneFilter(model.HTTPFilter{Name: "dynamic_modules/simple_mutations", Type: typ}, meta), kgw)
 		if got := r.Chain.Filters[0].Contributions; len(got) != 0 {
 			t.Errorf("%s: contributions = %+v, want none", typ, got)
