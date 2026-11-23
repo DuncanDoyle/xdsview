@@ -1,38 +1,32 @@
 # Phase status
 
 ## Phase
-Phase: 8 — Vendor-Neutral Core
-Base: f8b4af6
-Author: anthropic (claude-opus-5-5)
+Phase: next — xDS convergence investigation (P-009), design only; not started. Phase 9 (P-010) follows.
+Base: n/a (recorded at start)
+Author: n/a
 Advisory: none
-Docs: docs/phases/phase-8/
-Status: design + plan reviewed (Codex, triaged); reordered certainty-first (D-015); approved (D-016). Phase 7 deferred (D-011, docs/phases/phase-7/assessment.md).
+Docs: docs/investigations/ (to be created)
+Status: Phase 8 closed 2026-11-23 (docs/phases/phase-8/phase-8-complete.md). Release handoff below still open.
 
 ### Queue
-- [x] Q1 design + plan cross-model review, triage, owner approval (D-016)
-- [x] Q2 8.1 certainty and the filter link (D-015): 04c5e07, a3cfd77, 355068a
-- [x] Q2b review of 8.1, tag `v0.5.0`; kgwctl notice DuncanDoyle/kgwctl#11 (E13)
-- [x] Q3 8.2 corpus out, OSS coverage kept (D-018)
-- [x] Q4 8.3 mapper vendor-neutral
-- [ ] Q5 phase review, close, `v0.6.0`, handoff (E6) ← CURRENT
+- [ ] Q1 tag `v0.6.0` at c1348fb or later (owner approval, D-016) ← CURRENT
+- [ ] Q2 kgwctl `cross-repo` notice for E6 / `v0.6.0` (ask before filing)
+- [ ] Q3 E6 row update through the program session
+- [ ] Q4 start the P-009 investigation (ask first)
 
 ### Exit gates
-- [ ] tests/vet pass (observed)
-- [ ] all queue items done or deferred
-- [ ] design+plan cross-model review + triage: docs/phases/phase-8/reviews/design-codex.md
-- [ ] phase cross-model review + triage
-- [ ] decisions.md / design / plan in sync with code
-- [ ] phase-8-complete.md written, roadmap updated, tracked items closed
+n/a (no phase open)
 
 ## Sub-phase
-none (8.3 closed 2026-11-23)
+none
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `c304e76`)
-Waiting on: nothing. Phase 8 needs no edge from another repo.
-Consumers: E6 (kgwctl move into kgateway) waits on this phase. E11 available (`v0.4.3`). E4: effective chain available; intended vs accepted deferred (D-011), replacement is the program's call.
+Waiting on: nothing.
+Consumers: E6 (kgwctl move into kgateway) waits on `v0.6.0`. E13 available (`v0.5.0`). E11 available. E15 planned (Phase 9).
 
 ## Carry-over (deferred to later phases)
+- Phase 8 fix review 4 #2, #4, #5 (P1, owner-deferred to Phase 9 design): dotted rule names lose `--rule <n>`; `dynamic_module_config.module` overrides the library check; Composite-wrapped rustformation loses its link. See phase-8-complete.md.
 - #26 (P2) kube source: cancellation through an API-server proxy — deferred, not a requirement (owner, 2026-11-05). kgwctl fixed the same gap in its own dialer and offered its code.
 - Phase 7 deferred (D-011): resumes only on a named convergence question from the program. Its roadmap notes (listener state, parser warnings) stay as constraints.
 - `origin.ObjectForName` drops certainty (Phase 8 audit P2-e): no consumer; revisit when one appears.
@@ -41,6 +35,7 @@ Consumers: E6 (kgwctl move into kgateway) waits on this phase. E11 available (`v
 - Phase 9 (P-010, E15), after P-009: one contract break, design reviewed by kgwctl and Snellius before approval. File `cross-repo` review requests in both when the design is ready (ask first).
 
 ## Notes
+- 2026-11-23: Phase 8 closed: phase review and four fix rounds (Codex); three P1s deferred to Phase 9 by the owner. OSS output identical to `v0.5.0`.
 - 2026-11-23: program adopted P-010 (`c304e76`): Phase 9 contract break after P-009 (D-019). Phase 8 unchanged.
 - 2026-11-22: owner reordered Phase 8 certainty-first (D-015, via program session). After Phase 8, this session runs the xDS convergence investigation (design only).
 - 2026-11-22: architectural review. Phase 7 deferred (D-011), attribution states its certainty (D-012), enterprise corpus removed (D-013). Phase 8 started.

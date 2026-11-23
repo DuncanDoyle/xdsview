@@ -92,7 +92,7 @@ Original scope: compare the controller's intended xDS (kgateway admin `/snapshot
 - Diff model (added / missing / changed) exposed by the library and rendered by the `krp` CLI.
 
 ### Phase 8 — Vendor-Neutral Core
-**Status:** In progress (approved 2026-11-22, D-016). Current phase: it gates kgwctl's move into kgateway.
+**Status:** Complete (2026-11-23), `v0.5.0` and `v0.6.0`. Record: `docs/phases/phase-8/phase-8-complete.md`.
 **Docs:** `docs/phases/phase-8/`
 **Unblocks:** program edges E13 (certainty on kgwctl `proxy routes`, 8.1) and E6 (CLI move into kgateway)
 **Issue:** #32
@@ -105,13 +105,13 @@ Make the module license-clean and vendor-neutral (program P-002, D-013), and mak
 - Order (D-015): 8.1 certainty and the filter link, 8.2 corpus, 8.3 mapper. Releases (D-016): `v0.5.0` after 8.1, `v0.6.0` after 8.3.
 
 ### Investigation — xDS convergence (program P-009)
-**Status:** Queued after Phase 8 (owner decision, 2026-11-22). Design only; no code until the owner approves.
+**Status:** Next (owner decision, 2026-11-22). Design only; no code until the owner approves.
 **Output:** `docs/investigations/xds-convergence.md`, cross-model reviewed. It names the operator scenarios, the provider of each piece (E14), and the upstream asks (U7–U9).
 
 Scope, evidence rules and questions 1–6 are in the program file's "xDS convergence" section. Controller-side captures come from a kind cluster. Snellius is asked which questions its checks already answer. Using the key mirror (M-3) needs owner approval under the program's mirror rules.
 
 ### Phase 9 — Control-Plane-Agnostic Contract (program P-010, E15)
-**Status:** Planned, after the P-009 investigation (D-019). Starts with design, plan and cross-model review. kgwctl and Snellius review the design before owner approval.
+**Status:** Planned, after the P-009 investigation (D-019). Starts with design, plan and cross-model review. kgwctl and Snellius review the design before owner approval. Its design also covers the Phase 8 deferred findings (phase-8-complete.md).
 **Unblocks:** program edge E15 (kgwctl `proxy routes` migration, kgwctl Phase 6 via E7, Snellius Phase 12)
 
 One coordinated contract break, then core correctness. The program's "Control-plane-agnostic xdsview" section is the contract; this phase designs the Go API.

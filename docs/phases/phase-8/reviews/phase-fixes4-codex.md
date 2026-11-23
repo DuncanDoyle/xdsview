@@ -23,9 +23,9 @@ By inspection, reverting the corresponding fixes makes the reported v2.4, invali
 | # | Finding | Dimension | Source | Decision | Note |
 |---|---|---|---|---|---|
 | 1 | A v2.5 rule name shaped like v2.4 metadata is parsed as v2.4 | correctness | reviewer (P1) | accept | v2.4 writes no `match`; v2.5 always does. The v2.4 form is read only without `match`. `TestRoute_IndexCertainty`. Regression from 4df4bdf. |
-| 2 | A dotted v2.5 rule name gets no index from the Envoy name | correctness | reviewer (P1) | pending owner | See below. |
+| 2 | A dotted v2.5 rule name gets no index from the Envoy name | correctness | reviewer (P1) | defer: Phase 9 | Owner: "Defer the 3, close" (2026-11-23). |
 | 3 | A core-group policy ID (empty group) is rejected | correctness | reviewer (P1) | accept | Empty group allowed when the key's group is empty. `TestPolicies_CertaintyAndKeyCheck`. Regression from 4df4bdf. |
-| 4 | `module.local.filename` overrides the `rust_module` name | correctness | reviewer (P1) | pending owner | See below. |
-| 5 | A Composite-wrapped rustformation loses its link | correctness | reviewer (P1) | pending owner | See below. |
+| 4 | `module.local.filename` overrides the `rust_module` name | correctness | reviewer (P1) | defer: Phase 9 | Owner, as #2. |
+| 5 | A Composite-wrapped rustformation loses its link | correctness | reviewer (P1) | defer: Phase 9 | Owner, as #2. |
 
 #1 and #3 failed against 4df4bdf and pass now. No golden changed.
