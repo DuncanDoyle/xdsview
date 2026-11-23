@@ -202,14 +202,15 @@ func TestKgateway_PolicyFilter(t *testing.T) {
 	// Filters identified by more than their type.
 	dm := http + "dynamic_modules.v3.DynamicModuleFilter"
 	setMeta := http + "set_metadata.v3.Config"
+	rust := map[string]any{"dynamic_module_config": map[string]any{"name": "rust_module"}, "filter_name": "rustformation"}
 	byFilter := []struct {
 		field string
 		f     model.HTTPFilter
 		want  bool
 	}{
-		{"transformation", model.HTTPFilter{Name: "dynamic_modules/simple_mutations", Type: dm, TypedConfig: map[string]any{"filter_name": "rustformation"}}, true},
+		{"transformation", model.HTTPFilter{Name: "dynamic_modules/simple_mutations", Type: dm, TypedConfig: rust}, true},
 		// Same module, kgateway's auth-metadata helper: not the transformation.
-		{"transformation", model.HTTPFilter{Name: "ext_auth_enabled", Type: dm, TypedConfig: map[string]any{"filter_name": "rustformation"}}, false},
+		{"transformation", model.HTTPFilter{Name: "ext_auth_enabled", Type: dm, TypedConfig: rust}, false},
 		{"extAuth", model.HTTPFilter{Name: "global_disable/ext_auth", Type: setMeta}, true},
 		{"extProc", model.HTTPFilter{Name: "global_disable/ext_proc", Type: setMeta}, true},
 		{"extAuth", model.HTTPFilter{Name: "global_disable/ext_proc", Type: setMeta}, false},

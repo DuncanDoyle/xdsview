@@ -152,12 +152,18 @@ func parseRouteName(name string) []model.RouteOrigin {
 
 var (
 	dnsLabel     = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
-	kindName     = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]*$`)
 	dnsSubdomain = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`)
 )
 
 func validDNSLabel(s string) bool     { return len(s) <= 63 && dnsLabel.MatchString(s) }
 func validDNSSubdomain(s string) bool { return len(s) <= 253 && dnsSubdomain.MatchString(s) }
+
+// validGroupKind reports whether group and kind are valid for a CRD: a DNS
+// subdomain, and a DNS-1035 label once lowercased.
+func validGroupKind(group, kind string) bool {
+	k := strings.ToLower(kind)
+	return validDNSSubdomain(group) && validDNSLabel(k) && k[0] >= 'a' && k[0] <= 'z'
+}
 
 // routeFromMetadata reads dev.kgateway.route_source. Its shape differs by
 // version:
@@ -185,13 +191,18 @@ func routeFromMetadata(r model.Route) (model.RouteOrigin, bool) {
 			o.RuleIndex = ri
 		}
 	} else if rest, ok := strings.CutPrefix(rule, legacy); ok {
-		// v2.4: "<kind>-<name>-<ns>-<rule>-<match>".
-		if r, m, ok := strings.Cut(rest, "-"); ok {
-			if ri, ok := index(r); ok {
+		// v2.4: "<kind>-<name>-<ns>-<rule>-<match>[-<rule name>]" (query/route.go).
+		if p := strings.SplitN(rest, "-", 3); len(p) >= 2 {
+			if ri, ok := index(p[0]); ok {
 				o.RuleIndex = ri
 			}
-			if mi, ok := index(m); ok {
+			if mi, ok := index(p[1]); ok {
 				o.MatchIndex = mi
+			}
+			if len(p) == 3 {
+				o.RuleName = p[2]
+			} else {
+				unnamed = true
 			}
 		}
 	} else {
@@ -324,8 +335,7 @@ func (k kgateway) PolicyFilter(p model.PolicyRef, f model.HTTPFilter) bool {
 		return true
 	}
 	if p.Field == "transformation" {
-		module, _ := f.TypedConfig["filter_name"].(string)
-		return f.Name == rustformationFilter && f.Type == dynamicModuleType && module == "rustformation"
+		return f.Name == rustformationFilter && f.Type == dynamicModuleType && runsRustformation(f.TypedConfig)
 	}
 	kind, ok := policyFilterKinds[p.Field]
 	return ok && filterKind(f.Type) == kind
@@ -354,7 +364,7 @@ func (k kgateway) Policies(r model.Route) []model.PolicyRef {
 			for _, id := range list {
 				s, _ := id.(string)
 				p := strings.Split(s, "/")
-				if len(p) != 4 || p[0] != group || p[1] != kind || !kindName.MatchString(kind) || !validDNSLabel(p[2]) || !validDNSSubdomain(p[3]) {
+				if len(p) != 4 || p[0] != group || p[1] != kind || !validGroupKind(group, kind) || !validDNSLabel(p[2]) || !validDNSSubdomain(p[3]) {
 					continue
 				}
 				out = append(out, model.PolicyRef{Policy: model.Ref{Group: p[0], Kind: p[1], Namespace: p[2], Name: p[3]}, Field: field, Certainty: model.Exact})
@@ -365,4 +375,16 @@ func (k kgateway) Policies(r model.Route) []model.PolicyRef {
 		return strings.Compare(a.Policy.String()+"/"+a.Field, b.Policy.String()+"/"+b.Field)
 	})
 	return out
+}
+
+// runsRustformation reports whether tc, or the filter a matcher wrapper holds,
+// loads kgateway's rustformation module from rust_module (all recorded OSS
+// instances do). DynamicModuleFilter is a generic loader, so its type alone is
+// not evidence.
+func runsRustformation(tc map[string]any) bool {
+	if inner, ok := tc["extension_config"].(map[string]any); ok {
+		tc, _ = inner["typed_config"].(map[string]any)
+	}
+	lib, _ := tc["dynamic_module_config"].(map[string]any)
+	return tc["filter_name"] == "rustformation" && lib["name"] == "rust_module"
 }

@@ -110,7 +110,7 @@ const (
 // helper is the same rustformation module; transformation still goes to
 // dynamic_modules/simple_mutations (kgateway v2.5.1 trafficpolicy/utils.go).
 func TestAnnotate_TransformationBesideAuthMetadata(t *testing.T) {
-	rust := map[string]any{"@type": dynModType, "filter_name": "rustformation"}
+	rust := map[string]any{"@type": dynModType, "dynamic_module_config": map[string]any{"name": "rust_module"}, "filter_name": "rustformation"}
 	enable := map[string]any{"@type": filterConfigType, "config": map[string]any{}}
 	got := annotateOne(t, []model.HTTPFilter{
 		{Name: "ext_auth_enabled", Type: dynModType, TypedConfig: rust, Disabled: true},

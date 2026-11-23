@@ -94,29 +94,40 @@ func TestVendorNeutral_Transformation(t *testing.T) {
 	}
 }
 
-// TestVendorNeutral_TransformationNeedsType: the OSS transformation instance
-// name alone is not evidence; a different type under it gets no link (phase review #3).
-func TestVendorNeutral_TransformationNeedsType(t *testing.T) {
-	meta := mergeID("gateway.kgateway.dev", "TrafficPolicy", "transformation")
-	kgw := origin.Kgateway(origin.KgatewayOptions{})
-	for _, typ := range []string{xformType, "type.googleapis.com/example.filters.http.dynamic_modules.v1.Other"} {
-		r := composed(t, oneFilter(model.HTTPFilter{Name: "dynamic_modules/simple_mutations", Type: typ}, meta), kgw)
-		if got := r.Chain.Filters[0].Contributions; len(got) != 0 {
-			t.Errorf("%s: contributions = %+v, want none", typ, got)
-		}
-	}
+// rustformation is the typed config of OSS kgateway's transformation filter,
+// with the module library and filter name given.
+func rustformation(library, filter string) map[string]any {
+	return map[string]any{"@type": dynModType, "dynamic_module_config": map[string]any{"name": library}, "filter_name": filter}
 }
 
-// TestVendorNeutral_TransformationModule: DynamicModuleFilter is a generic
-// loader, so the link also needs the rustformation module (phase fix review 2 #4).
-func TestVendorNeutral_TransformationModule(t *testing.T) {
+// TestVendorNeutral_TransformationEvidence: the OSS link needs the instance
+// name, Envoy's DynamicModuleFilter type, and the rustformation module in
+// rust_module, also behind a matcher wrapper (phase review #3, fix reviews 2 #4, 3 #3–#5).
+func TestVendorNeutral_TransformationEvidence(t *testing.T) {
 	meta := mergeID("gateway.kgateway.dev", "TrafficPolicy", "transformation")
 	kgw := origin.Kgateway(origin.KgatewayOptions{})
-	for module, linked := range map[string]bool{"rustformation": true, "other": false} {
-		f := model.HTTPFilter{Name: "dynamic_modules/simple_mutations", Type: dynModType, TypedConfig: map[string]any{"filter_name": module}}
+	wrap := func(tc map[string]any) map[string]any {
+		return map[string]any{"@type": "type.googleapis.com/envoy.extensions.common.matching.v3.ExtensionWithMatcher",
+			"extension_config": map[string]any{"name": "inner", "typed_config": tc}}
+	}
+	for _, c := range []struct {
+		label, typ string
+		tc         map[string]any
+		linked     bool
+	}{
+		{"OSS", dynModType, rustformation("rust_module", "rustformation"), true},
+		{"matcher-wrapped", dynModType, wrap(rustformation("rust_module", "rustformation")), true},
+		{"lookalike type", "type.googleapis.com/example.filters.http.dynamic_modules.v1.Other", rustformation("rust_module", "rustformation"), false},
+		{"downstream type", xformType, rustformation("rust_module", "rustformation"), false},
+		{"other filter", dynModType, rustformation("rust_module", "other"), false},
+		{"other library", dynModType, rustformation("custom_module", "rustformation"), false},
+		{"wrapped other library", dynModType, wrap(rustformation("custom_module", "rustformation")), false},
+		{"no config", dynModType, nil, false},
+	} {
+		f := model.HTTPFilter{Name: "dynamic_modules/simple_mutations", Type: c.typ, TypedConfig: c.tc}
 		r := composed(t, oneFilter(f, meta), kgw)
-		if got := len(r.Chain.Filters[0].Contributions) == 1; got != linked {
-			t.Errorf("module %s: contributions %+v, want linked=%v", module, r.Chain.Filters[0].Contributions, linked)
+		if got := len(r.Chain.Filters[0].Contributions) == 1; got != c.linked {
+			t.Errorf("%s: contributions %+v, want linked=%v", c.label, r.Chain.Filters[0].Contributions, c.linked)
 		}
 	}
 }
