@@ -10,8 +10,8 @@ Status: Phase 8 closed 2026-11-23 (docs/phases/phase-8/phase-8-complete.md). Rel
 
 ### Queue
 - [x] Q1 tag `v0.6.0` at 10512f6 (owner approved 2026-11-23)
-- [ ] Q2 kgwctl `cross-repo` notice for E6 / `v0.6.0` (ask before filing) ← CURRENT
-- [ ] Q3 E6 row update through the program session
+- [x] Q2 kgwctl `cross-repo` notice for E6 / `v0.6.0`: kgwctl#12
+- [ ] Q3 E6 row update through the program session ← CURRENT
 - [ ] Q4 start the P-009 investigation (ask first)
 
 ### Exit gates
