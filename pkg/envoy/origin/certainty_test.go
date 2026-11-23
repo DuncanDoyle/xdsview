@@ -30,6 +30,8 @@ func TestPolicies_CertaintyAndKeyCheck(t *testing.T) {
 		"merge.Acme-Policy.example.com": map[string]any{
 			"acmeWaf": []any{"example.com/Acme-Policy/ns/hyphen"},
 		},
+		// Core group: the SDK writes an empty group (fix review 4 #3).
+		"merge.ConfigMap.": map[string]any{"settings": []any{"/ConfigMap/shop/settings"}},
 		"merge..example.com": map[string]any{
 			"acmeWaf": []any{"example.com//ns/no-kind"},
 		},
@@ -39,6 +41,7 @@ func TestPolicies_CertaintyAndKeyCheck(t *testing.T) {
 		// A CRD kind may contain hyphens (DNS-1035 label, lowercased).
 		{Policy: model.Ref{Group: "example.com", Kind: "Acme-Policy", Namespace: "ns", Name: "hyphen"}, Field: "acmeWaf", Certainty: model.Exact},
 		{Policy: model.Ref{Group: "example.com", Kind: "AcmePolicy", Namespace: "ns", Name: "waf"}, Field: "acmeWaf", Certainty: model.Exact},
+		{Policy: model.Ref{Kind: "ConfigMap", Namespace: "shop", Name: "settings"}, Field: "settings", Certainty: model.Exact},
 		{Policy: model.Ref{Group: "gateway.kgateway.dev", Kind: "TrafficPolicy", Namespace: "ns", Name: "ok"}, Field: "extAuth", Certainty: model.Exact},
 	}
 	if got := origin.Kgateway(origin.KgatewayOptions{}).Policies(r); !reflect.DeepEqual(got, want) {
@@ -87,6 +90,9 @@ func TestRoute_IndexCertainty(t *testing.T) {
 			model.RouteOrigin{Route: ref, RuleIndex: 2, RuleName: "api", MatchIndex: 0}, model.Unknown},
 		{"v2.4 named rule, conflicting name", model.Route{Name: "listener~80~*-route-0-httproute-web-ns-2-0-admin-matcher-0", Metadata: md("httproute-web-ns-2-0-api", "")},
 			model.RouteOrigin{Route: ref, RuleIndex: 2, RuleName: "api", MatchIndex: 0}, model.Unknown},
+		// v2.5 always writes "match"; a rule name shaped like v2.4 metadata is a name (fix review 4 #1).
+		{"v2.5 rule name shaped like v2.4", model.Route{Name: "custom", Metadata: md("httproute-web-ns-2-0-api", "_match-0")},
+			model.RouteOrigin{Route: ref, RuleIndex: -1, RuleName: "httproute-web-ns-2-0-api", MatchIndex: 0}, model.Unknown},
 		{"v2.4 unnamed rule, named name", model.Route{Name: "listener~80~*-route-0-httproute-web-ns-2-0-admin-matcher-0", Metadata: md("httproute-web-ns-2-0", "")},
 			model.RouteOrigin{Route: ref, RuleIndex: 2, MatchIndex: 0}, model.Unknown},
 		{"v2.4 shape", model.Route{Name: "custom", Metadata: md("httproute-web-ns-1-0", "")},

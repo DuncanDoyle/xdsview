@@ -158,11 +158,11 @@ var (
 func validDNSLabel(s string) bool     { return len(s) <= 63 && dnsLabel.MatchString(s) }
 func validDNSSubdomain(s string) bool { return len(s) <= 253 && dnsSubdomain.MatchString(s) }
 
-// validGroupKind reports whether group and kind are valid for a CRD: a DNS
-// subdomain, and a DNS-1035 label once lowercased.
+// validGroupKind reports whether group and kind are valid: the group empty (core)
+// or a DNS subdomain, and the kind a DNS-1035 label once lowercased.
 func validGroupKind(group, kind string) bool {
 	k := strings.ToLower(kind)
-	return validDNSSubdomain(group) && validDNSLabel(k) && k[0] >= 'a' && k[0] <= 'z'
+	return (group == "" || validDNSSubdomain(group)) && validDNSLabel(k) && k[0] >= 'a' && k[0] <= 'z'
 }
 
 // routeFromMetadata reads dev.kgateway.route_source. Its shape differs by
@@ -190,8 +190,9 @@ func routeFromMetadata(r model.Route) (model.RouteOrigin, bool) {
 		if ri, ok := index(idx); ok {
 			o.RuleIndex = ri
 		}
-	} else if rest, ok := strings.CutPrefix(rule, legacy); ok {
-		// v2.4: "<kind>-<name>-<ns>-<rule>-<match>[-<rule name>]" (query/route.go).
+	} else if rest, ok := strings.CutPrefix(rule, legacy); ok && match == "" {
+		// v2.4: "<kind>-<name>-<ns>-<rule>-<match>[-<rule name>]" (query/route.go),
+		// with no "match"; v2.5 always writes "match".
 		if p := strings.SplitN(rest, "-", 3); len(p) >= 2 {
 			if ri, ok := index(p[0]); ok {
 				o.RuleIndex = ri
