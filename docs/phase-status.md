@@ -25,7 +25,9 @@ Status: design + plan reviewed (Codex, triaged); reordered certainty-first (D-01
 - [ ] phase-8-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-none (8.2 closed 2026-11-22)
+Sub-phase: 8.3 — mapper vendor-neutral (planned)
+Base: 251a451
+Brief: docs/phases/phase-8/phase-8.3-brief.md
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `c304e76`)
