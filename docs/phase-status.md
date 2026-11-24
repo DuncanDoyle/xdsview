@@ -13,11 +13,11 @@ Status: in progress. Owner said go (2026-11-24).
 - [x] Q2 kgwctl `cross-repo` notice for E6 / `v0.6.0`: kgwctl#12
 - [x] Q3 E6 row update: kgateway-tooling a0e1d7c
 - [x] Q4 start the P-009 investigation (owner: go, 2026-11-24)
-- [ ] Q5 verify starting evidence 1–5 against kgateway main and v2.5.2 ← CURRENT
-- [ ] Q6 Snellius: which questions KGWUI-001, 006, 008, 025, 026 and the withheld-config signal answer
-- [ ] Q7 kind captures (kgateway v2.5.2, 2 workers, 2 proxy replicas): steady state, NACK, controller down, warming
-- [ ] Q8 write `docs/investigations/xds-convergence.md`
-- [ ] Q9 Codex review + triage
+- [x] Q5 verify starting evidence 1–5 against kgateway main and v2.5.2
+- [x] Q6 Snellius: which questions KGWUI-001, 006, 008, 025, 026 and the withheld-config signal answer
+- [x] Q7 kind captures (kgateway v2.5.2, 2 workers, 2 proxy replicas): recaptured with pod identity checks after review #1; warming not reproduced
+- [x] Q8 write `docs/investigations/xds-convergence.md`
+- [ ] Q9 Codex review + triage: first review 11 findings, all accepted; re-review of the revision ← CURRENT
 - [ ] Q10 owner approval; E14 and U7–U9 to the program session
 
 ### Exit gates
