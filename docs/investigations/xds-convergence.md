@@ -1,7 +1,7 @@
 # Investigation — xDS convergence (program P-009)
 
 **Date:** 2026-11-24
-**Status:** revised after cross-model review (`reviews/xds-convergence-codex.md`). Design only; no code until the owner approves.
+**Status:** revised after two cross-model reviews (`reviews/xds-convergence-codex.md`, `reviews/xds-convergence-fixes-codex.md`). Design only; no code until the owner approves.
 **Question:** Does each proxy run the configuration the controller published for it? How can an operator tell, and who provides each piece (program edge E14)?
 **Sources:**
 - kgateway `v2.5.2`, the version captured. `main` at `1a44dc2cab` is cited only where it is identical. `api/settings/settings.go` and `proxy_syncer/publish_gate.go` differ, so those are cited at `v2.5.2`.
@@ -22,7 +22,7 @@ Today's data answers less than it seems.
 
 The upstream asks U7–U9 close those gaps.
 
-xdsview's share is one vendor-neutral finding: an active HTTP connection manager whose RDS route configuration is absent from a complete dump. S5 shows that such a listener is `Programmed=True` and serves 404.
+xdsview's share is one vendor-neutral finding: an active HTTP connection manager whose RDS route configuration is absent from a complete dump. S5 shows that such a listener is `Programmed=True` and serves 404. Envoy's stats show the failed watch, but nothing ties it to the listener.
 
 The join of controller and proxy evidence, and the verdict, belong to kgwctl. Snellius can report observed version differences between replicas, but not classify them.
 
@@ -35,7 +35,7 @@ The join of controller and proxy evidence, and the verdict, belong to kgwctl. Sn
 | 1 | No per-proxy ACK record; NACK metrics have no pod label; the active gauge clears on stream close or an error-free request | Confirmed | `setup/cache_watch_policy.go:99-124,171-214,332-340`; `setup/envoy_error.go:30-41,129-150`. An error-free request is not an ACK: a new subscription produces one too (§1.2 S5) |
 | 2 | Versions are per-type opaque hashes, sometimes composed, published per type and not atomically. The key includes the node | Confirmed | Versions: `proxy_syncer.go:167`, `perclient.go:73,138,164,327`. Install order SDS, CDS, EDS, LDS, RDS, stated as non-atomic (`setup/controlplane.go:189-218` at `v2.5.2`). Key `role~HashLabels(augmented pod labels)~ns` (`ir/model.go:112-129`, `krtcollections/pods.go:286-339`). `pod-template-hash` also splits keys per ReplicaSet. `DISABLE_POD_LOCALITY_XDS=true` gives one key per Gateway (`uniqueclients.go:113-116`) |
 | 3 | The controller can hold back a newer translation | Confirmed | See the table below. Sources: `publish_gate.go:20-80`; defaults at `v2.5.2` `api/settings/settings.go:448,469` |
-| 4 | `Programmed=True` is a translation result | Confirmed | Default Gateway and listener conditions at `v2.5.2` `pkg/reports/status.go:258,284`. The NACK path writes only metrics and a log. Live: listener `http2` is `Programmed=True` while serving 404 (S5). kgateway#14453 is open |
+| 4 | `Programmed=True` is a translation result | Confirmed | `Programmed=True` is the default when no error is reported, at `v2.5.2` `pkg/reports/status.go`: Gateway `661-667`, listener `754-760`, route parent `783-789` (`kgateway.dev/Programmed`). The NACK path writes only metrics and a log. Live: listener `http2` is `Programmed=True` while serving 404 (S5). kgateway#14453 is open |
 | 5 | Envoy `version_text`, `update_success`, `client_status`, `error_state`, `version_info` | Confirmed, with corrections | `version_text` is a text readout, not a gauge (`subscription.h:332-341`). The `version` gauge (xxHash64) and `update_time` change only on an accepted update (`grpc_subscription_impl.cc:121-135`). A rejection increments `update_rejected` without recording the rejected version. `client_status` is never set. Only LDS sets `error_state`. The EDS dump has no `version_info` |
 
 How the controller holds back a newer translation:
@@ -45,7 +45,10 @@ How the controller holds back a newer translation:
 | First-publish withhold | referenced clusters not yet ready | 15 s budget |
 | Warm-client withhold | a client reconnects holding an older version | up to 10 min after the budget |
 | Flip hold | a route moves to a new cluster that isn't ready | one budget |
-| NACK parking | the proxy rejects an update on an open stream | the rejected version is resent with 1–60 s backoff |
+
+These holds keep the *published* snapshot at an older version, so "reached the published version" (Q1) stays true during a hold. Q1 does not claim "reached the latest translation".
+
+NACK parking is not a hold. While the rejected version is still current, the controller resends it with 1–60 s backoff. A new publication answers the parked watch without waiting for the timer (`cache_watch_policy.go:425`).
 
 ### 1.2 Captures (identity-checked)
 
@@ -54,10 +57,12 @@ How the controller holds back a newer translation:
 | S1 steady state | Two keys (`5475…`, `8735…`), one per worker, with equal versions per type. Each pod's subscriptions accept the published version: CDS `11484…`, LDS `4868…`, RDS `listener~8080` `9175…`, EDS `gw.demo` `12643…` | Equal content gives equal versions across keys. A match is an acceptance observation, not a controller-recorded ACK |
 | S2 RDS NACK (route regex `[invalid-regex`), captured twice 36 s apart | Published RDS `11812…`. Both pods stay on `9175…`. `update_rejected` goes 6 → 7 on one pod and stays 6 on the other. `rejects_active=2`, gateway labels only. Route, Gateway and listener are all `Programmed=True`. The log says `"xds error" … missing ]: [invalid-regex` | A mismatch plus past rejections, but no record of which version was rejected. Counters can stand still for a whole window because of the backoff |
 | S4 controller scaled to 0 | `wzvn6` reports `connected_state 0`. `cds` and `lds` `update_failure` go 0 → 17; `update_time` unchanged. The second pod's capture timed out under load | `update_failure` counts connection failures, so its growth is not a NACK signal. `update_time` is the age of the last accepted update, not a bound on how long the proxy has been stale |
-| S5 new listener 8081 during the NACK | Both pods: `listener~8081` is active, its RDS subscription has accepted nothing (`version_text ""`, 6 rejections), and `RoutesConfigDump` has only `listener~8080`. `curl :8081` → 404 while `:8080` → 200. Listener `http2` is `Programmed=True` | Accepted is not serving. The listener is live with no routes, and nothing in Envoy or the status flags it |
-| S5b the gauge during S5, sampled every second | `rejects_active` stays 2; `rejects_total` goes 2 → 4 within one second | The new subscription started new rejection episodes. A zero reading was not observed and may not be scrapeable |
-| S6 `q8vvd`'s node frozen, route fixed; captured 30 s and 6 min later | The controller keeps both keys and publishes RDS `9421…`. `rejects_active=1` stays for 6 min. `q8vvd` is unreachable: reported missing, not substituted. `wzvn6` accepts `9421…` | The controller cannot tell a frozen proxy from a slow one, nor say which pod holds the reject. An unreachable pod's answer is `unknown` |
-| S7 unpaused | Within 5 s `q8vvd` accepts `9421…` (`update_time` 15:10:19 vs `wzvn6` 14:57:54) and the gauge is 0 | Whether the stream survived the pause or reconnected is not established |
+| S5 new listener 8081 during the NACK | Both pods: `listener~8081` is active. Its RDS watch has `update_success 0`, `update_rejected 6`, `version_text ""`. The dynamic route configs hold only `listener~8080`. Live (not in the capture files): `curl :8081` → 404 while `:8080` → 200; listener `http2` is `Programmed=True` | Accepted is not serving. Envoy's stats show that the watch failed. Nothing ties that failure to the listener that serves no routes: neither the dump (no `error_state` outside LDS) nor the status |
+| S5b the gauge during S5, sampled every second (live) | `rejects_active` stays 2; `rejects_total` goes 2 → 4 within one second | Two new rejection episodes began. The metrics carry no stream correlation, so what ended the earlier episodes is inferred, not observed. A zero reading was not observed |
+| S6 `q8vvd`'s node frozen, route fixed; two captures about 6 min apart | The controller keeps both keys and publishes RDS `9421…`. `rejects_active=1` at both samples. `q8vvd` is unreachable: reported missing, not substituted. `wzvn6` accepts `9421…` | The controller cannot tell a frozen proxy from a slow one, nor say which pod holds the reject. An unreachable pod's answer is `unknown` |
+| S7 unpaused | `q8vvd` accepts `9421…` (`update_time` 15:10:19; `wzvn6` 14:57:54); the gauge is 0. The capture started 15:10:24. The unpause time (15:10:19) is in the session log only. `q8vvd` still reports `update_rejected` 14 (`8080`) and 7 (`8081`) after recovery | Whether the stream survived the pause or reconnected is not established. A cumulative reject counter outlives the recovery |
+
+Timing limit: each capture records one timestamp, but its sequential requests took seconds to minutes (S4-down and S6). These captures support the reported endpoint states. They cannot serve as acceptance examples for a tight cross-endpoint comparison window. A capture tool for Q1 needs a timestamp per request.
 
 Warming (Q5) was not reproduced. The evidence for it is Envoy source (Phase 7 assessment §2, and review #7).
 
@@ -70,9 +75,9 @@ Access findings:
 
 | Q | Operator scenario | What can be answered today | Proved by | `unknown` when | Missing |
 |---|---|---|---|---|---|
-| 1 | "I changed a route. Has every proxy got it?" | Per pod and per subscription (RDS per route configuration, EDS per cluster, CDS and LDS per type): accepted version = published version | proxy (accepted) and controller (published) | pod not reached; pod-to-key not proven, unless all keys for the Gateway agree; published version changed between two captures (publish race, non-atomic install); a withhold is active; a subscription is absent from the published snapshot or vice versa | pod key (U9); controller-recorded ACK (U7) |
+| 1 | "I changed a route. Has every proxy got it?" | Per pod and per subscription (RDS per route configuration, EDS per cluster, CDS and LDS per type). `yes`: the accepted version equals the published version, with the same published version and resource names read before and after the proxy read. `no`: a mismatch that persists across two such windows, more than one publish budget apart | proxy (accepted) and controller (published) | pod not reached; the pod's key not proven (before U9 this holds unless every key of the Gateway has the same version and resource names per type); the published version changed between the bracketing reads (the admin snapshot can show a version before its serving cache is installed); the pod's subscriptions and the published resource names differ | pod key (U9); controller-recorded ACK (U7) |
 | 2 | "Do my replicas disagree?" | Observed per-subscription difference between pods, persisting across two captures | proxy | a replica not sampled. Whether the difference is *unexpected* needs controller evidence (published versions per key differ legitimately, e.g. locality-dependent EDS) | as Q1 |
-| 3 | "Is a rejection still in force?" | Two separate facts: (a) the subscription rejected at least once since its last accepted update; (b) accepted ≠ published. Whether the current published version is the rejected one stays `unknown` | proxy (a), both (b) | always, for "current version rejected", without correlated stream events | per-stream last sent, ACKed and NACKed version with time and error, per pod (U7) |
+| 3 | "Is a rejection still in force?" | Separate facts. (a) One scrape: this Envoy process rejected an update on that watch at some point. The counter is cumulative and outlives recovery (S7). (b) Two scrapes of the same process: `update_rejected` rose while `update_success` did not, so a rejection came after the last acceptance. A SotW NACK increments every watch of the type, so (b) does not show which resource was bad. (c) Accepted ≠ published (as Q1) | proxy (a, b), both (c) | always, for "the current published version is rejected", without correlated stream events | correlated NACK outcomes per pod (U7) |
 | 4 | "Is a proxy disconnected or stale, and since when?" | `connected_state` at capture time. Stale: as Q1. "Since when": a last-good and first-bad pair of observations, never `update_time` alone | proxy | single capture (onset) | connection events (U7). Onset of staleness also needs publication history |
 | 5 | "Is something stuck warming or draining, or missing?" | Three outcomes. Warming listeners and clusters, by name, from `/config_dump`. Draining listeners, by name. An active HCM whose RDS configuration is absent (S5). "Stuck" needs the same occurrence in repeated captures | proxy | a dump that is incomplete or fails to parse; draining clusters, because the cluster dump does not list them | nothing upstream |
 | 6 | "What does Snellius already answer?" | See §3 | — | — | — |
@@ -99,11 +104,11 @@ One finding for Snellius, to be raised through the program:
 
 | Piece | Provider | Notes |
 |---|---|---|
-| Active HCM with an absent RDS route configuration, from a complete dump; `unknown` if `RoutesConfigDump` is missing or fails to parse | xdsview core | Vendor-neutral Envoy config. The only core change this investigation supports (D-011). It fits Phase 9's dump-coverage work |
+| Active HCM with an absent RDS route configuration | xdsview core | It needs a decoded RDS reference at the HCM occurrence. The answer is `unknown` when: the dump is filtered; `RoutesConfigDump` is missing; or any route config entry was skipped with a warning, since that entry could be the referenced one. Vendor-neutral Envoy config. It is the only core change this investigation supports (D-011), and fits Phase 9's dump-coverage work |
 | Warming and draining listeners, warming clusters, by name | xdsview core (largely exists: listener state since Phase 6) | Draining clusters are not namable |
-| Join controller and proxy evidence; per-subscription verdict with `unknown` reasons; two-capture windows | kgwctl | A live diagnostic that extracts only versions per key and type from `/snapshots/xds`, never storing the snapshot. The Phase 4 bundle boundary (no controller admin) stays |
+| Join controller and proxy evidence; per-subscription verdict with `unknown` reasons; bracketing reads and two windows (Q1) | kgwctl | A live diagnostic that extracts from `/snapshots/xds` only the key, type, version and resource names, with a timestamp per read. It never stores the snapshot. The Phase 4 bundle boundary (no controller admin) stays |
 | Offline ceiling | kgwctl bundles | Proxy versions, lifecycle and connection signals, plus aggregate controller metrics. A bundle cannot answer Q1, and cannot confirm Q3 for the current version |
-| Observed version differences across replicas (Q2), proxy-only | Snellius, if it wants it | Needs `version_text` (or the `*_version` gauge) in its scrape. It reports a difference, not drift |
+| Observed version differences across replicas (Q2), proxy-only | Snellius, if it wants it | Needs `version_text` in its scrape. The `*_version` gauge exceeds `MaxInt64` (S1 LDS `17882938933435873009`), so its signed parser (`parse.go:34`) would drop it; read the gauge as an opaque unsigned value or use the text readout. It reports a difference, not drift |
 | Per-pod ACK/NACK record, pod key, NACK in status | kgateway upstream | U7, U9, U8 |
 
 xdsview adds no stats parser. Snellius has its own, and no second consumer is named. The kgateway snapshot reader stays out of xdsview's kgateway module, which is about provenance (D-019).
@@ -112,7 +117,7 @@ xdsview adds no stats parser. Snellius has its own, and no second consumer is na
 
 | Ask | Refined by this investigation |
 |---|---|
-| U7 | Per stream and type, tied to pod identity and controller replica: last sent version and nonce, last ACKed version with time, last NACKed version with time and error, connect time. Exposed on 9095 or via CSDS. A `pod` label on `rejects_*`. An error-free request from a new subscription must stay distinguishable from an ACK (S5, S5b) |
+| U7 | Per stream and type, tied to pod identity and controller replica: each outcome (ACK or NACK) correlated to its response by nonce, with version, time, the response's resource names and, for a NACK, the error. Connect time per stream. A `pod` label on `rejects_*`. An error-free request from a new subscription must stay distinguishable from an ACK (S5, S5b). The record must define what a newer publication and a stream close do to "rejection in force". It proves a response was NACKed. Which resource failed still needs proxy evidence, because Envoy dispatches one response to several watches |
 | U8 | Unchanged: kgateway#14453 (open). S5 adds a case for it: a NACK on RDS leaves a listener `Programmed=True` that serves no routes |
 | U9 | Confirmed: a proxy cannot learn its key, since Envoy shows only the bootstrap role. The key must be returned for the connection the pod holds. Alternative: `DISABLE_POD_LOCALITY_XDS` where one key per Gateway is acceptable |
 
@@ -122,6 +127,7 @@ xdsview adds no stats parser. Snellius has its own, and no second consumer is na
 - `update_failure` growth as a rejection signal: it counts connection failures (S4).
 - `update_time` as a staleness or disconnect onset (S4).
 - Treating a version mismatch plus rising `update_rejected` as "the current version is rejected" (S2: one pod's counter didn't move for 36 s).
+- Treating `update_rejected > 0` as a current rejection (S7: 14 rejects after recovery).
 
 ## 5. Open questions for the owner
 

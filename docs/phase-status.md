@@ -17,8 +17,8 @@ Status: in progress. Owner said go (2026-11-24).
 - [x] Q6 Snellius: which questions KGWUI-001, 006, 008, 025, 026 and the withheld-config signal answer
 - [x] Q7 kind captures (kgateway v2.5.2, 2 workers, 2 proxy replicas): recaptured with pod identity checks after review #1; warming not reproduced
 - [x] Q8 write `docs/investigations/xds-convergence.md`
-- [ ] Q9 Codex review + triage: first review 11 findings, all accepted; re-review of the revision ← CURRENT
-- [ ] Q10 owner approval; E14 and U7–U9 to the program session
+- [x] Q9 Codex review + triage: 11 findings, then 8 on the revision; all accepted and applied
+- [ ] Q10 owner approval (open questions in §5); E14 and U7–U9 to the program session ← CURRENT
 
 ### Exit gates
 n/a (no phase open)
