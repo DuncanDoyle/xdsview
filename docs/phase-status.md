@@ -6,7 +6,7 @@ Base: ef6f303
 Author: Claude (Opus 5.5)
 Advisory: none
 Docs: docs/investigations/xds-convergence.md
-Status: in progress. Owner said go (2026-11-24).
+Status: done 2026-11-24; owner decisions recorded in §5.
 
 ### Queue
 - [x] Q1 tag `v0.6.0` at 10512f6 (owner approved 2026-11-23)
@@ -18,7 +18,8 @@ Status: in progress. Owner said go (2026-11-24).
 - [x] Q7 kind captures (kgateway v2.5.2, 2 workers, 2 proxy replicas): recaptured with pod identity checks after review #1; warming not reproduced
 - [x] Q8 write `docs/investigations/xds-convergence.md`
 - [x] Q9 Codex review + triage: 11 findings, then 8 on the revision; all accepted and applied
-- [ ] Q10 owner approval (open questions in §5); E14 and U7–U9 to the program session ← CURRENT
+- [x] Q10 owner decisions (§5): kgwctl#13, snellius#68, program `0b71089`; M-3 not approved
+- [ ] Q11 start Phase 9 (P-010) design ← CURRENT
 
 ### Exit gates
 n/a (no phase open)
@@ -27,7 +28,7 @@ n/a (no phase open)
 none
 
 ## Program
-Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `c304e76`)
+Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `0b71089`)
 Waiting on: nothing.
 Consumers: E6 (kgwctl move into kgateway): `v0.6.0` released. E13 available (`v0.5.0`). E11 available. E15 planned (Phase 9).
 
@@ -36,11 +37,12 @@ Consumers: E6 (kgwctl move into kgateway): `v0.6.0` released. E13 available (`v0
 - #26 (P2) kube source: cancellation through an API-server proxy — deferred, not a requirement (owner, 2026-11-05). kgwctl fixed the same gap in its own dialer and offered its code.
 - Phase 7 deferred (D-011): resumes only on a named convergence question from the program. Its roadmap notes (listener state, parser warnings) stay as constraints.
 - `origin.ObjectForName` drops certainty (Phase 8 audit P2-e): no consumer; revisit when one appears.
-- xDS convergence investigation (P-009), after Phase 8, design only: see roadmap. Keep resource `version_info` and subscription `version_text` distinct before defining any replica comparison (phase review #6). Program handoff 2026-11-22 (program merged to kgateway-tooling main, `841f508`).
+- P-009 missing-RDS finding (xds-convergence.md §4.1): into the Phase 9 design (owner, 2026-11-24).
 - Ownership (program): `origin` is the only decoder of `merge.*` and `route_source` metadata. Only route-level `merge.*` is read today. The other levels come in Phase 9 (P-010, D-019).
 - Phase 9 (P-010, E15), after P-009: one contract break, design reviewed by kgwctl and Snellius before approval. File `cross-repo` review requests in both when the design is ready (ask first).
 
 ## Notes
+- 2026-11-24: P-009 done (`263055d`). Owner: missing-RDS finding into Phase 9; kgwctl#13, snellius#68 filed; program `0b71089`; M-3 not approved.
 - 2026-11-23: Phase 8 closed: phase review and four fix rounds (Codex); three P1s deferred to Phase 9 by the owner. OSS output identical to `v0.5.0`.
 - 2026-11-23: program adopted P-010 (`c304e76`): Phase 9 contract break after P-009 (D-019). Phase 8 unchanged.
 - 2026-11-22: owner reordered Phase 8 certainty-first (D-015, via program session). After Phase 8, this session runs the xDS convergence investigation (design only).

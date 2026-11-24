@@ -1,7 +1,7 @@
 # Investigation — xDS convergence (program P-009)
 
 **Date:** 2026-11-24
-**Status:** revised after two cross-model reviews (`reviews/xds-convergence-codex.md`, `reviews/xds-convergence-fixes-codex.md`). Design only; no code until the owner approves.
+**Status:** done; owner decisions in §5. Revised after two cross-model reviews (`reviews/xds-convergence-codex.md`, `reviews/xds-convergence-fixes-codex.md`). Design only; no code until the owner approves.
 **Question:** Does each proxy run the configuration the controller published for it? How can an operator tell, and who provides each piece (program edge E14)?
 **Sources:**
 - kgateway `v2.5.2`, the version captured. `main` at `1a44dc2cab` is cited only where it is identical. `api/settings/settings.go` and `proxy_syncer/publish_gate.go` differ, so those are cited at `v2.5.2`.
@@ -130,6 +130,8 @@ xdsview adds no stats parser. Snellius has its own, and no second consumer is na
 - Treating `update_rejected > 0` as a current rejection (S7: 14 rejects after recovery).
 
 ## 5. Open questions for the owner
+
+**Owner decisions (2026-11-24):** 1 yes (Phase 9). 2 yes: kgwctl#13. 3 yes: snellius#68. 4 yes: program `0b71089`. 5 no, for now: M-3 stays a candidate until U9.
 
 1. Should the missing-RDS finding (§4.1, first row) go into the Phase 9 design?
 2. Should the kgwctl piece (§4.1, live join) be proposed to kgwctl as a `cross-repo` issue? (Asking before filing.)
