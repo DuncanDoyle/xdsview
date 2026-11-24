@@ -111,7 +111,7 @@ Make the module license-clean and vendor-neutral (program P-002, D-013), and mak
 Scope, evidence rules and questions 1–6 are in the program file's "xDS convergence" section. Controller-side captures come from a kind cluster. Snellius is asked which questions its checks already answer. Using the key mirror (M-3) needs owner approval under the program's mirror rules.
 
 ### Phase 9 — Control-Plane-Agnostic Contract (program P-010, E15)
-**Status:** Next (P-009 done 2026-11-24). Starts with design, plan and cross-model review. kgwctl and Snellius review the design before owner approval. Its design also covers the Phase 8 deferred findings (phase-8-complete.md) and the P-009 missing-RDS finding (xds-convergence.md §4.1).
+**Status:** In design (started 2026-11-24, base 40822d0). Starts with design, plan and cross-model review. kgwctl and Snellius review the design before owner approval. Its design also covers the Phase 8 deferred findings (phase-8-complete.md) and the P-009 missing-RDS finding (xds-convergence.md §4.1).
 **Unblocks:** program edge E15 (kgwctl `proxy routes` migration, kgwctl Phase 6 via E7, Snellius Phase 12)
 
 One coordinated contract break, then core correctness. The program's "Control-plane-agnostic xdsview" section is the contract; this phase designs the Go API.

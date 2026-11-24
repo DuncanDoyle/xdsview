@@ -1,36 +1,35 @@
 # Phase status
 
 ## Phase
-Phase: xDS convergence investigation (P-009), design only; started 2026-11-24. Phase 9 (P-010) follows.
-Base: ef6f303
-Author: Claude (Opus 5.5)
+Phase: 9 — Control-Plane-Agnostic Contract (program P-010, E15)
+Base: 40822d0
+Author: anthropic (claude-opus-5-5)
 Advisory: none
-Docs: docs/investigations/xds-convergence.md
-Status: done 2026-11-24; owner decisions recorded in §5.
+Docs: docs/phases/phase-9/
+Status: design; owner said start (2026-11-24).
 
 ### Queue
-- [x] Q1 tag `v0.6.0` at 10512f6 (owner approved 2026-11-23)
-- [x] Q2 kgwctl `cross-repo` notice for E6 / `v0.6.0`: kgwctl#12
-- [x] Q3 E6 row update: kgateway-tooling a0e1d7c
-- [x] Q4 start the P-009 investigation (owner: go, 2026-11-24)
-- [x] Q5 verify starting evidence 1–5 against kgateway main and v2.5.2
-- [x] Q6 Snellius: which questions KGWUI-001, 006, 008, 025, 026 and the withheld-config signal answer
-- [x] Q7 kind captures (kgateway v2.5.2, 2 workers, 2 proxy replicas): recaptured with pod identity checks after review #1; warming not reproduced
-- [x] Q8 write `docs/investigations/xds-convergence.md`
-- [x] Q9 Codex review + triage: 11 findings, then 8 on the revision; all accepted and applied
-- [x] Q10 owner decisions (§5): kgwctl#13, snellius#68, program `0b71089`; M-3 not approved
-- [ ] Q11 start Phase 9 (P-010) design ← CURRENT
+- [ ] Q1 design (brainstorming) → `design.md`: P-010 scope 1–8, core correctness list incl. E14 missing-RDS, Phase 8 deferred P1s (#2, #4, #5) ← CURRENT
+- [ ] Q2 implementation plan → `implementation-plan.md`, split into planned sub-phases
+- [ ] Q3 Codex review of design + plan, triage
+- [ ] Q4 `cross-repo` design-review requests to kgwctl and Snellius (ask before filing)
+- [ ] Q5 owner approval
 
 ### Exit gates
-n/a (no phase open)
+- [ ] tests/vet pass (observed)
+- [ ] all queue items done or deferred
+- [ ] design+plan cross-model review + triage: reviews/design-codex.md
+- [ ] phase cross-model review + triage: reviews/phase-codex.md
+- [ ] decisions.md / design / plan in sync with code
+- [ ] phase-9-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
 none
 
 ## Program
-Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `0b71089`)
-Waiting on: nothing.
-Consumers: E6 (kgwctl move into kgateway): `v0.6.0` released. E13 available (`v0.5.0`). E11 available. E15 planned (Phase 9).
+Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `70fda55`)
+Waiting on: nothing. Open `cross-repo` issues in xdsview: none (2026-11-24).
+Consumers: E6 (kgwctl move into kgateway): `v0.6.0` released. E13 available (`v0.5.0`). E11 available. E15 (this phase): kgwctl `proxy routes`, kgwctl Phase 6 via E7, Snellius Phase 12.
 
 ## Carry-over (deferred to later phases)
 - Phase 8 fix review 4 #2, #4, #5 (P1, owner-deferred to Phase 9 design): dotted rule names lose `--rule <n>`; `dynamic_module_config.module` overrides the library check; Composite-wrapped rustformation loses its link. See phase-8-complete.md.
@@ -42,6 +41,7 @@ Consumers: E6 (kgwctl move into kgateway): `v0.6.0` released. E13 available (`v0
 - Phase 9 (P-010, E15), after P-009: one contract break, design reviewed by kgwctl and Snellius before approval. File `cross-repo` review requests in both when the design is ready (ask first).
 
 ## Notes
+- 2026-11-24: Phase 9 started at 40822d0 (owner: yes).
 - 2026-11-24: P-009 done (`263055d`). Owner: missing-RDS finding into Phase 9; kgwctl#13, snellius#68 filed; program `0b71089`; M-3 not approved.
 - 2026-11-23: Phase 8 closed: phase review and four fix rounds (Codex); three P1s deferred to Phase 9 by the owner. OSS output identical to `v0.5.0`.
 - 2026-11-23: program adopted P-010 (`c304e76`): Phase 9 contract break after P-009 (D-019). Phase 8 unchanged.
