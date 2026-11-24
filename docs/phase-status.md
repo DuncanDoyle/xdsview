@@ -1,18 +1,24 @@
 # Phase status
 
 ## Phase
-Phase: next — xDS convergence investigation (P-009), design only; not started. Phase 9 (P-010) follows.
-Base: n/a (recorded at start)
-Author: n/a
+Phase: xDS convergence investigation (P-009), design only; started 2026-11-24. Phase 9 (P-010) follows.
+Base: ef6f303
+Author: Claude (Opus 5.5)
 Advisory: none
-Docs: docs/investigations/ (to be created)
-Status: Phase 8 closed 2026-11-23 (docs/phases/phase-8/phase-8-complete.md). Release handoff below still open.
+Docs: docs/investigations/xds-convergence.md
+Status: in progress. Owner said go (2026-11-24).
 
 ### Queue
 - [x] Q1 tag `v0.6.0` at 10512f6 (owner approved 2026-11-23)
 - [x] Q2 kgwctl `cross-repo` notice for E6 / `v0.6.0`: kgwctl#12
 - [x] Q3 E6 row update: kgateway-tooling a0e1d7c
-- [ ] Q4 start the P-009 investigation (ask first) ← CURRENT
+- [x] Q4 start the P-009 investigation (owner: go, 2026-11-24)
+- [ ] Q5 verify starting evidence 1–5 against kgateway main and v2.5.2 ← CURRENT
+- [ ] Q6 Snellius: which questions KGWUI-001, 006, 008, 025, 026 and the withheld-config signal answer
+- [ ] Q7 kind captures (kgateway v2.5.2, 2 workers, 2 proxy replicas): steady state, NACK, controller down, warming
+- [ ] Q8 write `docs/investigations/xds-convergence.md`
+- [ ] Q9 Codex review + triage
+- [ ] Q10 owner approval; E14 and U7–U9 to the program session
 
 ### Exit gates
 n/a (no phase open)
