@@ -42,6 +42,7 @@ Consumers: E6 (kgwctl move into kgateway): `v0.6.0` released. E13 available (`v0
 
 ## Notes
 - 2026-11-24: Phase 9 started at 40822d0 (owner: yes).
+- 2026-11-24: design in progress (brainstorming). Owner decided: one tag at the end of the phase, break plus core correctness (option A). Open, asked and unanswered: API shape. Proposed option 1 (position-keyed claims: `parser.Parse` → read-only snapshot with occurrence IDs; `chain.Effective` keyed by ID; `provenance.Compose(snap, modules...)` returns flat claims; conflicts → ambiguous). Rejected: a parallel provenance tree (not additive), keeping `Mapper` (misses scope 4–5). Resume there.
 - 2026-11-24: P-009 done (`263055d`). Owner: missing-RDS finding into Phase 9; kgwctl#13, snellius#68 filed; program `0b71089`; M-3 not approved.
 - 2026-11-23: Phase 8 closed: phase review and four fix rounds (Codex); three P1s deferred to Phase 9 by the owner. OSS output identical to `v0.5.0`.
 - 2026-11-23: program adopted P-010 (`c304e76`): Phase 9 contract break after P-009 (D-019). Phase 8 unchanged.
