@@ -1,8 +1,7 @@
-package render_test
+package main
 
 import (
 	"bytes"
-	"flag"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,14 +14,11 @@ import (
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/render"
 )
 
-var update = flag.Bool("update", false, "rewrite the golden .txt files in testdata/golden")
-
-const testdata = "../../../testdata"
-
-// TestText_Golden renders every OSS corpus dump, annotated with the kgateway
-// mapper, and compares it with testdata/golden/scenarios/<scenario>/<version>.txt.
+// TestText_Golden renders every OSS corpus dump the way krp does, with
+// origins and contribution labels from the kgateway mapper, and compares it
+// with testdata/golden/scenarios/<scenario>/<version>.txt.
 func TestText_Golden(t *testing.T) {
-	dumps, _ := filepath.Glob(filepath.Join(testdata, "scenarios/*/envoy/kgateway-*/config_dump.json"))
+	dumps, _ := filepath.Glob(filepath.Join(testdataDir, "scenarios/*/envoy/kgateway-*/config_dump.json"))
 	if len(dumps) == 0 {
 		t.Fatal("no corpus dumps")
 	}
@@ -45,13 +41,15 @@ func TestText_Golden(t *testing.T) {
 				{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute", Namespace: "kgateway-system", Name: "api-example-com-admin"},
 			}
 			m := origin.Kgateway(origin.KgatewayOptions{Known: known})
-			snap := chain.Annotate(origin.Annotate(res, m), m)
+			snap := origin.Annotate(res, m)
+			chains := chain.Effective(snap)
+			opts := render.Options{Labels: attribute(snap, chains, m).labels}
 
 			var a, b bytes.Buffer
-			if err := render.Text(&a, snap, render.Options{}); err != nil {
+			if err := render.Text(&a, snap, chains, opts); err != nil {
 				t.Fatal(err)
 			}
-			if err := render.Text(&b, snap, render.Options{}); err != nil {
+			if err := render.Text(&b, snap, chains, opts); err != nil {
 				t.Fatal(err)
 			}
 			out := a.String()
@@ -69,21 +67,7 @@ func TestText_Golden(t *testing.T) {
 					t.Errorf("line %d has trailing whitespace: %q", i+1, l)
 				}
 			}
-
-			path := filepath.Join(testdata, "golden/scenarios", scenario, version+".txt")
-			if *update {
-				if err := os.WriteFile(path, a.Bytes(), 0o644); err != nil {
-					t.Fatal(err)
-				}
-				return
-			}
-			want, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatalf("reading golden (run go test ./pkg/envoy/render -update): %v", err)
-			}
-			if out != string(want) {
-				t.Errorf("output differs from %s (run go test ./pkg/envoy/render -update and review the diff)", path)
-			}
+			checkGolden(t, filepath.Join(testdataDir, "golden/scenarios", scenario, version+".txt"), out)
 		})
 	}
 }

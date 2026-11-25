@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/DuncanDoyle/xdsview/internal/snaptest"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/chain"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 )
@@ -28,62 +29,83 @@ func specific() map[string]any {
 // at puts a per-filter config entry for the filter "f" at one level.
 type at struct{ route, vhost, routeConfig map[string]any }
 
-func setup(hcmDisabled bool, a at) (model.HCMConfig, model.VirtualHost, model.Route) {
+// hcmSnap is one listener with one HCM over filters and route config rc, with IDs.
+func hcmSnap(filters []model.HTTPFilter, rc *model.RouteConfig) *model.Snapshot {
+	return snaptest.IDs(&model.Snapshot{Listeners: []model.Listener{{FilterChains: []model.NetworkFilterChain{{
+		HCM: &model.HCMConfig{HTTPFilters: filters, RouteConfig: rc}}}}}})
+}
+
+// oneRoute is hcmSnap with one route r, and per-filter config at route config and vhost level.
+func oneRoute(filters []model.HTTPFilter, rcPFC, vhPFC map[string]any, r model.Route) *model.Snapshot {
+	return hcmSnap(filters, &model.RouteConfig{Name: "rc", TypedPerFilterConfig: rcPFC,
+		VirtualHosts: []model.VirtualHost{{Name: "vh", TypedPerFilterConfig: vhPFC, Routes: []model.Route{r}}}})
+}
+
+func setup(hcmDisabled bool, a at) *model.Snapshot {
 	pfc := func(v map[string]any) map[string]any {
 		if v == nil {
 			return nil
 		}
 		return map[string]any{"f": v}
 	}
-	r := model.Route{Name: "r", TypedPerFilterConfig: pfc(a.route)}
-	vh := model.VirtualHost{Name: "vh", Routes: []model.Route{r}, TypedPerFilterConfig: pfc(a.vhost)}
-	hcm := model.HCMConfig{
-		HTTPFilters: []model.HTTPFilter{{Name: "f", Type: extAuthzType, Disabled: hcmDisabled}},
-		RouteConfig: &model.RouteConfig{Name: "rc", VirtualHosts: []model.VirtualHost{vh}, TypedPerFilterConfig: pfc(a.routeConfig)},
+	return oneRoute([]model.HTTPFilter{{Name: "f", Type: extAuthzType, Disabled: hcmDisabled}},
+		pfc(a.routeConfig), pfc(a.vhost), model.Route{Name: "r", TypedPerFilterConfig: pfc(a.route)})
+}
+
+// first returns the chain of snap's first route.
+func first(t *testing.T, snap *model.Snapshot) model.EffectiveChain {
+	t.Helper()
+	rs := routes(snap)
+	if len(rs) == 0 {
+		t.Fatal("no routes")
 	}
-	return hcm, vh, r
+	c, ok := chain.Effective(snap)[rs[0].ID]
+	if !ok {
+		t.Fatalf("no chain for route %s", rs[0].ID)
+	}
+	return c
 }
 
 // TestEffective_Semantics has one case per row of the design's semantics table,
 // at each level, plus precedence between levels.
 func TestEffective_Semantics(t *testing.T) {
 	type want struct {
-		runs  bool
+		runs  model.Tri
 		state model.FilterState
 		level model.ConfigLevel
 		typ   string
 	}
+	yes, no, unknown := model.TriYes, model.TriNo, model.TriUnknown
 	tests := []struct {
 		name        string
 		hcmDisabled bool
 		at          at
 		want        want
 	}{
-		{"on, no entry", false, at{}, want{true, model.FilterOn, "", ""}},
-		{"on, disabled by route", false, at{route: disabled()}, want{false, model.FilterDisabled, model.LevelRoute, filterConfigType}},
-		{"on, disabled by vhost", false, at{vhost: disabled()}, want{false, model.FilterDisabled, model.LevelVirtualHost, filterConfigType}},
-		{"on, disabled by route config", false, at{routeConfig: disabled()}, want{false, model.FilterDisabled, model.LevelRouteConfig, filterConfigType}},
-		{"on, config at route", false, at{route: enabled()}, want{true, model.FilterOn, model.LevelRoute, filterConfigType}},
-		{"on, filter-specific at vhost", false, at{vhost: specific()}, want{true, model.FilterOn, model.LevelVirtualHost, extAuthzPerRoute}},
-		{"off, no entry", true, at{}, want{false, model.FilterOff, "", ""}},
-		{"off, disabled by route", true, at{route: disabled()}, want{false, model.FilterOff, model.LevelRoute, filterConfigType}},
-		{"off, enabled by route", true, at{route: enabled()}, want{true, model.FilterEnabled, model.LevelRoute, filterConfigType}},
-		{"off, enabled by vhost", true, at{vhost: enabled()}, want{true, model.FilterEnabled, model.LevelVirtualHost, filterConfigType}},
-		{"off, enabled by route config", true, at{routeConfig: enabled()}, want{true, model.FilterEnabled, model.LevelRouteConfig, filterConfigType}},
-		{"off, filter-specific at route", true, at{route: specific()}, want{true, model.FilterEnabled, model.LevelRoute, extAuthzPerRoute}},
+		{"on, no entry", false, at{}, want{yes, model.FilterOn, "", ""}},
+		{"on, disabled by route", false, at{route: disabled()}, want{no, model.FilterDisabled, model.LevelRoute, filterConfigType}},
+		{"on, disabled by vhost", false, at{vhost: disabled()}, want{no, model.FilterDisabled, model.LevelVirtualHost, filterConfigType}},
+		{"on, disabled by route config", false, at{routeConfig: disabled()}, want{no, model.FilterDisabled, model.LevelRouteConfig, filterConfigType}},
+		{"on, config at route", false, at{route: enabled()}, want{yes, model.FilterOn, model.LevelRoute, filterConfigType}},
+		{"on, filter-specific at vhost", false, at{vhost: specific()}, want{yes, model.FilterOn, model.LevelVirtualHost, extAuthzPerRoute}},
+		{"off, no entry", true, at{}, want{no, model.FilterOff, "", ""}},
+		{"off, disabled by route", true, at{route: disabled()}, want{no, model.FilterOff, model.LevelRoute, filterConfigType}},
+		{"off, enabled by route", true, at{route: enabled()}, want{yes, model.FilterEnabled, model.LevelRoute, filterConfigType}},
+		{"off, enabled by vhost", true, at{vhost: enabled()}, want{yes, model.FilterEnabled, model.LevelVirtualHost, filterConfigType}},
+		{"off, enabled by route config", true, at{routeConfig: enabled()}, want{yes, model.FilterEnabled, model.LevelRouteConfig, filterConfigType}},
+		{"off, filter-specific at route", true, at{route: specific()}, want{yes, model.FilterEnabled, model.LevelRoute, extAuthzPerRoute}},
 		{"disabled wins over config in one FilterConfig", true,
 			at{route: map[string]any{"@type": filterConfigType, "disabled": true, "config": map[string]any{}}},
-			want{false, model.FilterOff, model.LevelRoute, filterConfigType}},
-		{"invalid FilterConfig, HCM on", false, at{route: invalid()}, want{false, model.FilterUnknown, model.LevelRoute, filterConfigType}},
-		{"invalid FilterConfig, HCM off", true, at{vhost: invalid()}, want{false, model.FilterUnknown, model.LevelVirtualHost, filterConfigType}},
-		{"route beats vhost", true, at{route: disabled(), vhost: enabled()}, want{false, model.FilterOff, model.LevelRoute, filterConfigType}},
-		{"vhost beats route config", true, at{vhost: enabled(), routeConfig: disabled()}, want{true, model.FilterEnabled, model.LevelVirtualHost, filterConfigType}},
-		{"route beats route config", false, at{route: enabled(), routeConfig: disabled()}, want{true, model.FilterOn, model.LevelRoute, filterConfigType}},
+			want{no, model.FilterOff, model.LevelRoute, filterConfigType}},
+		{"invalid FilterConfig, HCM on", false, at{route: invalid()}, want{unknown, model.FilterUnknown, model.LevelRoute, filterConfigType}},
+		{"invalid FilterConfig, HCM off", true, at{vhost: invalid()}, want{unknown, model.FilterUnknown, model.LevelVirtualHost, filterConfigType}},
+		{"route beats vhost", true, at{route: disabled(), vhost: enabled()}, want{no, model.FilterOff, model.LevelRoute, filterConfigType}},
+		{"vhost beats route config", true, at{vhost: enabled(), routeConfig: disabled()}, want{yes, model.FilterEnabled, model.LevelVirtualHost, filterConfigType}},
+		{"route beats route config", false, at{route: enabled(), routeConfig: disabled()}, want{yes, model.FilterOn, model.LevelRoute, filterConfigType}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hcm, vh, r := setup(tt.hcmDisabled, tt.at)
-			c := chain.Effective(hcm, vh, r)
+			c := first(t, setup(tt.hcmDisabled, tt.at))
 			if len(c.Filters) != 1 {
 				t.Fatalf("got %d entries, want 1", len(c.Filters))
 			}
@@ -92,8 +114,11 @@ func TestEffective_Semantics(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("Runs, State, Level, PerFilterType = %+v, want %+v", got, tt.want)
 			}
-			if e.Name != "f" || e.Type != extAuthzType || e.Request != model.SideYes || e.Response != model.SideYes {
+			if e.Name != "f" || e.Type != extAuthzType || e.Request != yes || e.Response != yes {
 				t.Errorf("Name, Type, Request, Response = %q, %q, %q, %q", e.Name, e.Type, e.Request, e.Response)
+			}
+			if e.Wrapper != "" || e.Conditional || e.ConfigSource != model.ConfigInline {
+				t.Errorf("Wrapper, Conditional, ConfigSource = %q, %v, %q; want none, false, inline", e.Wrapper, e.Conditional, e.ConfigSource)
 			}
 			if c.Conditional {
 				t.Error("Conditional = true, want false")
@@ -102,34 +127,82 @@ func TestEffective_Semantics(t *testing.T) {
 	}
 }
 
-// TestEffective_NoRouteConfig uses route and vhost entries only.
-func TestEffective_NoRouteConfig(t *testing.T) {
-	hcm, vh, r := setup(true, at{vhost: enabled()})
-	hcm.RouteConfig = nil
-	e := chain.Effective(hcm, vh, r).Filters[0]
-	if !e.Runs || e.State != model.FilterEnabled || e.Level != model.LevelVirtualHost {
-		t.Errorf("Runs, State, Level = %v, %q, %q; want true, enabled, virtualHost", e.Runs, e.State, e.Level)
+// TestEffective_KeyedByRoute: one chain per route ID, each entry carrying its
+// slot ID; an HCM without a joined route config has its default under the use ID.
+func TestEffective_KeyedByRoute(t *testing.T) {
+	filters := []model.HTTPFilter{{Name: "a", Type: extAuthzType}, {Name: "router", Type: routerType}}
+	snap := hcmSnap(filters, &model.RouteConfig{VirtualHosts: []model.VirtualHost{
+		{Routes: []model.Route{{Name: "r0"}, {Name: "r1"}}}, {Routes: []model.Route{{Name: "r2"}}}}})
+	snap.Listeners = append(snap.Listeners, model.Listener{ID: "L1", FilterChains: []model.NetworkFilterChain{{ID: "L1/C0",
+		HCM: &model.HCMConfig{ID: "L1/C0/N0", RouteConfigUse: model.RouteConfigUse{ID: "L1/C0/N0/RC", State: model.RouteConfigUnknown},
+			HTTPFilters: []model.HTTPFilter{{ID: "L1/C0/N0/F0", Name: "router", Type: routerType}}}}}})
+
+	got := chain.Effective(snap)
+	var keys []model.ID
+	for k := range got {
+		keys = append(keys, k)
+	}
+	want := []model.ID{"L0/C0/N0/RC/V0/R0", "L0/C0/N0/RC/V0/R1", "L0/C0/N0/RC/V1/R0", "L1/C0/N0/RC"}
+	if len(keys) != len(want) {
+		t.Fatalf("keys = %v, want %v", keys, want)
+	}
+	for _, k := range want {
+		c, ok := got[k]
+		if !ok {
+			t.Fatalf("no chain for %s in %v", k, keys)
+		}
+		hcm := snap.Listeners[0].FilterChains[0].HCM
+		if k == "L1/C0/N0/RC" {
+			hcm = snap.Listeners[1].FilterChains[0].HCM
+		}
+		for i, e := range c.Filters {
+			if e.Slot != hcm.HTTPFilters[i].ID || e.Slot == "" {
+				t.Errorf("%s entry %d: Slot = %q, want %q", k, i, e.Slot, hcm.HTTPFilters[i].ID)
+			}
+		}
+	}
+}
+
+// TestEffective_ReadsOnly: Effective leaves the snapshot as it was.
+func TestEffective_ReadsOnly(t *testing.T) {
+	snap := setup(true, at{route: enabled()})
+	before := *snap.Listeners[0].FilterChains[0].HCM.RouteConfig
+	chain.Effective(snap)
+	if after := *snap.Listeners[0].FilterChains[0].HCM.RouteConfig; !reflect.DeepEqual(before, after) {
+		t.Errorf("route config changed:\n%+v\n%+v", before, after)
+	}
+	if r := routes(snap)[0]; r.Chain != nil {
+		t.Errorf("Route.Chain set: %+v", r.Chain)
+	}
+}
+
+// TestEffective_NoRouteConfigLevel uses route and vhost entries only.
+func TestEffective_NoRouteConfigLevel(t *testing.T) {
+	e := first(t, setup(true, at{vhost: enabled()})).Filters[0]
+	if e.Runs != model.TriYes || e.State != model.FilterEnabled || e.Level != model.LevelVirtualHost {
+		t.Errorf("Runs, State, Level = %q, %q, %q; want yes, enabled, virtualHost", e.Runs, e.State, e.Level)
 	}
 }
 
 // TestEffective_Conditional marks a chain whose route has a backend with per-filter config.
 func TestEffective_Conditional(t *testing.T) {
-	hcm, vh, r := setup(true, at{route: enabled()})
+	snap := setup(true, at{route: enabled()})
+	r := &snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes[0]
 	r.WeightedClusters = []model.WeightedCluster{
 		{Name: "v1", Weight: 80, TypedPerFilterConfig: map[string]any{"f": disabled()}},
 		{Name: "v2", Weight: 20},
 	}
-	c := chain.Effective(hcm, vh, r)
+	c := first(t, snap)
 	if !c.Conditional {
 		t.Error("Conditional = false, want true")
 	}
 	// The baseline ignores the backend's entry.
-	if e := c.Filters[0]; !e.Runs || e.State != model.FilterEnabled || e.Level != model.LevelRoute {
-		t.Errorf("baseline Runs, State, Level = %v, %q, %q; want true, enabled, route", e.Runs, e.State, e.Level)
+	if e := c.Filters[0]; e.Runs != model.TriYes || e.State != model.FilterEnabled || e.Level != model.LevelRoute {
+		t.Errorf("baseline Runs, State, Level = %q, %q, %q; want yes, enabled, route", e.Runs, e.State, e.Level)
 	}
 
 	r.WeightedClusters[0].TypedPerFilterConfig = nil
-	if chain.Effective(hcm, vh, r).Conditional {
+	if first(t, snap).Conditional {
 		t.Error("Conditional = true without backend per-filter config, want false")
 	}
 }
@@ -137,41 +210,34 @@ func TestEffective_Conditional(t *testing.T) {
 // TestEffective_SidesAndOrders checks the side table and both orders on a
 // chain with a decoder-only filter, an unknown type, and a filter that doesn't run.
 func TestEffective_SidesAndOrders(t *testing.T) {
-	hcm := model.HCMConfig{HTTPFilters: []model.HTTPFilter{
+	c := first(t, oneRoute([]model.HTTPFilter{
 		{Name: "rbac", Type: rbacType},
 		{Name: "authz", Type: extAuthzType},
 		{Name: "off", Type: extAuthzType, Disabled: true},
 		{Name: "vendor", Type: "type.googleapis.com/example.Vendor"},
 		{Name: "router", Type: routerType},
-	}}
-	c := chain.Effective(hcm, model.VirtualHost{}, model.Route{})
+	}, nil, nil, model.Route{}))
 
-	sides := map[string][2]model.Side{}
+	sides := map[string][2]model.Tri{}
 	for _, e := range c.Filters {
-		sides[e.Name] = [2]model.Side{e.Request, e.Response}
+		sides[e.Name] = [2]model.Tri{e.Request, e.Response}
 	}
-	wantSides := map[string][2]model.Side{
-		"rbac":   {model.SideYes, model.SideNo},
-		"authz":  {model.SideYes, model.SideYes},
-		"off":    {model.SideYes, model.SideYes},
-		"vendor": {model.SideUnknown, model.SideUnknown},
-		"router": {model.SideYes, model.SideNo},
+	yes, no, unknown := model.TriYes, model.TriNo, model.TriUnknown
+	wantSides := map[string][2]model.Tri{
+		"rbac":   {yes, no},
+		"authz":  {yes, yes},
+		"off":    {yes, yes},
+		"vendor": {unknown, unknown},
+		"router": {yes, no},
 	}
 	if !reflect.DeepEqual(sides, wantSides) {
 		t.Errorf("sides = %v, want %v", sides, wantSides)
 	}
 
-	var req, resp []string
-	for _, e := range c.RequestOrder() {
-		req = append(req, e.Name)
+	if got, want := names(c.RequestOrder()), []string{"rbac", "authz", "vendor", "router"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("request order = %v, want %v", got, want)
 	}
-	for _, e := range c.ResponseOrder() {
-		resp = append(resp, e.Name)
-	}
-	if want := []string{"rbac", "authz", "vendor", "router"}; !reflect.DeepEqual(req, want) {
-		t.Errorf("request order = %v, want %v", req, want)
-	}
-	if want := []string{"vendor", "authz"}; !reflect.DeepEqual(resp, want) {
-		t.Errorf("response order = %v, want %v", resp, want)
+	if got, want := names(c.ResponseOrder()), []string{"vendor", "authz"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("response order = %v, want %v", got, want)
 	}
 }

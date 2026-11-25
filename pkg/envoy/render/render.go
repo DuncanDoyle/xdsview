@@ -1,8 +1,8 @@
-// Package render writes a [model.Snapshot] as a deterministic plain-text
-// tree: listeners, virtual hosts and routes, with each route's effective filter
-// chain. It uses only the standard library and the pkg/envoy core, so CLIs and
-// UIs can print the same view. Styled or interactive callers add colour,
-// a cursor or extra lines through [Options.Style] and [Options.Extra].
+// Package render writes a [model.Snapshot] and its effective chains as a
+// deterministic plain-text tree: listeners, virtual hosts and routes, with each
+// route's filter chain. It uses only the standard library and the model, so
+// CLIs and UIs can print the same view. Callers add colour, a cursor,
+// provenance or extra lines through the hooks in [Options], keyed by [Row].
 package render
 
 import (
@@ -13,7 +13,6 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/DuncanDoyle/xdsview/pkg/envoy/chain"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 )
 
@@ -23,20 +22,17 @@ type Options struct {
 	ResponseOrder bool   // also print each route's response order
 	AllFilters    bool   // list filters that don't run inline; default: one "not run:" line
 
-	// Generic hooks for styled or interactive callers; nil gives plain text.
-	Style      func(c Class, ref *FilterRef, s string) string // ref is set on filter rows
-	Extra      func(ref FilterRef) []string                   // lines printed under a filter row
-	RouteExtra func(ref RouteRef) []string                    // lines printed under a route line, before its filters
+	// Generic hooks for styled, interactive or provenance-aware callers; nil
+	// gives plain text. Style gets the row the text belongs to.
+	Style  func(c Class, r Row, s string) string
+	Notes  func(r Row) []string // lines printed under a route or filter row; a route's come before its filters
+	Labels func(r Row) []string // printed on the row itself, each after " · ", styled as ClassOrigin
 }
 
-// RouteRef identifies one route as printed: indexes into the snapshot's
-// listeners, the listener's filter chains, and the HCM's virtual hosts and routes.
-type RouteRef struct {
-	ListenerIdx    int
-	FilterChainIdx int
-	VirtualHostIdx int
-	RouteIdx       int
-}
+// Row names one printed row. A filter row appears once per route, so Route
+// and Slot together tell rows apart. Subject is the occurrence the row shows;
+// Slot is empty above filter level and Route is empty above route level.
+type Row struct{ Subject, Route, Slot model.ID }
 
 // Class is the semantic role of a piece of text, for [Options.Style].
 type Class int
@@ -53,16 +49,6 @@ const (
 	ClassWarning // listener states other than active, errors, missing config
 )
 
-// FilterRef identifies one HCM filter as printed under one route. FilterIdx
-// indexes the HCM's HTTP filters; the other fields index the snapshot.
-type FilterRef struct {
-	ListenerIdx    int
-	FilterChainIdx int
-	VirtualHostIdx int
-	RouteIdx       int
-	FilterIdx      int
-}
-
 const (
 	branch = "├─ "
 	last   = "└─ "
@@ -70,19 +56,19 @@ const (
 	space  = "   "
 )
 
-// Text writes snap to w. Routes without a chain get one from [chain.Effective]
-// with no mapper. Output is LF-terminated with no trailing spaces, and follows
-// the snapshot's order everywhere.
-func Text(w io.Writer, snap *model.Snapshot, opts Options) error {
-	p := printer{opts: opts}
+// Text writes snap to w with each route's chain from chains, keyed by route
+// ID as chain.Effective returns them. A route with no chain prints no filters.
+// Output is LF-terminated with no trailing spaces, and follows the snapshot's
+// order everywhere.
+func Text(w io.Writer, snap *model.Snapshot, chains map[model.ID]model.EffectiveChain, opts Options) error {
+	p := printer{opts: opts, chains: chains}
 	if opts.Header != "" {
 		p.line(clean(opts.Header))
 	}
 	if len(snap.Listeners) == 0 {
-		p.line(p.style(ClassWarning, nil, "no listeners"))
+		p.line(p.style(ClassWarning, Row{}, "no listeners"))
 	}
-	for i, l := range snap.Listeners {
-		p.ref = FilterRef{ListenerIdx: i}
+	for _, l := range snap.Listeners {
 		p.listener(l)
 	}
 	_, err := io.WriteString(w, p.b.String())
@@ -90,9 +76,9 @@ func Text(w io.Writer, snap *model.Snapshot, opts Options) error {
 }
 
 type printer struct {
-	b    strings.Builder
-	opts Options
-	ref  FilterRef
+	b      strings.Builder
+	opts   Options
+	chains map[model.ID]model.EffectiveChain
 }
 
 func (p *printer) line(s string) {
@@ -101,12 +87,34 @@ func (p *printer) line(s string) {
 }
 
 // style cleans s, which comes from the dump, then lets the caller style it.
-func (p *printer) style(c Class, ref *FilterRef, s string) string {
+func (p *printer) style(c Class, r Row, s string) string {
 	s = clean(s)
 	if p.opts.Style == nil || s == "" {
 		return s
 	}
-	return p.opts.Style(c, ref, s)
+	return p.opts.Style(c, r, s)
+}
+
+// labels returns r's labels, styled, each after " · ".
+func (p *printer) labels(r Row) string {
+	if p.opts.Labels == nil {
+		return ""
+	}
+	var s string
+	for _, l := range p.opts.Labels(r) {
+		s += " · " + p.style(ClassOrigin, r, l)
+	}
+	return s
+}
+
+// notes prints r's notes under it, each line prefixed with indent.
+func (p *printer) notes(r Row, indent string) {
+	if p.opts.Notes == nil {
+		return
+	}
+	for _, n := range p.opts.Notes(r) {
+		p.line(indent + n)
+	}
 }
 
 // clean escapes control characters, so dump strings can't move the cursor or
@@ -150,7 +158,8 @@ func (p *printer) listener(l model.Listener) {
 	if name == "" {
 		name = "LDS error"
 	}
-	parts := []string{p.style(ClassListener, nil, name)}
+	row := Row{Subject: l.ID}
+	parts := []string{p.style(ClassListener, row, name)}
 	if l.Address != "" {
 		parts[0] += " " + address(l.Address)
 	}
@@ -160,34 +169,33 @@ func (p *printer) listener(l model.Listener) {
 		if s.Status == model.ListenerActive {
 			c = ClassListener
 		}
-		parts = append(parts, p.style(c, nil, string(s.Status)))
+		parts = append(parts, p.style(c, row, string(s.Status)))
 	}
 	if s.Updating {
-		parts = append(parts, p.style(ClassWarning, nil, "updating"))
+		parts = append(parts, p.style(ClassWarning, row, "updating"))
 	}
 	if s.Draining {
-		parts = append(parts, p.style(ClassWarning, nil, "draining"))
+		parts = append(parts, p.style(ClassWarning, row, "draining"))
 	}
 	if o := l.Origin; o != nil {
-		parts = append(parts, p.style(ClassOrigin, nil, listenerOrigin(*o)))
+		parts = append(parts, p.style(ClassOrigin, row, listenerOrigin(*o)))
 	}
+	parts[len(parts)-1] += p.labels(row)
 	if e := s.Error; e != nil {
 		msg := "error: " + e.Details
 		if e.LastAttempt != "" {
 			msg += " (" + e.LastAttempt + ")"
 		}
-		parts = append(parts, p.style(ClassWarning, nil, msg))
+		parts = append(parts, p.style(ClassWarning, row, msg))
 	}
 	p.line(strings.Join(parts, " · "))
 
 	// One plain filter chain is the common case: skip its level.
 	if len(l.FilterChains) == 1 && l.FilterChains[0].TLS == nil {
-		p.ref.FilterChainIdx = 0
 		p.chainBody(l.FilterChains[0], "")
 		return
 	}
 	for i, fc := range l.FilterChains {
-		p.ref.FilterChainIdx = i
 		prefix, indent := node("", i == len(l.FilterChains)-1)
 		label := "chain " + clean(fc.Name)
 		if fc.TLS != nil && len(fc.TLS.SNIHosts) > 0 {
@@ -202,7 +210,7 @@ func (p *printer) chainBody(fc model.NetworkFilterChain, indent string) {
 	hcm := fc.HCM
 	if hcm == nil {
 		prefix, _ := node(indent, true)
-		p.line(prefix + p.style(ClassWarning, nil, "no HTTP connection manager"))
+		p.line(prefix + p.style(ClassWarning, Row{Subject: fc.ID}, "no HTTP connection manager"))
 		return
 	}
 	if hcm.RouteConfig == nil {
@@ -211,48 +219,40 @@ func (p *printer) chainBody(fc model.NetworkFilterChain, indent string) {
 		if hcm.RouteConfigUse.State == model.RouteConfigAmbiguous {
 			status = " ambiguous: several route configs have this name"
 		}
-		p.line(prefix + p.style(ClassWarning, nil, "route config "+hcm.RouteConfigName+status))
-		p.filters(chain.Effective(*hcm, model.VirtualHost{}, model.Route{}), body)
+		p.line(prefix + p.style(ClassWarning, Row{Subject: hcm.RouteConfigUse.ID}, "route config "+hcm.RouteConfigName+status))
+		p.filters(p.chains[hcm.RouteConfigUse.ID], "", body)
 		return
 	}
 	vhs := hcm.RouteConfig.VirtualHosts
 	for i, vh := range vhs {
-		p.ref.VirtualHostIdx = i
+		row := Row{Subject: vh.ID}
 		prefix, vhIndent := node(indent, i == len(vhs)-1)
-		line := "vhost " + p.style(ClassVirtualHost, nil, vh.Name)
+		line := "vhost " + p.style(ClassVirtualHost, row, vh.Name)
 		if len(vh.Domains) > 0 {
-			line += " " + p.style(ClassOrigin, nil, "["+strings.Join(vh.Domains, ", ")+"]")
+			line += " " + p.style(ClassOrigin, row, "["+strings.Join(vh.Domains, ", ")+"]")
 		}
 		if o := vh.Origin; o != nil {
-			line += " · " + p.style(ClassOrigin, nil, listenerOrigin(model.ListenerOrigin{Certainty: o.Certainty, Port: o.Listener.Port, Section: o.Listener.Section}))
+			line += " · " + p.style(ClassOrigin, row, listenerOrigin(model.ListenerOrigin{Certainty: o.Certainty, Port: o.Listener.Port, Section: o.Listener.Section}))
 		}
-		p.line(prefix + line)
+		p.line(prefix + line + p.labels(row))
 		for j, r := range vh.Routes {
-			p.ref.RouteIdx = j
 			rPrefix, rIndent := node(vhIndent, j == len(vh.Routes)-1)
-			p.route(*hcm, vh, r, rPrefix, rIndent)
+			p.route(*hcm, r, rPrefix, rIndent)
 		}
 	}
 }
 
-func (p *printer) route(hcm model.HCMConfig, vh model.VirtualHost, r model.Route, prefix, body string) {
-	line := "route " + p.style(ClassRoute, nil, formatMatch(r.Match))
+func (p *printer) route(hcm model.HCMConfig, r model.Route, prefix, body string) {
+	row := Row{Subject: r.ID, Route: r.ID}
+	line := "route " + p.style(ClassRoute, row, formatMatch(r.Match))
 	if o := routeOrigin(r.Origin); o != "" {
-		line += " · " + p.style(ClassOrigin, nil, o)
+		line += " · " + p.style(ClassOrigin, row, o)
 	}
-	p.line(prefix + line)
-	if p.opts.RouteExtra != nil {
-		ref := RouteRef{p.ref.ListenerIdx, p.ref.FilterChainIdx, p.ref.VirtualHostIdx, p.ref.RouteIdx}
-		for _, x := range p.opts.RouteExtra(ref) {
-			p.line(body + x)
-		}
-	}
+	p.line(prefix + line + p.labels(row))
+	p.notes(row, body)
 
-	c := chain.Effective(hcm, vh, r)
-	if r.Chain != nil {
-		c = *r.Chain
-	}
-	p.filters(c, body)
+	c := p.chains[r.ID]
+	p.filters(c, r.ID, body)
 	if c.Conditional {
 		var parts []string
 		for _, wc := range r.WeightedClusters {
@@ -263,8 +263,8 @@ func (p *printer) route(hcm model.HCMConfig, vh model.VirtualHost, r model.Route
 		p.line(body + "backend overrides: " + clean(strings.Join(parts, ", ")))
 	}
 	if p.opts.ResponseOrder {
-		response := func(e model.ChainEntry) bool { return e.Runs && e.Response != model.SideNo }
-		p.rows(body, heading("response", c), c, pick(c, response, true), func(e model.ChainEntry) model.Side { return e.Response })
+		response := func(e model.ChainEntry) bool { return e.Runs != model.TriNo && e.Response != model.TriNo }
+		p.rows(body, heading("response", c), c, r.ID, pick(c, response, true), func(e model.ChainEntry) model.Tri { return e.Response })
 	}
 	if len(hcm.UpstreamFilters) > 0 {
 		var names []string
@@ -278,9 +278,9 @@ func (p *printer) route(hcm model.HCMConfig, vh model.VirtualHost, r model.Route
 		for _, pr := range r.Policies {
 			parts = append(parts, policy(pr.Policy, pr.Field, pr.Certainty))
 		}
-		p.line(body + "policies: " + p.style(ClassOrigin, nil, strings.Join(parts, ", ")))
+		p.line(body + "policies: " + p.style(ClassOrigin, row, strings.Join(parts, ", ")))
 	}
-	p.routeActions(r, body)
+	p.routeActions(r, row, body)
 }
 
 // heading titles an order, and says when the chain is only the baseline.
@@ -306,25 +306,30 @@ func pick(c model.EffectiveChain, keep func(model.ChainEntry) bool, reverse bool
 	return out
 }
 
-// filters prints the request order and, by default, a "not run:" line.
-func (p *printer) filters(c model.EffectiveChain, body string) {
+// filterRow is the row of entry e printed under route (empty above route level).
+func filterRow(route model.ID, e model.ChainEntry) Row {
+	return Row{Subject: e.Slot, Route: route, Slot: e.Slot}
+}
+
+// filters prints the request order and, by default, a "not run:" line. An
+// entry whose run state is unknown stays in position, never in "not run:".
+func (p *printer) filters(c model.EffectiveChain, route model.ID, body string) {
 	title := heading("request", c)
-	request := func(e model.ChainEntry) model.Side { return e.Request }
+	request := func(e model.ChainEntry) model.Tri { return e.Request }
 	if p.opts.AllFilters {
-		p.rows(body, title, c, pick(c, func(model.ChainEntry) bool { return true }, false), request)
+		p.rows(body, title, c, route, pick(c, func(model.ChainEntry) bool { return true }, false), request)
 		return
 	}
-	p.rows(body, title, c, pick(c, func(e model.ChainEntry) bool { return e.Runs && e.Request != model.SideNo }, false), request)
+	p.rows(body, title, c, route, pick(c, func(e model.ChainEntry) bool { return e.Runs != model.TriNo && e.Request != model.TriNo }, false), request)
 
 	var off, responseOnly []string
-	for i, e := range c.Filters {
-		ref := p.ref
-		ref.FilterIdx = i
+	for _, e := range c.Filters {
+		row := filterRow(route, e)
 		switch {
-		case !e.Runs:
-			off = append(off, p.style(ClassFilterOff, &ref, e.Name)+" ("+describeState(e)+")")
-		case e.Request == model.SideNo && e.Response != model.SideNo:
-			responseOnly = append(responseOnly, p.style(ClassFilter, &ref, e.Name))
+		case e.Runs == model.TriNo:
+			off = append(off, p.style(ClassFilterOff, row, e.Name)+" ("+describeState(e)+")")
+		case e.Request == model.TriNo && e.Response != model.TriNo:
+			responseOnly = append(responseOnly, p.style(ClassFilter, row, e.Name))
 		}
 	}
 	if len(off) > 0 {
@@ -335,10 +340,11 @@ func (p *printer) filters(c model.EffectiveChain, body string) {
 	}
 }
 
-// rows prints c's entries at idx as a numbered, aligned list. side marks an
-// entry whose side in this order is unknown with "?". A conditional chain
-// prints its heading even with no rows, so the baseline label isn't lost.
-func (p *printer) rows(body, title string, c model.EffectiveChain, idx []int, side func(model.ChainEntry) model.Side) {
+// rows prints c's entries at idx as a numbered, aligned list. "?" marks an
+// entry whose side in this order, or whose run state, is unknown. A
+// conditional chain prints its heading even with no rows, so the baseline
+// label isn't lost.
+func (p *printer) rows(body, title string, c model.EffectiveChain, route model.ID, idx []int, side func(model.ChainEntry) model.Tri) {
 	if len(idx) == 0 && !c.Conditional {
 		return
 	}
@@ -347,7 +353,7 @@ func (p *printer) rows(body, title string, c model.EffectiveChain, idx []int, si
 	numWidth, nameWidth := 0, 0
 	for n, i := range idx {
 		nums[n] = fmt.Sprint(n + 1)
-		if side(c.Filters[i]) == model.SideUnknown {
+		if e := c.Filters[i]; side(e) == model.TriUnknown || e.Runs == model.TriUnknown {
 			nums[n] += "?"
 		}
 		numWidth = max(numWidth, len(nums[n]))
@@ -356,28 +362,19 @@ func (p *printer) rows(body, title string, c model.EffectiveChain, idx []int, si
 	indent := body + "  "
 	for n, i := range idx {
 		e := c.Filters[i]
-		ref := p.ref
-		ref.FilterIdx = i
+		row := filterRow(route, e)
 		class := ClassFilter
-		if !e.Runs {
+		if e.Runs != model.TriYes {
 			class = ClassFilterOff
-		}
-		desc := describeState(e)
-		for _, ct := range e.Contributions {
-			desc += " · " + p.style(ClassOrigin, nil, contribution(ct))
 		}
 		num := nums[n] + strings.Repeat(" ", numWidth-len(nums[n]))
 		pad := strings.Repeat(" ", nameWidth-utf8.RuneCountInString(clean(e.Name))+2)
-		p.line(indent + num + " " + p.style(class, &ref, e.Name) + pad + desc)
-		if p.opts.Extra != nil {
-			for _, x := range p.opts.Extra(ref) {
-				p.line(indent + "    " + x)
-			}
-		}
+		p.line(indent + num + " " + p.style(class, row, e.Name) + pad + describeState(e) + p.labels(row))
+		p.notes(row, indent+"    ")
 	}
 }
 
-func (p *printer) routeActions(r model.Route, body string) {
+func (p *printer) routeActions(r model.Route, row Row, body string) {
 	var req, resp []string
 	for _, h := range r.RequestHeadersToAdd {
 		req = append(req, clean("+ "+h.Key+": "+h.Value))
@@ -395,7 +392,7 @@ func (p *printer) routeActions(r model.Route, body string) {
 		p.line(body + "response headers: " + strings.Join(resp, ", "))
 	}
 	if len(r.MirrorClusters) > 0 {
-		p.line(body + "mirror: " + p.style(ClassBackend, nil, strings.Join(r.MirrorClusters, ", ")))
+		p.line(body + "mirror: " + p.style(ClassBackend, row, strings.Join(r.MirrorClusters, ", ")))
 	}
 	if rw := r.Rewrite; rw != nil && rw.RegexPattern != "" {
 		p.line(body + "rewrite: " + clean(rw.RegexPattern) + " → " + clean(rw.Substitution))
@@ -404,12 +401,12 @@ func (p *printer) routeActions(r model.Route, body string) {
 		p.line(body + "rewrite prefix: " + clean(rw.Prefix))
 	}
 	if r.Cluster != "" {
-		p.line(body + "backend: " + p.style(ClassBackend, nil, r.Cluster))
+		p.line(body + "backend: " + p.style(ClassBackend, row, r.Cluster))
 	}
 	if len(r.WeightedClusters) > 0 {
 		var parts []string
 		for _, wc := range r.WeightedClusters {
-			parts = append(parts, p.style(ClassBackend, nil, wc.Name)+fmt.Sprintf(" (%d)", wc.Weight))
+			parts = append(parts, p.style(ClassBackend, row, wc.Name)+fmt.Sprintf(" (%d)", wc.Weight))
 		}
 		p.line(body + "backends: " + strings.Join(parts, ", "))
 	}
@@ -437,13 +434,6 @@ func describeState(e model.ChainEntry) string {
 		}
 	}
 	return string(e.State)
-}
-
-func contribution(c model.Contribution) string {
-	if c.Kind == model.ContributionPolicy {
-		return policy(c.Ref, c.Field, c.Certainty)
-	}
-	return c.Ref.String() + suffix(c.Certainty)
 }
 
 // policy formats a policy and its field, e.g. "TrafficPolicy ns/x (extAuth, inferred)".

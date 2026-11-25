@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/DuncanDoyle/xdsview/internal/snaptest"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/chain"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/render"
 )
@@ -17,12 +19,18 @@ import (
 // oneRoute is a snapshot with one filter and one route, with per-filter config
 // at route, vhost and route config level.
 func oneRoute(f model.HTTPFilter, route, vhost, routeConfig map[string]any) *model.Snapshot {
-	return &model.Snapshot{Listeners: []model.Listener{{FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
+	return snaptest.IDs(&model.Snapshot{Listeners: []model.Listener{{FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
 		HTTPFilters: []model.HTTPFilter{f},
 		RouteConfig: &model.RouteConfig{TypedPerFilterConfig: routeConfig, VirtualHosts: []model.VirtualHost{{
 			TypedPerFilterConfig: vhost, Routes: []model.Route{{TypedPerFilterConfig: route}},
 		}}},
-	}}}}}}
+	}}}}}})
+}
+
+// row is the row of oneRoute's i-th filter under its route.
+func row(i int) render.Row {
+	slot := model.ID("L0/C0/N0/F" + string(rune('0'+i)))
+	return render.Row{Subject: slot, Route: "L0/C0/N0/RC/V0/R0", Slot: slot}
 }
 
 // TestResolveFilterConfig_Levels: the most specific level's config is shown.
@@ -40,7 +48,7 @@ func TestResolveFilterConfig_Levels(t *testing.T) {
 		{"HCM when none", nil, nil, nil, "hcm"},
 	}
 	for _, tt := range tests {
-		got := resolveFilterConfig(oneRoute(f, tt.route, tt.vhost, tt.routeConfig), render.FilterRef{})
+		got := resolveFilterConfig(oneRoute(f, tt.route, tt.vhost, tt.routeConfig), row(0))
 		if want := map[string]any{"level": tt.want}; !reflect.DeepEqual(got, want) {
 			t.Errorf("%s: got %v, want %v", tt.name, got, want)
 		}
@@ -119,7 +127,7 @@ func TestResolveFilterConfig(t *testing.T) {
 				Name:        tt.filterName,
 				TypedConfig: tt.filterTypedConfig,
 			}
-			got := resolveFilterConfig(oneRoute(f, tt.typedPerFilterConfig, nil, nil), render.FilterRef{})
+			got := resolveFilterConfig(oneRoute(f, tt.typedPerFilterConfig, nil, nil), row(0))
 			if tt.wantNil {
 				if got != nil {
 					t.Errorf("resolveFilterConfig() = %v, want nil", got)
@@ -156,8 +164,9 @@ func TestRenderInteractive_DuplicateNamesOwnConfig(t *testing.T) {
 	snap := oneRoute(model.HTTPFilter{Name: "dup", TypedConfig: map[string]any{"which": "first"}}, nil, nil, nil)
 	hcm := snap.Listeners[0].FilterChains[0].HCM
 	hcm.HTTPFilters = append(hcm.HTTPFilters, model.HTTPFilter{Name: "dup", TypedConfig: map[string]any{"which": "second"}})
-	first, second := render.FilterRef{FilterIdx: 0}, render.FilterRef{FilterIdx: 1}
-	out := RenderInteractive(snap, RenderOpts{Expanded: map[render.FilterRef]bool{first: true, second: true}})
+	snaptest.IDs(snap)
+	v := View{Snapshot: snap, Chains: chain.Effective(snap)}
+	out := RenderInteractive(v, RenderOpts{Expanded: map[render.Row]bool{row(0): true, row(1): true}})
 
 	lines := strings.Split(ansiCodes.ReplaceAllString(out, ""), "\n")
 	var got []string

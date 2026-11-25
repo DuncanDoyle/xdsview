@@ -252,16 +252,20 @@ func runDump(cmd *cobra.Command, args []string) error {
 			fmt.Fprintf(cmd.ErrOrStderr(), "warning: route origins unavailable: %v\n", err)
 		}
 	}
+	// Execution comes from Envoy data alone; origins and contributions are krp's.
 	m := mapper(gateway, namespace, routeName, routeNS, known)
-	snapshot = chain.Annotate(origin.Annotate(snapshot, m), m)
+	snapshot = origin.Annotate(snapshot, m)
+	chains := chain.Effective(snapshot)
+	contribs := attribute(snapshot, chains, m)
+	view := renderer.View{Snapshot: snapshot, Chains: chains, Labels: contribs.labels}
 
 	// Render and print — or launch the interactive TUI.
 	switch {
 	case interactive:
-		return tui.Run(snapshot, cmd.OutOrStdout(), cmd.ErrOrStderr())
+		return tui.Run(view, cmd.OutOrStdout(), cmd.ErrOrStderr())
 	case output == outputJSON:
-		return writeJSON(cmd.OutOrStdout(), snapshot, parsed.Warnings)
+		return writeJSON(cmd.OutOrStdout(), snapshot, chains, contribs, parsed.Warnings)
 	}
-	fmt.Fprintln(cmd.OutOrStdout(), renderer.Render(snapshot))
+	fmt.Fprintln(cmd.OutOrStdout(), renderer.Render(view))
 	return nil
 }

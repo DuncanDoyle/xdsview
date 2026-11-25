@@ -1,12 +1,16 @@
 package tui
 
 import (
+	"fmt"
 	"os"
 	"regexp"
 	"slices"
 	"strings"
 	"testing"
 
+	"github.com/DuncanDoyle/xdsview/internal/renderer"
+	"github.com/DuncanDoyle/xdsview/internal/snaptest"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/chain"
 	envoymodel "github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/render"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -14,6 +18,18 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 )
+
+// view gives snap IDs and pairs it with its chains, as krp does.
+func view(snap *envoymodel.Snapshot) renderer.View {
+	snaptest.IDs(snap)
+	return renderer.View{Snapshot: snap, Chains: chain.Effective(snap)}
+}
+
+// filterRow is the row of filter f under route r of the first vhost in filter chain fc.
+func filterRow(fc string, r, f int) render.Row {
+	slot := envoymodel.ID(fmt.Sprintf("%s/N0/F%d", fc, f))
+	return render.Row{Subject: slot, Route: envoymodel.ID(fmt.Sprintf("%s/N0/RC/V0/R%d", fc, r)), Slot: slot}
+}
 
 // TestMain forces ANSI color output for all tui tests. Without this, lipgloss
 // detects no TTY and strips ANSI escape codes, causing findCursorLine to always
@@ -56,7 +72,7 @@ func TestBuildItems_SimpleSnapshot(t *testing.T) {
 		},
 	}
 
-	items := buildItems(snapshot)
+	items := buildItems(snaptest.IDs(snapshot))
 
 	// 2 routes × 2 filters = 4 items
 	if len(items) != 4 {
@@ -64,11 +80,11 @@ func TestBuildItems_SimpleSnapshot(t *testing.T) {
 	}
 
 	// Verify canonical order: route 0 filter 0, route 0 filter 1, route 1 filter 0, route 1 filter 1
-	expected := []render.FilterRef{
-		{ListenerIdx: 0, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 0},
-		{ListenerIdx: 0, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 1},
-		{ListenerIdx: 0, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 1, FilterIdx: 0},
-		{ListenerIdx: 0, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 1, FilterIdx: 1},
+	expected := []render.Row{
+		filterRow("L0/C0", 0, 0),
+		filterRow("L0/C0", 0, 1),
+		filterRow("L0/C0", 1, 0),
+		filterRow("L0/C0", 1, 1),
 	}
 	for i, got := range items {
 		if got != expected[i] {
@@ -163,17 +179,17 @@ func TestBuildItems_MultipleListeners(t *testing.T) {
 		},
 	}
 
-	items := buildItems(snapshot)
+	items := buildItems(snaptest.IDs(snapshot))
 
 	// 2 filter chains in listener 0 + 1 in listener 1 = 3 items (1 filter, 1 route each)
 	if len(items) != 3 {
 		t.Fatalf("expected 3 items, got %d", len(items))
 	}
 
-	expected := []render.FilterRef{
-		{ListenerIdx: 0, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 0},
-		{ListenerIdx: 0, FilterChainIdx: 1, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 0},
-		{ListenerIdx: 1, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 0},
+	expected := []render.Row{
+		filterRow("L0/C0", 0, 0),
+		filterRow("L0/C1", 0, 0),
+		filterRow("L1/C0", 0, 0),
 	}
 	for i, got := range items {
 		if got != expected[i] {
@@ -246,11 +262,12 @@ func TestUpdate_UpKey_AtFirstItem_ScrollsViewportUp(t *testing.T) {
 	}
 
 	vp := viewport.New(80, 10)
+	v := view(snapshot)
 	m := model{
-		snapshot: snapshot,
-		items:    buildItems(snapshot),
+		view:     v,
+		items:    buildItems(v.Snapshot),
 		cursor:   0,
-		expanded: make(map[render.FilterRef]bool),
+		expanded: make(map[render.Row]bool),
 		viewport: vp,
 	}
 
@@ -294,11 +311,12 @@ func TestUpdate_UpKey_AtFirstItem_AtTop_IsNoop(t *testing.T) {
 	}
 
 	vp := viewport.New(80, 10)
+	v := view(snapshot)
 	m := model{
-		snapshot: snapshot,
-		items:    buildItems(snapshot),
+		view:     v,
+		items:    buildItems(v.Snapshot),
 		cursor:   0,
-		expanded: make(map[render.FilterRef]bool),
+		expanded: make(map[render.Row]bool),
 		viewport: vp,
 	}
 
@@ -420,7 +438,7 @@ func TestNavigation_EnabledDisabledEnabled(t *testing.T) {
 	}}}
 
 	// A real window size, as bubbletea sends it first.
-	next, _ := initialModel(snapshot).Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	next, _ := initialModel(view(snapshot)).Update(tea.WindowSizeMsg{Width: 120, Height: 30})
 	m := next.(model)
 	steps := []struct {
 		row, config string
@@ -475,7 +493,7 @@ func TestNavigation_CursorStaysOnScreen(t *testing.T) {
 			RouteConfig: &envoymodel.RouteConfig{VirtualHosts: []envoymodel.VirtualHost{{Name: "vh",
 				Routes: []envoymodel.Route{{Cluster: "c"}}}}}}}}}}}
 	// Four rows: three for the viewport, one for the help bar.
-	next, _ := initialModel(snapshot).Update(tea.WindowSizeMsg{Width: 80, Height: 4})
+	next, _ := initialModel(view(snapshot)).Update(tea.WindowSizeMsg{Width: 80, Height: 4})
 	m := next.(model)
 	for i, name := range []string{"a", "b", "c", "d", "e"} {
 		if i > 0 {

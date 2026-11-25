@@ -78,12 +78,14 @@
                         "effectiveChain": {
                           "filters": [
                             {
+                              "slot": "L0/C0/N0/F0",
                               "name": "envoy.filters.http.router",
                               "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": true,
+                              "runs": "yes",
                               "state": "on",
                               "request": "yes",
-                              "response": "no"
+                              "response": "no",
+                              "configSource": "inline"
                             }
                           ]
                         }
@@ -123,12 +125,14 @@
                         "effectiveChain": {
                           "filters": [
                             {
+                              "slot": "L0/C0/N0/F0",
                               "name": "envoy.filters.http.router",
                               "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": true,
+                              "runs": "yes",
                               "state": "on",
                               "request": "yes",
-                              "response": "no"
+                              "response": "no",
+                              "configSource": "inline"
                             }
                           ]
                         }
@@ -174,12 +178,14 @@
                         "effectiveChain": {
                           "filters": [
                             {
+                              "slot": "L0/C0/N0/F0",
                               "name": "envoy.filters.http.router",
                               "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": true,
+                              "runs": "yes",
                               "state": "on",
                               "request": "yes",
-                              "response": "no"
+                              "response": "no",
+                              "configSource": "inline"
                             }
                           ]
                         }
@@ -219,12 +225,14 @@
                         "effectiveChain": {
                           "filters": [
                             {
+                              "slot": "L0/C0/N0/F0",
                               "name": "envoy.filters.http.router",
                               "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": true,
+                              "runs": "yes",
                               "state": "on",
                               "request": "yes",
-                              "response": "no"
+                              "response": "no",
+                              "configSource": "inline"
                             }
                           ]
                         }

@@ -6,25 +6,26 @@ import (
 	"testing"
 
 	"github.com/DuncanDoyle/xdsview/internal/renderer"
-	"github.com/DuncanDoyle/xdsview/pkg/envoy/chain"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
-	"github.com/DuncanDoyle/xdsview/pkg/envoy/origin"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/render"
 )
 
 var ansi = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
-// renderRoute renders a one-route snapshot as plain text, with chains
-// annotated by the kgateway mapper as krp does.
-func renderRoute(hcm model.HCMConfig, route model.Route) string {
+// renderRoute renders a one-route snapshot as plain text, with labels on its
+// filter rows when labels is set.
+func renderRoute(hcm model.HCMConfig, route model.Route, labels ...func(render.Row) []string) string {
 	hcm.RouteConfig = &model.RouteConfig{Name: "rc", VirtualHosts: []model.VirtualHost{
 		{Name: "vh", Domains: []string{"*"}, Routes: []model.Route{route}},
 	}}
-	snap := &model.Snapshot{Listeners: []model.Listener{{
+	v := view(&model.Snapshot{Listeners: []model.Listener{{
 		Name: "listener~80", Address: "[::]:80",
 		FilterChains: []model.NetworkFilterChain{{HCM: &hcm}},
-	}}}
-	snap = chain.Annotate(snap, origin.Kgateway(origin.KgatewayOptions{}))
-	return ansi.ReplaceAllString(renderer.Render(snap), "")
+	}}})
+	if len(labels) > 0 {
+		v.Labels = labels[0]
+	}
+	return ansi.ReplaceAllString(renderer.Render(v), "")
 }
 
 var routerOnly = model.HCMConfig{HTTPFilters: []model.HTTPFilter{{Name: "envoy.filters.http.router"}}}
@@ -64,11 +65,10 @@ func TestRender_UpstreamFilters(t *testing.T) {
 var testRoute = model.Ref{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute", Namespace: "shop", Name: "web"}
 
 // TestRender_Origins checks the origin lines: a route's HTTPRoute rule, a
-// filter's extension, and the route's policies.
+// filter row's label, and the route's policies.
 func TestRender_Origins(t *testing.T) {
 	hcm := model.HCMConfig{HTTPFilters: []model.HTTPFilter{
-		{Name: "ext_auth/shop/authz", Origin: &model.FilterOrigin{Certainty: model.Inferred, Kind: "ext_authz",
-			Extension: &model.Ref{Group: "gateway.kgateway.dev", Kind: "GatewayExtension", Namespace: "shop", Name: "authz"}}},
+		{Name: "ext_auth/shop/authz"},
 		{Name: "envoy.filters.http.router"},
 	}}
 	route := model.Route{Cluster: "c",
@@ -76,7 +76,12 @@ func TestRender_Origins(t *testing.T) {
 			{Route: testRoute, RuleIndex: 1, RuleName: "api", MatchIndex: 0}}},
 		Policies: []model.PolicyRef{{Policy: model.Ref{Group: "gateway.kgateway.dev", Kind: "TrafficPolicy", Namespace: "shop", Name: "auth"}, Field: "extAuth", Certainty: model.Exact}},
 	}
-	out := renderRoute(hcm, route)
+	out := renderRoute(hcm, route, func(r render.Row) []string {
+		if r.Slot == "L0/C0/N0/F0" {
+			return []string{"GatewayExtension shop/authz (inferred)"}
+		}
+		return nil
+	})
 	for _, want := range []string{
 		"HTTPRoute shop/web · rule 1 (api) · match 0",
 		"ext_auth/shop/authz        on · GatewayExtension shop/authz",

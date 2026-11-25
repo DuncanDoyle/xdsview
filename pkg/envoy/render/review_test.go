@@ -33,25 +33,30 @@ func TestText_ConditionalAlwaysLabelled(t *testing.T) {
 	hasLine(t, out, "      backend overrides: v1 (authz)")
 }
 
-// TestText_DuplicateNames: each row gets its own HCM index.
+// TestText_DuplicateNames: each row gets its own slot ID.
 func TestText_DuplicateNames(t *testing.T) {
 	snap := oneHCM([]model.HTTPFilter{{Name: "dup"}, {Name: "dup"}}, model.Route{})
-	var idx []int
+	var slots []model.ID
 	opts := render.Options{AllFilters: true,
-		Style: func(c render.Class, ref *render.FilterRef, s string) string {
-			if ref != nil {
-				idx = append(idx, ref.FilterIdx)
+		Style: func(c render.Class, r render.Row, s string) string {
+			if c == render.ClassFilter || c == render.ClassFilterOff {
+				slots = append(slots, r.Slot)
 			}
 			return s
 		},
-		Extra: func(ref render.FilterRef) []string { return []string{fmt.Sprintf("config %d", ref.FilterIdx)} },
+		Notes: func(r render.Row) []string {
+			if r.Slot == "" {
+				return nil
+			}
+			return []string{"config " + string(r.Slot)}
+		},
 	}
 	out := text(t, snap, opts)
-	if !reflect.DeepEqual(idx, []int{0, 1}) {
-		t.Errorf("FilterIdx = %v, want [0 1]", idx)
+	if want := []model.ID{"L0/C0/N0/F0", "L0/C0/N0/F1"}; !reflect.DeepEqual(slots, want) {
+		t.Errorf("slots = %v, want %v", slots, want)
 	}
-	if !strings.Contains(out, "config 0\n") || !strings.Contains(out, "config 1\n") {
-		t.Errorf("Extra lines not per row:\n%s", out)
+	if !strings.Contains(out, "config L0/C0/N0/F0\n") || !strings.Contains(out, "config L0/C0/N0/F1\n") {
+		t.Errorf("notes not per row:\n%s", out)
 	}
 }
 
@@ -94,34 +99,48 @@ func TestText_UTF8Alignment(t *testing.T) {
 	hasLine(t, out, "        2 a  on")
 }
 
-// TestText_RouteExtra: lines from RouteExtra print under each route line,
-// before its filters, with that route's ref (D-010).
-func TestText_RouteExtra(t *testing.T) {
+// routeNotes records the route rows Notes is called for, and prints note for each.
+func routeNotes(rows *[]render.Row, note func(render.Row) string) func(render.Row) []string {
+	return func(r render.Row) []string {
+		if r.Slot != "" {
+			return nil
+		}
+		*rows = append(*rows, r)
+		if n := note(r); n != "" {
+			return []string{n}
+		}
+		return nil
+	}
+}
+
+// TestText_RouteNotes: route-row notes print under each route line, before
+// its filters, with that route's row (D-010).
+func TestText_RouteNotes(t *testing.T) {
 	snap := oneHCM([]model.HTTPFilter{{Name: "router"}}, model.Route{Match: model.RouteMatch{Prefix: "/a"}})
 	vh := &snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0]
 	vh.Routes = append(vh.Routes, model.Route{Match: model.RouteMatch{Prefix: "/b"}})
-	var refs []render.RouteRef
-	out := text(t, snap, render.Options{RouteExtra: func(r render.RouteRef) []string {
-		refs = append(refs, r)
-		if r.RouteIdx == 1 {
-			return []string{"note: one candidate exists in the cluster"}
+	var rows []render.Row
+	out := text(t, snap, render.Options{Notes: routeNotes(&rows, func(r render.Row) string {
+		if r.Route == "L0/C0/N0/RC/V0/R1" {
+			return "note: one candidate exists in the cluster"
 		}
-		return nil
-	}})
-	if want := []render.RouteRef{{RouteIdx: 0}, {RouteIdx: 1}}; !reflect.DeepEqual(refs, want) {
-		t.Errorf("refs = %+v, want %+v", refs, want)
+		return ""
+	})})
+	want := []render.Row{{Subject: "L0/C0/N0/RC/V0/R0", Route: "L0/C0/N0/RC/V0/R0"}, {Subject: "L0/C0/N0/RC/V0/R1", Route: "L0/C0/N0/RC/V0/R1"}}
+	if !reflect.DeepEqual(rows, want) {
+		t.Errorf("rows = %+v, want %+v", rows, want)
 	}
-	want := "   └─ route /b (prefix)\n" +
+	block := "   └─ route /b (prefix)\n" +
 		"      note: one candidate exists in the cluster\n" +
 		"      filters (request order):\n"
-	if !strings.Contains(out, want) {
+	if !strings.Contains(out, block) {
 		t.Errorf("no note under the /b route line:\n%s", out)
 	}
 }
 
-// TestText_RouteExtraRefs: every index in RouteRef follows the traversal, and
-// each note lands under its own route.
-func TestText_RouteExtraRefs(t *testing.T) {
+// TestText_RouteNoteRows: route rows follow the traversal, and each note
+// lands under its own route.
+func TestText_RouteNoteRows(t *testing.T) {
 	vh := func(name string, routes ...string) model.VirtualHost {
 		v := model.VirtualHost{Name: name}
 		for _, p := range routes {
@@ -137,16 +156,17 @@ func TestText_RouteExtraRefs(t *testing.T) {
 		{Name: "l0", FilterChains: []model.NetworkFilterChain{chainOf("c0", vh("v0", "/a"))}},
 		{Name: "l1", FilterChains: []model.NetworkFilterChain{chainOf("c0", vh("v0", "/b")), chainOf("c1", vh("v0", "/c"), vh("v1", "/d", "/e"))}},
 	}}
-	var refs []render.RouteRef
-	out := text(t, snap, render.Options{RouteExtra: func(r render.RouteRef) []string {
-		refs = append(refs, r)
-		return []string{fmt.Sprintf("ref %d %d %d %d", r.ListenerIdx, r.FilterChainIdx, r.VirtualHostIdx, r.RouteIdx)}
-	}})
-	want := []render.RouteRef{{0, 0, 0, 0}, {1, 0, 0, 0}, {1, 1, 0, 0}, {1, 1, 1, 0}, {1, 1, 1, 1}}
-	if !reflect.DeepEqual(refs, want) {
-		t.Errorf("refs = %v, want %v", refs, want)
+	var rows []render.Row
+	out := text(t, snap, render.Options{Notes: routeNotes(&rows, func(r render.Row) string { return "ref " + string(r.Route) })})
+	var got []model.ID
+	for _, r := range rows {
+		got = append(got, r.Route)
 	}
-	for _, pair := range [][2]string{{"/d", "ref 1 1 1 0"}, {"/e", "ref 1 1 1 1"}, {"/c", "ref 1 1 0 0"}} {
+	want := []model.ID{"L0/C0/N0/RC/V0/R0", "L1/C0/N0/RC/V0/R0", "L1/C1/N0/RC/V0/R0", "L1/C1/N0/RC/V1/R0", "L1/C1/N0/RC/V1/R1"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("routes = %v, want %v", got, want)
+	}
+	for _, pair := range [][2]string{{"/d", "ref L1/C1/N0/RC/V1/R0"}, {"/e", "ref L1/C1/N0/RC/V1/R1"}, {"/c", "ref L1/C1/N0/RC/V0/R0"}} {
 		lines := strings.Split(out, "\n")
 		i := slices.IndexFunc(lines, func(l string) bool { return strings.Contains(l, "route "+pair[0]+" ") })
 		if i < 0 || i+1 >= len(lines) || strings.TrimLeft(lines[i+1], " │") != pair[1] {

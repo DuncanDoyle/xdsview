@@ -7,18 +7,44 @@ type EffectiveChain struct {
 	Conditional bool         `json:"conditional,omitempty"` // a backend's per-filter config may override (weighted clusters)
 }
 
-// ChainEntry is one HCM filter as a route sees it.
+// ChainEntry is one HCM filter slot as a route sees it.
 type ChainEntry struct {
-	Name          string         `json:"name"`
-	Type          string         `json:"type,omitempty"` // HTTPFilter.Type
-	Runs          bool           `json:"runs"`
-	State         FilterState    `json:"state"`
-	Level         ConfigLevel    `json:"level,omitempty"`         // where the deciding per-filter config is; empty for the HCM default
-	PerFilterType string         `json:"perFilterType,omitempty"` // @type of the deciding per-filter config
-	Request       Side           `json:"request"`                 // has a request (decoder) side
-	Response      Side           `json:"response"`                // has a response (encoder) side
-	Contributions []Contribution `json:"contributions,omitempty"` // what configured this entry, when the mapper knows
+	Slot          ID          `json:"slot"` // the HTTPFilter's ID
+	Name          string      `json:"name"`
+	Type          string      `json:"type,omitempty"` // HTTPFilter.Type
+	Runs          Tri         `json:"runs"`           // unknown when the deciding per-filter config is one Envoy would reject
+	State         FilterState `json:"state"`
+	Level         ConfigLevel `json:"level,omitempty"`         // where the deciding per-filter config is; empty for the HCM default
+	PerFilterType string      `json:"perFilterType,omitempty"` // @type of the deciding per-filter config
+	Request       Tri         `json:"request"`                 // has a request (decoder) side
+	Response      Tri         `json:"response"`                // has a response (encoder) side
+	Wrapper       string      `json:"wrapper,omitempty"`       // WrapperComposite or WrapperExtensionWithMatcher; empty otherwise
+	Conditional   bool        `json:"conditional,omitempty"`   // a matcher can pick a delegate or skip the filter
+	ConfigSource  string      `json:"configSource,omitempty"`  // ConfigInline, ConfigECDS or ConfigECDSDefault; empty when unresolved
 }
+
+// Tri is a yes, no or unknown answer. Unknown means the dump doesn't establish it.
+type Tri string
+
+// Tri values.
+const (
+	TriYes     Tri = "yes"
+	TriNo      Tri = "no"
+	TriUnknown Tri = "unknown"
+)
+
+// Filter wrappers: the installed filter decides at runtime what runs inside it.
+const (
+	WrapperComposite            = "composite"            // a Composite filter, which runs the delegate a match picks
+	WrapperExtensionWithMatcher = "extensionWithMatcher" // an ExtensionWithMatcher, which skips its inner filter unless a match allows it
+)
+
+// Config sources: where a filter slot's config comes from.
+const (
+	ConfigInline      = "inline"      // the HCM's http_filters entry
+	ConfigECDS        = "ecds"        // an extension config discovery entry
+	ConfigECDSDefault = "ecdsDefault" // the default_config of a filter with config_discovery
+)
 
 // FilterState says why a filter runs or not on a route.
 type FilterState string
@@ -42,16 +68,6 @@ const (
 	LevelRouteConfig ConfigLevel = "routeConfig"
 )
 
-// Side says whether a filter type handles one direction of a stream.
-type Side string
-
-// Sides. Unknown is for filter types xdsview has no record of.
-const (
-	SideYes     Side = "yes"
-	SideNo      Side = "no"
-	SideUnknown Side = "unknown"
-)
-
 // ContributionKind is the kind of object behind a chain entry.
 type ContributionKind string
 
@@ -62,7 +78,7 @@ const (
 )
 
 // Contribution is one object attributed to a chain entry: the extension that
-// defines the filter instance, or a policy field attributed to it on this route.
+// defines the filter instance, or a policy field attributed to it on one route.
 //
 // Certainty is the mapper's [FilterOrigin] certainty for an extension. A policy
 // contribution is at most [Inferred]: the route metadata records the field, and
@@ -74,25 +90,25 @@ type Contribution struct {
 	Certainty Certainty        `json:"certainty"`
 }
 
-// RequestOrder returns the running entries that handle requests, in HCM order.
-// Entries with an unknown request side are kept.
+// RequestOrder returns the entries that may run and handle requests, in HCM
+// order. Entries whose run state or request side is unknown are kept.
 func (c EffectiveChain) RequestOrder() []ChainEntry {
 	var out []ChainEntry
 	for _, e := range c.Filters {
-		if e.Runs && e.Request != SideNo {
+		if e.Runs != TriNo && e.Request != TriNo {
 			out = append(out, e)
 		}
 	}
 	return out
 }
 
-// ResponseOrder returns the running entries that handle responses, in the
-// reverse of HCM order, which is the order Envoy runs encoders in. Entries with
-// an unknown response side are kept.
+// ResponseOrder returns the entries that may run and handle responses, in the
+// reverse of HCM order, which is the order Envoy runs encoders in. Entries
+// whose run state or response side is unknown are kept.
 func (c EffectiveChain) ResponseOrder() []ChainEntry {
 	var out []ChainEntry
 	for i := len(c.Filters) - 1; i >= 0; i-- {
-		if e := c.Filters[i]; e.Runs && e.Response != SideNo {
+		if e := c.Filters[i]; e.Runs != TriNo && e.Response != TriNo {
 			out = append(out, e)
 		}
 	}

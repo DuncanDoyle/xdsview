@@ -27,36 +27,30 @@ const helpText = "↑/↓ navigate • Enter/Space expand • a toggle all • q
 
 // model holds all mutable state for the interactive TUI session.
 type model struct {
-	snapshot *envoymodel.Snapshot
-	items    []render.FilterRef
+	view     renderer.View
+	items    []render.Row
 	cursor   int
-	expanded map[render.FilterRef]bool
+	expanded map[render.Row]bool
 	viewport viewport.Model
 }
 
-// buildItems returns the flat ordered list of all navigable FilterRefs in the
+// buildItems returns the flat ordered list of all navigable filter rows in the
 // snapshot. It follows the canonical traversal order so that items[N] always
 // corresponds to the N-th filter rendered on screen by [renderer.RenderInteractive].
 //
 // Filter chains with a nil HCM or a nil RouteConfig are skipped — they produce
 // no navigable filters (same as the renderer, which shows "[no HCM]" / "[RDS not found]").
-func buildItems(snapshot *envoymodel.Snapshot) []render.FilterRef {
-	var items []render.FilterRef
-	for lIdx, listener := range snapshot.Listeners {
-		for fcIdx, fc := range listener.FilterChains {
+func buildItems(snapshot *envoymodel.Snapshot) []render.Row {
+	var items []render.Row
+	for _, listener := range snapshot.Listeners {
+		for _, fc := range listener.FilterChains {
 			if fc.HCM == nil || fc.HCM.RouteConfig == nil {
 				continue
 			}
-			for vhIdx, vh := range fc.HCM.RouteConfig.VirtualHosts {
-				for rIdx := range vh.Routes {
-					for fIdx := range fc.HCM.HTTPFilters {
-						items = append(items, render.FilterRef{
-							ListenerIdx:    lIdx,
-							FilterChainIdx: fcIdx,
-							VirtualHostIdx: vhIdx,
-							RouteIdx:       rIdx,
-							FilterIdx:      fIdx,
-						})
+			for _, vh := range fc.HCM.RouteConfig.VirtualHosts {
+				for _, r := range vh.Routes {
+					for _, f := range fc.HCM.HTTPFilters {
+						items = append(items, render.Row{Subject: f.ID, Route: r.ID, Slot: f.ID})
 					}
 				}
 			}
@@ -107,22 +101,22 @@ func (m *model) scrollToCursor(cursorLine int) {
 // setContent re-renders the snapshot with the current interactive state and
 // sets the viewport content. Called on every state change.
 func (m *model) setContent() {
-	content := renderer.RenderInteractive(m.snapshot, m.renderOpts())
+	content := renderer.RenderInteractive(m.view, m.renderOpts())
 	m.viewport.SetContent(content)
 	m.scrollToCursor(findCursorLine(content))
 }
 
-// initialModel constructs the initial TUI model for the given snapshot.
+// initialModel constructs the initial TUI model for the given view.
 // It calls buildItems once to populate the flat navigation list and initialises
 // the viewport with default dimensions; the actual terminal size is applied when
 // the first tea.WindowSizeMsg is received in Update.
-func initialModel(snapshot *envoymodel.Snapshot) model {
+func initialModel(v renderer.View) model {
 	vp := viewport.New(defaultWidth, defaultHeight)
 	m := model{
-		snapshot: snapshot,
-		items:    buildItems(snapshot),
+		view:     v,
+		items:    buildItems(v.Snapshot),
 		cursor:   0,
-		expanded: make(map[render.FilterRef]bool),
+		expanded: make(map[render.Row]bool),
 		viewport: vp,
 	}
 	return m
@@ -184,7 +178,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if len(m.expanded) == len(m.items) {
 				// All expanded — collapse all.
-				m.expanded = make(map[render.FilterRef]bool)
+				m.expanded = make(map[render.Row]bool)
 			} else {
 				// Some or none expanded — expand all.
 				for _, ref := range m.items {
@@ -207,15 +201,15 @@ func (m model) View() string {
 	return m.viewport.View() + "\n" + helpBarStyle.Render(helpText)
 }
 
-// Run starts the interactive TUI for the given snapshot. With no filter to
+// Run starts the interactive TUI for the given view. With no filter to
 // select, for example when only rejected listeners remain, it prints the
 // static tree to out instead, so their state and errors still show. It blocks
 // until the user quits (q or Ctrl+C) and returns any bubbletea program error.
-func Run(snapshot *envoymodel.Snapshot, out, errOut io.Writer) error {
-	m := initialModel(snapshot)
+func Run(v renderer.View, out, errOut io.Writer) error {
+	m := initialModel(v)
 	if len(m.items) == 0 {
 		fmt.Fprintln(errOut, "no expandable filters found; printing the tree")
-		fmt.Fprintln(out, renderer.Render(snapshot))
+		fmt.Fprintln(out, renderer.Render(v))
 		return nil
 	}
 	// Content is initialised in Update() when the first tea.WindowSizeMsg arrives.

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/DuncanDoyle/xdsview/internal/snaptest"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/chain"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/origin"
@@ -19,8 +20,8 @@ const (
 )
 
 // sample is one Gateway with an active listener whose route enables ext_auth
-// per route, and a warming listener with an error. It is annotated the way
-// krp does it: origins and chains from the kgateway mapper.
+// per route, and a warming listener with an error. Origins come from the
+// kgateway mapper; [sampleLabels] stands in for krp's contribution labels.
 func sample() *model.Snapshot {
 	hcm := &model.HCMConfig{
 		RouteConfigName: "listener~80",
@@ -53,13 +54,26 @@ func sample() *model.Snapshot {
 	}}
 	gw := &model.Ref{Group: "gateway.networking.k8s.io", Kind: "Gateway", Namespace: "shop", Name: "gw"}
 	m := origin.Kgateway(origin.KgatewayOptions{Gateway: gw})
-	return chain.Annotate(origin.Annotate(snap, m), m)
+	return origin.Annotate(snaptest.IDs(snap), m)
 }
 
+// sampleLabels are the labels krp gives sample's ext_auth and ratelimit rows.
+func sampleLabels(r render.Row) []string {
+	switch r.Slot {
+	case "L0/C0/N0/F1":
+		return []string{"GatewayExtension shop/auth (inferred)", "TrafficPolicy shop/auth (extAuth, inferred)"}
+	case "L0/C0/N0/F2":
+		return []string{"GatewayExtension shop/rl (inferred)"}
+	}
+	return nil
+}
+
+// text renders snap with the chains chain.Effective gives it. Without IDs, it adds them.
 func text(t *testing.T, snap *model.Snapshot, opts render.Options) string {
 	t.Helper()
+	snaptest.IDs(snap)
 	var b bytes.Buffer
-	if err := render.Text(&b, snap, opts); err != nil {
+	if err := render.Text(&b, snap, chain.Effective(snap), opts); err != nil {
 		t.Fatal(err)
 	}
 	return b.String()
@@ -82,7 +96,7 @@ listener~80 [::]:80 · active · Gateway shop/gw port 80 (inferred)
       backend: kube_shop_orders_8080
 listener~8443 [::]:8443 · warming · Gateway shop/gw port 8443 (inferred) · error: bad cert (2026-11-20T19:39:58Z)
 `
-	if got := text(t, sample(), render.Options{Header: "Gateway shop/gw · file dump.json"}); got != want {
+	if got := text(t, sample(), render.Options{Header: "Gateway shop/gw · file dump.json", Labels: sampleLabels}); got != want {
 		t.Errorf("Text =\n%s\nwant\n%s", got, want)
 	}
 }
@@ -100,7 +114,7 @@ func hasLine(t *testing.T, out, line string) {
 }
 
 func TestText_AllFilters(t *testing.T) {
-	out := text(t, sample(), render.Options{AllFilters: true})
+	out := text(t, sample(), render.Options{AllFilters: true, Labels: sampleLabels})
 	for _, l := range []string{
 		"        1 example.transformation     on",
 		"        2 ext_auth/shop/auth         enabled by route · GatewayExtension shop/auth (inferred) · TrafficPolicy shop/auth (extAuth, inferred)",
@@ -116,7 +130,7 @@ func TestText_AllFilters(t *testing.T) {
 }
 
 func TestText_ResponseOrder(t *testing.T) {
-	out := text(t, sample(), render.Options{ResponseOrder: true})
+	out := text(t, sample(), render.Options{ResponseOrder: true, Labels: sampleLabels})
 	want := "      filters (response order):\n" +
 		"        1 ext_auth/shop/auth      enabled by route · GatewayExtension shop/auth (inferred) · TrafficPolicy shop/auth (extAuth, inferred)\n" +
 		"        2 example.transformation  on\n"
@@ -132,8 +146,7 @@ func TestText_ResponseOrder(t *testing.T) {
 func TestText_UnknownSide(t *testing.T) {
 	snap := sample()
 	hcm := snap.Listeners[0].FilterChains[0].HCM
-	hcm.HTTPFilters = append([]model.HTTPFilter{{Name: "acme_waf", Type: typePrefix + "acme.Waf"}}, hcm.HTTPFilters...)
-	snap = chain.Annotate(snap, nil)
+	hcm.HTTPFilters = append([]model.HTTPFilter{{ID: "waf", Name: "acme_waf", Type: typePrefix + "acme.Waf"}}, hcm.HTTPFilters...)
 	out := text(t, snap, render.Options{ResponseOrder: true})
 	hasLine(t, out, "        1? acme_waf                   on")
 	hasLine(t, out, "        3? acme_waf                on")
@@ -147,7 +160,6 @@ func TestText_Conditional(t *testing.T) {
 		{Name: "v1", Weight: 80, TypedPerFilterConfig: map[string]any{"ext_auth/shop/auth": map[string]any{"@type": fcType, "disabled": true}}},
 		{Name: "v2", Weight: 20},
 	}
-	r.Chain = nil
 	out := text(t, snap, render.Options{})
 	hasLine(t, out, "      filters (request order, baseline before backend selection):")
 	hasLine(t, out, "      backend overrides: v1 (ext_auth/shop/auth)")
@@ -213,14 +225,34 @@ func TestText_Certainty(t *testing.T) {
 	}
 }
 
-// TestText_Unannotated computes chains when the snapshot has none, and prints no origins.
+// TestText_Unannotated prints no origins or labels when the snapshot and
+// hooks have none, and no filters for a route without a chain.
 func TestText_Unannotated(t *testing.T) {
 	snap := sample()
 	r := &snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes[0]
-	r.Chain, r.Origin, r.Policies = nil, nil, nil
+	r.Origin, r.Policies = nil, nil
 	out := text(t, snap, render.Options{})
 	hasLine(t, out, "   └─ route /orders (prefix)")
 	hasLine(t, out, "        2 ext_auth/shop/auth         enabled by route")
+
+	var b bytes.Buffer
+	if err := render.Text(&b, snap, nil, render.Options{}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(b.String(), "filters (request") || strings.Contains(b.String(), "not run:") {
+		t.Errorf("no chains, but filters printed:\n%s", b.String())
+	}
+}
+
+// TestText_UnknownRunState: an entry whose run state is unknown stays in
+// position with a "?" and its reason, and is not listed as not run.
+func TestText_UnknownRunState(t *testing.T) {
+	snap := sample()
+	r := &snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes[0]
+	r.TypedPerFilterConfig = map[string]any{"ratelimit/shop/rl": map[string]any{"@type": fcType}}
+	out := text(t, snap, render.Options{})
+	hasLine(t, out, "        2? ratelimit/shop/rl          unknown: invalid FilterConfig at route")
+	hasLine(t, out, "      not run: ext_auth/shop/auth (off), envoy.filters.http.cors (off)")
 }
 
 func TestText_NoListeners(t *testing.T) {
@@ -229,34 +261,66 @@ func TestText_NoListeners(t *testing.T) {
 	}
 }
 
-// TestText_Hooks checks that Style sees each filter row's ref and Extra adds lines under it.
+// TestText_Hooks checks that Style sees each filter row, Labels print on the
+// row and Notes add lines under it.
 func TestText_Hooks(t *testing.T) {
-	var refs []render.FilterRef
+	const route = "L0/C0/N0/RC/V0/R0"
+	var rows []render.Row
 	opts := render.Options{
 		AllFilters: true,
-		Style: func(c render.Class, ref *render.FilterRef, s string) string {
-			if ref != nil && (c == render.ClassFilter || c == render.ClassFilterOff) {
-				refs = append(refs, *ref)
+		Labels:     sampleLabels,
+		Style: func(c render.Class, r render.Row, s string) string {
+			if c == render.ClassFilter || c == render.ClassFilterOff {
+				rows = append(rows, r)
 				return "<" + s + ">"
 			}
 			return s
 		},
-		Extra: func(ref render.FilterRef) []string {
-			if ref.FilterIdx == 1 {
+		Notes: func(r render.Row) []string {
+			if r.Slot == "L0/C0/N0/F1" {
 				return []string{"{", `  "config": {}`, "}"}
 			}
 			return nil
 		},
 	}
 	out := text(t, sample(), opts)
-	if len(refs) != 5 || refs[4] != (render.FilterRef{FilterIdx: 4}) {
-		t.Errorf("refs = %+v, want 5, the last at FilterIdx 4", refs)
+	if want := (render.Row{Subject: "L0/C0/N0/F4", Route: route, Slot: "L0/C0/N0/F4"}); len(rows) != 5 || rows[4] != want {
+		t.Errorf("rows = %+v, want 5, the last %+v", rows, want)
 	}
 	want := "        2 <ext_auth/shop/auth>         enabled by route · GatewayExtension shop/auth (inferred) · TrafficPolicy shop/auth (extAuth, inferred)\n" +
 		"            {\n" +
 		"              \"config\": {}\n" +
 		"            }\n"
 	if !strings.Contains(out, want) {
-		t.Errorf("no styled row with extra lines\n%s\nin\n%s", want, out)
+		t.Errorf("no styled row with labels and notes\n%s\nin\n%s", want, out)
+	}
+}
+
+// TestText_RowsPerRoute: one slot under two routes with different per-filter
+// config is two rows, and each gets its own labels and notes.
+func TestText_RowsPerRoute(t *testing.T) {
+	enable := map[string]any{"@type": fcType, "config": map[string]any{"a": 1}}
+	snap := oneHCM([]model.HTTPFilter{{Name: "authz", Type: httpFilters + "ext_authz.v3.ExtAuthz", Disabled: true}},
+		model.Route{Match: model.RouteMatch{Prefix: "/a"}, TypedPerFilterConfig: map[string]any{"authz": enable}})
+	vh := &snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0]
+	vh.Routes = append(vh.Routes, model.Route{Match: model.RouteMatch{Prefix: "/b"},
+		TypedPerFilterConfig: map[string]any{"authz": map[string]any{"@type": fcType, "config": map[string]any{"b": 2}}}})
+	out := text(t, snap, render.Options{
+		Labels: func(r render.Row) []string { return []string{"label " + string(r.Route)} },
+		Notes: func(r render.Row) []string {
+			if r.Slot == "" {
+				return nil
+			}
+			return []string{"note " + string(r.Route) + " " + string(r.Slot)}
+		},
+	})
+	for _, r := range []string{"L0/C0/N0/RC/V0/R0", "L0/C0/N0/RC/V0/R1"} {
+		row := "  1 authz  enabled by route · label " + r + "\n"
+		if !strings.Contains(out, row) {
+			t.Errorf("no row %q in\n%s", row, out)
+		}
+		if !strings.Contains(out, "      note "+r+" L0/C0/N0/F0\n") {
+			t.Errorf("no note for %s in\n%s", r, out)
+		}
 	}
 }

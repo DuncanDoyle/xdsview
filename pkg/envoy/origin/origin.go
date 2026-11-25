@@ -37,7 +37,7 @@ type Mapper interface {
 
 // PolicyFilters is implemented by mappers that know which HTTP filter a policy
 // field configures, e.g. that a TrafficPolicy's extAuth field configures an
-// ext_authz filter. It is optional; chain.Annotate uses it to attribute entries.
+// ext_authz filter. It is optional; krp uses it to attribute chain entries.
 type PolicyFilters interface {
 	PolicyFilter(p model.PolicyRef, f model.HTTPFilter) bool
 }

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/DuncanDoyle/xdsview/internal/renderer"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/chain"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/parser"
 )
@@ -89,7 +90,7 @@ func TestE2E_UpstreamFilters(t *testing.T) {
 	if !slices.Equal(got, want) {
 		t.Errorf("UpstreamFilters = %v, want %v", got, want)
 	}
-	out := ansiCodes.ReplaceAllString(renderer.Render(snap), "")
+	out := ansiCodes.ReplaceAllString(renderer.Render(renderer.View{Snapshot: snap, Chains: chain.Effective(snap)}), "")
 	if !strings.Contains(out, "router upstream filters (as configured): "+strings.Join(want, ", ")) {
 		t.Errorf("rendered upstream filters missing or out of order:\n%s", out)
 	}

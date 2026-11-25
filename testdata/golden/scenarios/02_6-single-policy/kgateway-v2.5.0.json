@@ -146,35 +146,26 @@
                         "effectiveChain": {
                           "filters": [
                             {
+                              "slot": "L0/C0/N0/F0",
                               "name": "envoy.filters.http.cors",
                               "type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors",
-                              "runs": true,
+                              "runs": "yes",
                               "state": "enabled",
                               "level": "route",
                               "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.CorsPolicy",
                               "request": "yes",
                               "response": "yes",
-                              "contributions": [
-                                {
-                                  "kind": "policy",
-                                  "ref": {
-                                    "group": "gateway.kgateway.dev",
-                                    "kind": "TrafficPolicy",
-                                    "namespace": "kgateway-system",
-                                    "name": "cors"
-                                  },
-                                  "field": "cors",
-                                  "certainty": "inferred"
-                                }
-                              ]
+                              "configSource": "inline"
                             },
                             {
+                              "slot": "L0/C0/N0/F1",
                               "name": "envoy.filters.http.router",
                               "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": true,
+                              "runs": "yes",
                               "state": "on",
                               "request": "yes",
-                              "response": "no"
+                              "response": "no",
+                              "configSource": "inline"
                             }
                           ]
                         }
@@ -221,6 +212,23 @@
         "name": "listener~80"
       }
     ]
+  },
+  "contributions": {
+    "L0/C0/N0/RC/V0/R0": {
+      "L0/C0/N0/F0": [
+        {
+          "kind": "policy",
+          "ref": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "kgateway-system",
+            "name": "cors"
+          },
+          "field": "cors",
+          "certainty": "inferred"
+        }
+      ]
+    }
   },
   "warnings": []
 }

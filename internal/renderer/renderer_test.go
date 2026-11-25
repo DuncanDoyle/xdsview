@@ -1,6 +1,7 @@
 package renderer_test
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -9,9 +10,23 @@ import (
 	"github.com/muesli/termenv"
 
 	"github.com/DuncanDoyle/xdsview/internal/renderer"
+	"github.com/DuncanDoyle/xdsview/internal/snaptest"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/chain"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/render"
 )
+
+// view gives snap IDs and pairs it with its chains, as krp does.
+func view(snap *model.Snapshot) renderer.View {
+	snaptest.IDs(snap)
+	return renderer.View{Snapshot: snap, Chains: chain.Effective(snap)}
+}
+
+// filterRow is the row of the first route's i-th HCM filter in a one-HCM snapshot.
+func filterRow(i int) render.Row {
+	slot := model.ID(fmt.Sprintf("L0/C0/N0/F%d", i))
+	return render.Row{Subject: slot, Route: "L0/C0/N0/RC/V0/R0", Slot: slot}
+}
 
 // TestMain forces ANSI color output for all renderer tests. Without this,
 // lipgloss detects no TTY and strips all ANSI escape codes, making it
@@ -60,7 +75,7 @@ func TestRender_SimpleHTTP(t *testing.T) {
 		},
 	}
 
-	output := renderer.Render(snapshot)
+	output := renderer.Render(view(snapshot))
 
 	checks := []string{
 		"listener~80",
@@ -125,7 +140,7 @@ func TestRender_HTTPS_TwoFilterChains(t *testing.T) {
 		},
 	}
 
-	output := renderer.Render(snapshot)
+	output := renderer.Render(view(snapshot))
 
 	checks := []string{
 		"listener~443",
@@ -178,7 +193,7 @@ func TestRender_RoutePolicies_HeaderModifier(t *testing.T) {
 		},
 	}
 
-	output := renderer.Render(snapshot)
+	output := renderer.Render(view(snapshot))
 
 	checks := []string{
 		"request headers: + x-holiday: christmas",
@@ -225,7 +240,7 @@ func TestRender_RoutePolicies_Mirror(t *testing.T) {
 		},
 	}
 
-	output := renderer.Render(snapshot)
+	output := renderer.Render(view(snapshot))
 
 	checks := []string{"mirror:", "kube_httpbin_httpbin-mirror_8000"}
 	for _, s := range checks {
@@ -277,7 +292,7 @@ func TestRender_DisabledFilter_ActiveOnRoute(t *testing.T) {
 		},
 	}
 
-	output := renderer.Render(snapshot)
+	output := renderer.Render(view(snapshot))
 
 	if strings.Contains(output, "disabled") {
 		t.Errorf("expected filter to NOT show as disabled when active via typed_per_filter_config\nOutput:\n%s", output)
@@ -289,7 +304,7 @@ func TestRender_DisabledFilter_ActiveOnRoute(t *testing.T) {
 
 func TestRender_EmptySnapshot(t *testing.T) {
 	snapshot := &model.Snapshot{}
-	output := renderer.Render(snapshot)
+	output := renderer.Render(view(snapshot))
 	if !strings.Contains(output, "no listeners") {
 		t.Errorf("expected 'no listeners' message for empty snapshot, got:\n%s", output)
 	}
@@ -335,7 +350,7 @@ func TestRender_RoutePolicies_URLRewrite(t *testing.T) {
 		},
 	}
 
-	output := renderer.Render(snapshot)
+	output := renderer.Render(view(snapshot))
 
 	checks := []string{
 		"rewrite:",
@@ -354,7 +369,7 @@ func TestRender_RoutePolicies_URLRewrite(t *testing.T) {
 // Covers issue #10.
 func TestRender_MatchTypes_PathSeparatedPrefix(t *testing.T) {
 	snapshot := routeSnapshotWithMatch(model.RouteMatch{PathSeparatedPrefix: "/api/v1"})
-	output := renderer.Render(snapshot)
+	output := renderer.Render(view(snapshot))
 
 	if !strings.Contains(output, "/api/v1") {
 		t.Errorf("expected path value in output\nOutput:\n%s", output)
@@ -369,7 +384,7 @@ func TestRender_MatchTypes_PathSeparatedPrefix(t *testing.T) {
 // Covers issue #10.
 func TestRender_MatchTypes_Regex(t *testing.T) {
 	snapshot := routeSnapshotWithMatch(model.RouteMatch{Regex: "^/api/v[0-9]+/.*$"})
-	output := renderer.Render(snapshot)
+	output := renderer.Render(view(snapshot))
 
 	if !strings.Contains(output, "^/api/v[0-9]+/.*$") {
 		t.Errorf("expected regex value in output\nOutput:\n%s", output)
@@ -387,7 +402,7 @@ func TestRender_MatchTypes_HeaderExact(t *testing.T) {
 		Prefix:  "/api",
 		Headers: []model.HeaderMatch{{Name: "x-env", Value: "prod"}},
 	})
-	output := renderer.Render(snapshot)
+	output := renderer.Render(view(snapshot))
 
 	if !strings.Contains(output, "header(x-env=prod)") {
 		t.Errorf("expected 'header(x-env=prod)' in output\nOutput:\n%s", output)
@@ -402,7 +417,7 @@ func TestRender_MatchTypes_HeaderRegex(t *testing.T) {
 		Prefix:  "/api",
 		Headers: []model.HeaderMatch{{Name: "x-env", Value: "prod.*", Regex: true}},
 	})
-	output := renderer.Render(snapshot)
+	output := renderer.Render(view(snapshot))
 
 	if !strings.Contains(output, "header(x-env~prod.*)") {
 		t.Errorf("expected 'header(x-env~prod.*)' in output\nOutput:\n%s", output)
@@ -417,7 +432,7 @@ func TestRender_MatchTypes_QueryParamExact(t *testing.T) {
 		Prefix:      "/search",
 		QueryParams: []model.QueryParamMatch{{Name: "q", Value: "hello"}},
 	})
-	output := renderer.Render(snapshot)
+	output := renderer.Render(view(snapshot))
 
 	if !strings.Contains(output, "query(q=hello)") {
 		t.Errorf("expected 'query(q=hello)' in output\nOutput:\n%s", output)
@@ -432,7 +447,7 @@ func TestRender_MatchTypes_QueryParamRegex(t *testing.T) {
 		Prefix:      "/search",
 		QueryParams: []model.QueryParamMatch{{Name: "q", Value: "hel.*", Regex: true}},
 	})
-	output := renderer.Render(snapshot)
+	output := renderer.Render(view(snapshot))
 
 	if !strings.Contains(output, "query(q~hel.*)") {
 		t.Errorf("expected 'query(q~hel.*)' in output\nOutput:\n%s", output)
@@ -488,8 +503,8 @@ func interactiveSnapshot() *model.Snapshot {
 // opts produces string-equal output to Render (same string, no ANSI differences).
 func TestRenderInteractive_NoOpts(t *testing.T) {
 	snapshot := interactiveSnapshot()
-	static := renderer.Render(snapshot)
-	interactive := renderer.RenderInteractive(snapshot, renderer.RenderOpts{})
+	static := renderer.Render(view(snapshot))
+	interactive := renderer.RenderInteractive(view(snapshot), renderer.RenderOpts{})
 	if static != interactive {
 		t.Errorf("expected RenderInteractive with empty opts to equal Render output\nRender:\n%s\nRenderInteractive:\n%s", static, interactive)
 	}
@@ -499,13 +514,13 @@ func TestRenderInteractive_NoOpts(t *testing.T) {
 // filter changes the output (the filter name is still present but styled differently).
 func TestRenderInteractive_CursorOnFirstFilter(t *testing.T) {
 	snapshot := interactiveSnapshot()
-	cursor := render.FilterRef{ListenerIdx: 0, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 0}
-	output := renderer.RenderInteractive(snapshot, renderer.RenderOpts{Cursor: &cursor})
+	cursor := filterRow(0)
+	output := renderer.RenderInteractive(view(snapshot), renderer.RenderOpts{Cursor: &cursor})
 
 	if !strings.Contains(output, "example.transformation") {
 		t.Errorf("expected filter name to still be present in output\nOutput:\n%s", output)
 	}
-	static := renderer.Render(snapshot)
+	static := renderer.Render(view(snapshot))
 	if output == static {
 		t.Errorf("expected cursor output to differ from static output")
 	}
@@ -555,9 +570,9 @@ func TestRenderInteractive_ExpandedPerRouteConfig(t *testing.T) {
 		},
 	}
 
-	ref := render.FilterRef{ListenerIdx: 0, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 0}
-	output := renderer.RenderInteractive(snapshot, renderer.RenderOpts{
-		Expanded: map[render.FilterRef]bool{ref: true},
+	ref := filterRow(0)
+	output := renderer.RenderInteractive(view(snapshot), renderer.RenderOpts{
+		Expanded: map[render.Row]bool{ref: true},
 	})
 
 	// Per-route config takes precedence; its keys should appear in the output.
@@ -573,9 +588,9 @@ func TestRenderInteractive_ExpandedPerRouteConfig(t *testing.T) {
 // TypedPerFilterConfig falls back to showing HTTPFilter.TypedConfig when expanded.
 func TestRenderInteractive_ExpandedHCMFallback(t *testing.T) {
 	snapshot := interactiveSnapshot() // first filter has TypedConfig at HCM level
-	ref := render.FilterRef{ListenerIdx: 0, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 0}
-	output := renderer.RenderInteractive(snapshot, renderer.RenderOpts{
-		Expanded: map[render.FilterRef]bool{ref: true},
+	ref := filterRow(0)
+	output := renderer.RenderInteractive(view(snapshot), renderer.RenderOpts{
+		Expanded: map[render.Row]bool{ref: true},
 	})
 
 	if !strings.Contains(output, "RouteTransformations") {
@@ -587,9 +602,9 @@ func TestRenderInteractive_ExpandedHCMFallback(t *testing.T) {
 // typed config at either level shows "(no typed config)".
 func TestRenderInteractive_ExpandedNoConfig(t *testing.T) {
 	snapshot := interactiveSnapshot() // second filter (envoy.filters.http.router) has no TypedConfig
-	ref := render.FilterRef{ListenerIdx: 0, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 1}
-	output := renderer.RenderInteractive(snapshot, renderer.RenderOpts{
-		Expanded: map[render.FilterRef]bool{ref: true},
+	ref := filterRow(1)
+	output := renderer.RenderInteractive(view(snapshot), renderer.RenderOpts{
+		Expanded: map[render.Row]bool{ref: true},
 	})
 
 	if !strings.Contains(output, "(no typed config)") {
@@ -635,9 +650,9 @@ func TestRenderInteractive_ExpandedEmptyMap(t *testing.T) {
 		},
 	}
 
-	ref := render.FilterRef{ListenerIdx: 0, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 0}
-	output := renderer.RenderInteractive(snapshot, renderer.RenderOpts{
-		Expanded: map[render.FilterRef]bool{ref: true},
+	ref := filterRow(0)
+	output := renderer.RenderInteractive(view(snapshot), renderer.RenderOpts{
+		Expanded: map[render.Row]bool{ref: true},
 	})
 
 	if !strings.Contains(output, "{}") {
@@ -649,11 +664,11 @@ func TestRenderInteractive_ExpandedEmptyMap(t *testing.T) {
 // config for all of them.
 func TestRenderInteractive_AllExpanded(t *testing.T) {
 	snapshot := interactiveSnapshot()
-	expanded := map[render.FilterRef]bool{
-		{ListenerIdx: 0, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 0}: true,
-		{ListenerIdx: 0, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 1}: true,
+	expanded := map[render.Row]bool{
+		filterRow(0): true,
+		filterRow(1): true,
 	}
-	output := renderer.RenderInteractive(snapshot, renderer.RenderOpts{Expanded: expanded})
+	output := renderer.RenderInteractive(view(snapshot), renderer.RenderOpts{Expanded: expanded})
 
 	// First filter has HCM-level config; second has none.
 	if !strings.Contains(output, "RouteTransformations") {
@@ -680,13 +695,13 @@ func TestRenderInteractive_NilHCM(t *testing.T) {
 	}
 
 	// Should not panic even with a cursor set.
-	ref := render.FilterRef{}
+	ref := filterRow(0)
 	defer func() {
 		if r := recover(); r != nil {
 			t.Errorf("RenderInteractive panicked on nil-HCM snapshot: %v", r)
 		}
 	}()
-	output := renderer.RenderInteractive(snapshot, renderer.RenderOpts{Cursor: &ref})
+	output := renderer.RenderInteractive(view(snapshot), renderer.RenderOpts{Cursor: &ref})
 
 	if !strings.Contains(output, "no HTTP connection manager") {
 		t.Errorf("expected 'no HTTP connection manager' in output for nil-HCM filter chain\nOutput:\n%s", output)
@@ -791,8 +806,8 @@ func TestRenderInteractive_NoOpts_RicherSnapshot(t *testing.T) {
 
 	// Render names the disabled filter on the not-run line; RenderInteractive
 	// lists it as a row, so the TUI cursor can reach it.
-	static := ansi.ReplaceAllString(renderer.Render(snapshot), "")
-	interactive := ansi.ReplaceAllString(renderer.RenderInteractive(snapshot, renderer.RenderOpts{}), "")
+	static := ansi.ReplaceAllString(renderer.Render(view(snapshot)), "")
+	interactive := ansi.ReplaceAllString(renderer.RenderInteractive(view(snapshot), renderer.RenderOpts{}), "")
 	if !strings.Contains(static, "not run: envoy.filters.http.cors (off)") {
 		t.Errorf("Render: cors not on the not-run line\n%s", static)
 	}
@@ -807,10 +822,10 @@ func TestRenderInteractive_NoOpts_RicherSnapshot(t *testing.T) {
 // must appear in the output simultaneously.
 func TestRenderInteractive_CursorAndExpanded(t *testing.T) {
 	snapshot := interactiveSnapshot() // first filter has HCM-level TypedConfig
-	ref := render.FilterRef{ListenerIdx: 0, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 0}
-	output := renderer.RenderInteractive(snapshot, renderer.RenderOpts{
+	ref := filterRow(0)
+	output := renderer.RenderInteractive(view(snapshot), renderer.RenderOpts{
 		Cursor:   &ref,
-		Expanded: map[render.FilterRef]bool{ref: true},
+		Expanded: map[render.Row]bool{ref: true},
 	})
 
 	// Cursor highlight must be present (reverse-video ANSI code).

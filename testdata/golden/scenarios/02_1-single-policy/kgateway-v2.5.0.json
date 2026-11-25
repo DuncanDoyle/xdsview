@@ -157,35 +157,26 @@
                         "effectiveChain": {
                           "filters": [
                             {
+                              "slot": "L0/C0/N0/F0",
                               "name": "dynamic_modules/simple_mutations",
                               "type": "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilter",
-                              "runs": true,
+                              "runs": "yes",
                               "state": "enabled",
                               "level": "route",
                               "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilterPerRoute",
                               "request": "yes",
                               "response": "yes",
-                              "contributions": [
-                                {
-                                  "kind": "policy",
-                                  "ref": {
-                                    "group": "gateway.kgateway.dev",
-                                    "kind": "TrafficPolicy",
-                                    "namespace": "kgateway-system",
-                                    "name": "transformation"
-                                  },
-                                  "field": "transformation",
-                                  "certainty": "inferred"
-                                }
-                              ]
+                              "configSource": "inline"
                             },
                             {
+                              "slot": "L0/C0/N0/F1",
                               "name": "envoy.filters.http.router",
                               "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": true,
+                              "runs": "yes",
                               "state": "on",
                               "request": "yes",
-                              "response": "no"
+                              "response": "no",
+                              "configSource": "inline"
                             }
                           ]
                         }
@@ -353,35 +344,26 @@
                         "effectiveChain": {
                           "filters": [
                             {
+                              "slot": "L0/C1/N0/F0",
                               "name": "dynamic_modules/simple_mutations",
                               "type": "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilter",
-                              "runs": true,
+                              "runs": "yes",
                               "state": "enabled",
                               "level": "route",
                               "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilterPerRoute",
                               "request": "yes",
                               "response": "yes",
-                              "contributions": [
-                                {
-                                  "kind": "policy",
-                                  "ref": {
-                                    "group": "gateway.kgateway.dev",
-                                    "kind": "TrafficPolicy",
-                                    "namespace": "kgateway-system",
-                                    "name": "transformation"
-                                  },
-                                  "field": "transformation",
-                                  "certainty": "inferred"
-                                }
-                              ]
+                              "configSource": "inline"
                             },
                             {
+                              "slot": "L0/C1/N0/F1",
                               "name": "envoy.filters.http.router",
                               "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": true,
+                              "runs": "yes",
                               "state": "on",
                               "request": "yes",
-                              "response": "no"
+                              "response": "no",
+                              "configSource": "inline"
                             }
                           ]
                         }
@@ -433,6 +415,38 @@
         "name": "https-developer"
       }
     ]
+  },
+  "contributions": {
+    "L0/C0/N0/RC/V0/R0": {
+      "L0/C0/N0/F0": [
+        {
+          "kind": "policy",
+          "ref": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "kgateway-system",
+            "name": "transformation"
+          },
+          "field": "transformation",
+          "certainty": "inferred"
+        }
+      ]
+    },
+    "L0/C1/N0/RC/V0/R0": {
+      "L0/C1/N0/F0": [
+        {
+          "kind": "policy",
+          "ref": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "kgateway-system",
+            "name": "transformation"
+          },
+          "field": "transformation",
+          "certainty": "inferred"
+        }
+      ]
+    }
   },
   "warnings": []
 }

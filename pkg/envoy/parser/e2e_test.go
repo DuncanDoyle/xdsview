@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/DuncanDoyle/xdsview/internal/renderer"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/chain"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/parser"
 )
@@ -54,7 +55,7 @@ func TestParseAllScenarios(t *testing.T) {
 				t.Error("expected at least one listener")
 			}
 			// Verify rendering doesn't panic
-			if renderer.Render(result) == "" {
+			if renderer.Render(renderer.View{Snapshot: result, Chains: chain.Effective(result)}) == "" {
 				t.Error("expected non-empty render output")
 			}
 		})

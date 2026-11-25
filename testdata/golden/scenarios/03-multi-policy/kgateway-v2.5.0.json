@@ -282,109 +282,60 @@
                         "effectiveChain": {
                           "filters": [
                             {
+                              "slot": "L0/C0/N0/F0",
                               "name": "global_disable/ext_auth",
                               "type": "type.googleapis.com/envoy.extensions.filters.http.set_metadata.v3.Config",
-                              "runs": false,
+                              "runs": "no",
                               "state": "off",
                               "request": "yes",
-                              "response": "no"
+                              "response": "no",
+                              "configSource": "inline"
                             },
                             {
+                              "slot": "L0/C0/N0/F1",
                               "name": "envoy.filters.http.cors",
                               "type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors",
-                              "runs": true,
+                              "runs": "yes",
                               "state": "enabled",
                               "level": "route",
                               "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.CorsPolicy",
                               "request": "yes",
                               "response": "yes",
-                              "contributions": [
-                                {
-                                  "kind": "policy",
-                                  "ref": {
-                                    "group": "gateway.kgateway.dev",
-                                    "kind": "TrafficPolicy",
-                                    "namespace": "kgateway-system",
-                                    "name": "cors"
-                                  },
-                                  "field": "cors",
-                                  "certainty": "inferred"
-                                }
-                              ]
+                              "configSource": "inline"
                             },
                             {
+                              "slot": "L0/C0/N0/F2",
                               "name": "ext_auth/kgateway-system/ext-authz",
                               "type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
-                              "runs": true,
+                              "runs": "yes",
                               "state": "enabled",
                               "level": "route",
                               "perFilterType": "type.googleapis.com/envoy.config.route.v3.FilterConfig",
                               "request": "yes",
                               "response": "yes",
-                              "contributions": [
-                                {
-                                  "kind": "extension",
-                                  "ref": {
-                                    "group": "gateway.kgateway.dev",
-                                    "kind": "GatewayExtension",
-                                    "namespace": "kgateway-system",
-                                    "name": "ext-authz"
-                                  },
-                                  "certainty": "inferred"
-                                },
-                                {
-                                  "kind": "policy",
-                                  "ref": {
-                                    "group": "gateway.kgateway.dev",
-                                    "kind": "TrafficPolicy",
-                                    "namespace": "kgateway-system",
-                                    "name": "ext-auth"
-                                  },
-                                  "field": "extAuth",
-                                  "certainty": "inferred"
-                                }
-                              ]
+                              "configSource": "inline"
                             },
                             {
+                              "slot": "L0/C0/N0/F3",
                               "name": "ratelimit/kgateway-system/ratelimit",
                               "type": "type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit",
-                              "runs": true,
+                              "runs": "yes",
                               "state": "enabled",
                               "level": "route",
                               "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimitPerRoute",
                               "request": "yes",
                               "response": "yes",
-                              "contributions": [
-                                {
-                                  "kind": "extension",
-                                  "ref": {
-                                    "group": "gateway.kgateway.dev",
-                                    "kind": "GatewayExtension",
-                                    "namespace": "kgateway-system",
-                                    "name": "ratelimit"
-                                  },
-                                  "certainty": "inferred"
-                                },
-                                {
-                                  "kind": "policy",
-                                  "ref": {
-                                    "group": "gateway.kgateway.dev",
-                                    "kind": "TrafficPolicy",
-                                    "namespace": "kgateway-system",
-                                    "name": "rate-limit"
-                                  },
-                                  "field": "rateLimit.global",
-                                  "certainty": "inferred"
-                                }
-                              ]
+                              "configSource": "inline"
                             },
                             {
+                              "slot": "L0/C0/N0/F4",
                               "name": "envoy.filters.http.router",
                               "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": true,
+                              "runs": "yes",
                               "state": "on",
                               "request": "yes",
-                              "response": "no"
+                              "response": "no",
+                              "configSource": "inline"
                             }
                           ]
                         }
@@ -431,6 +382,69 @@
         "name": "listener~80"
       }
     ]
+  },
+  "contributions": {
+    "L0/C0/N0/RC/V0/R0": {
+      "L0/C0/N0/F1": [
+        {
+          "kind": "policy",
+          "ref": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "kgateway-system",
+            "name": "cors"
+          },
+          "field": "cors",
+          "certainty": "inferred"
+        }
+      ],
+      "L0/C0/N0/F2": [
+        {
+          "kind": "extension",
+          "ref": {
+            "group": "gateway.kgateway.dev",
+            "kind": "GatewayExtension",
+            "namespace": "kgateway-system",
+            "name": "ext-authz"
+          },
+          "certainty": "inferred"
+        },
+        {
+          "kind": "policy",
+          "ref": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "kgateway-system",
+            "name": "ext-auth"
+          },
+          "field": "extAuth",
+          "certainty": "inferred"
+        }
+      ],
+      "L0/C0/N0/F3": [
+        {
+          "kind": "extension",
+          "ref": {
+            "group": "gateway.kgateway.dev",
+            "kind": "GatewayExtension",
+            "namespace": "kgateway-system",
+            "name": "ratelimit"
+          },
+          "certainty": "inferred"
+        },
+        {
+          "kind": "policy",
+          "ref": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "kgateway-system",
+            "name": "rate-limit"
+          },
+          "field": "rateLimit.global",
+          "certainty": "inferred"
+        }
+      ]
+    }
   },
   "warnings": []
 }

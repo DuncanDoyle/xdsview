@@ -122,7 +122,7 @@ type Route struct {
 	Metadata                map[string]any    `json:"metadata,omitempty"`                // filter_metadata (Phase 4)
 	Origin                  *RouteAnnotation  `json:"origin,omitempty"`                  // set by origin.Annotate
 	Policies                []PolicyRef       `json:"policies,omitempty"`                // set by origin.Annotate
-	Chain                   *EffectiveChain   `json:"effectiveChain,omitempty"`          // set by chain.Annotate
+	Chain                   *EffectiveChain   `json:"effectiveChain,omitempty"`          // a copy of chain.Effective's result, set by callers that embed it; the core doesn't read it
 }
 
 // RouteRewrite captures path rewrite configuration on a route action.

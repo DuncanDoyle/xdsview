@@ -2,12 +2,16 @@ package chain
 
 import "github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 
+// sidesEnvoyVersion is the Envoy release the sides table was checked against:
+// the one kgateway v2.5.0 ships. Re-read every entry when it changes (P-012 rule 4).
+const sidesEnvoyVersion = "v1.39.6 (aacd0340)"
+
 // sides records, per filter type, whether Envoy installs the filter as a
 // decoder (request side), an encoder (response side) or both. Each entry cites
-// the add*Filter call in the filter's factory at Envoy v1.39.6 (aacd0340), the
-// Envoy kgateway v2.5.0 ships. Paths are under source/extensions/filters/http/
-// unless noted. A filter installed on a side may still pass through it.
-var sides = map[string][2]model.Side{
+// the add*Filter call in the filter's factory at [sidesEnvoyVersion]. Paths are
+// under source/extensions/filters/http/ unless noted. A filter installed on a
+// side may still pass through it.
+var sides = map[string][2]model.Tri{
 	"envoy.extensions.filters.http.router.v3.Router":                       decoder, // router/config.cc:26
 	"envoy.extensions.filters.http.set_metadata.v3.Config":                 decoder, // set_metadata/config.cc:24
 	"envoy.extensions.filters.http.cors.v3.Cors":                           both,    // cors/config.cc:26
@@ -34,14 +38,14 @@ var sides = map[string][2]model.Side{
 }
 
 var (
-	decoder = [2]model.Side{model.SideYes, model.SideNo}
-	both    = [2]model.Side{model.SideYes, model.SideYes}
+	decoder = [2]model.Tri{model.TriYes, model.TriNo}
+	both    = [2]model.Tri{model.TriYes, model.TriYes}
 )
 
 // sidesOf returns the request and response side of a filter type URL.
-func sidesOf(typeURL string) (model.Side, model.Side) {
+func sidesOf(typeURL string) (model.Tri, model.Tri) {
 	if s, ok := sides[typeName(typeURL)]; ok {
 		return s[0], s[1]
 	}
-	return model.SideUnknown, model.SideUnknown
+	return model.TriUnknown, model.TriUnknown
 }
