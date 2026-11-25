@@ -109,7 +109,7 @@ type Dependent struct {
 type Gap struct {
 	Subject model.ID
 	Kind    string   // the assertion kind expected, e.g. "routeSource"
-	Slot    model.ID // policyRecord only: the HTTP filter slot
+	Slot    model.ID // policyRecord only: the HTTP filter slot, empty for an unused source
 	Level   Level    // policyRecord only: the level the record is missing at
 }
 
@@ -133,7 +133,9 @@ type Gap struct {
 //     record both at inferred or exact; and an HTTP filter slot that runs by
 //     default and is not the router or a helper, unless for each route checked
 //     such a link on that route places a listener-level record on the slot.
-//     Every link and record that closes such a gap joins Objects;
+//     Every link and record that closes such a gap joins Objects. A route
+//     config source no HCM uses has one, with no Slot, while it has
+//     per-filter config;
 //   - gatewaySource: a listener with no GatewaySource above unknown;
 //   - a dropped claim's kind on its subject (Compose rule 3).
 func (ix *Index) Dependencies(block model.ID) Dependencies {
@@ -330,6 +332,16 @@ func (ix *Index) gaps(scope map[model.ID]bool) ([]Gap, []Claim) {
 					}
 				}
 			}
+		}
+	}
+	// A source no HCM uses has no slot to place its per-filter config on.
+	used := map[model.ID]bool{}
+	for _, src := range ix.st.useSource {
+		used[src] = true
+	}
+	for _, src := range ix.snap.RouteConfigs {
+		if scope[src.ID] && !used[src.ID] && len(src.TypedPerFilterConfig) > 0 {
+			addGap(Gap{Subject: src.ID, Kind: KindPolicyRecord, Level: LevelRouteConfig})
 		}
 	}
 	for _, c := range ix.dropped {

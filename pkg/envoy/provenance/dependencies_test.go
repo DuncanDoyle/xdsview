@@ -299,6 +299,26 @@ func TestDependencies_SourceBlock(t *testing.T) {
 	}
 }
 
+// TestDependencies_UnusedSource (Codex r3 N1): a source no HCM uses keeps a
+// policyRecord gap while it has per-filter config, a record on it or not,
+// since no link can place that config on a slot.
+func TestDependencies_UnusedSource(t *testing.T) {
+	snap := twoListeners()
+	snap.RouteConfigs = append(snap.RouteConfigs,
+		model.RouteConfigSource{ID: "RD2", Kind: model.SourceDynamic, Name: "unused", TypedPerFilterConfig: map[string]any{"authz": map[string]any{}}},
+		model.RouteConfigSource{ID: "RD3", Kind: model.SourceDynamic, Name: "bare"})
+	gap := provenance.Gap{Subject: "RD2", Kind: provenance.KindPolicyRecord, Level: provenance.LevelRouteConfig}
+	for _, claims := range [][]provenance.Claim{nil, {record("src", "RD2", provenance.LevelRouteConfig, policyA)}} {
+		ix := compose(t, snap, fixed{"m", claims})
+		if d := ix.Dependencies("RD2"); !slices.Contains(d.Gaps, gap) {
+			t.Errorf("%d records: RD2 gaps %v lack %+v", len(claims), d.Gaps, gap)
+		}
+		if d := ix.Dependencies("RD3"); hasGap(d, "RD3", provenance.KindPolicyRecord) {
+			t.Errorf("RD3 without per-filter config has a gap: %v", d.Gaps)
+		}
+	}
+}
+
 // TestDependencies_ClosersObjects (Codex r3 P1): every claim that closes a gap
 // adds its evidence objects, even when it sits outside the block's scope.
 func TestDependencies_ClosersObjects(t *testing.T) {
