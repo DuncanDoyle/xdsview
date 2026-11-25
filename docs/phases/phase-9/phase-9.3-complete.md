@@ -157,13 +157,14 @@ Fail-closed `Dependencies` on the 279 route blocks of the 51 scenario dumps (kga
 
 | Gap kind | Before | After | Static | kgateway | Class | Reason |
 |---|---|---|---|---|---|---|
-| `gatewaySource` | 279 | 279 | 204 | 75 | b | No corpus listener has metadata; a consumer closes it with its captured Gateway (§5 note 2). |
+| `gatewaySource` | 279 | 279 | 204 | 75 | b | No corpus listener has metadata. A consumer may close a kgateway listener's gap with its captured Gateway (§5 note 2). Captured Gateway context cannot close a static listener's gap: no Gateway owns it. |
 | `routeSource` | 271 | 271 | 204 | 67 | b | Static: bootstrap routes have no HTTPRoute. kgateway: no `route_source` metadata, and the name reads two to five ways; krp prints `ambiguous` too. The 8 routes with metadata resolve. |
-| `hostSource` | 204 | 204 | 204 | 0 | b | Bootstrap vhosts `local_service`, `prometheus_host`; kgateway vhosts all resolve. |
-| `backendSource` | 204 | 204 | 204 | 0 | b | `admin_port_cluster` is bootstrap; kgateway backends all resolve. |
-| `extensionSource` | 51 | 51 | 51 | 0 | b | `envoy.filters.http.health_check` on the readiness listener; no object installed it. |
+| `hostSource` | 0 | 204 | 204 | 0 | b | The base had no host gap rule. Bootstrap vhosts `local_service`, `prometheus_host` have no Kubernetes origin; kgateway vhosts all resolve. |
+| `backendSource` | 204 | 204 | 204 | 0 | b | `admin_port_cluster` is bootstrap, with no Kubernetes origin; kgateway backends all resolve. |
+| `backendSource` (mirror) | 0 | 2 | 0 | 2 | a | `httpbin-mirror` in both `02_4-single-policy` dumps. No input listed mirrors; no Phase 9 kind covers one (§5). |
+| `extensionSource` | 0 | 51 | 51 | 0 | b | The base required per-filter overrides for an extension gap. `envoy.filters.http.health_check` on the readiness listener has no Kubernetes origin. |
 | `policyRecord` | 51 | 51 | 51 | 0 | b | Same slot runs by default at listener level, with no `merge.*` record. |
 
-No (a) cause: on kgateway listeners the module covers every host, backend, slot and policy input krp shows an origin for, and the index drops no claim. Static gaps follow §5, which lists every listener as an input (part A deviation 9), so static route blocks can never be gap-free.
+One (a) cause, now fixed: mirror clusters, which both renderers show, were no input, so a route could hide a mirror Service the viewer cannot read. The JSON oracle test also found per-request cluster selectors, non-HCM network filters and a reported static source's listener missing; none occurs on a scenario route block. Static gaps follow §5, which lists every listener as an input (part A deviation 9), so static route blocks can never be gap-free.
 
-(c), not on the corpus: `placement` reports a gap when the routes checked are empty, as for a default-on slot of an HCM with no routes. §5's "for each route checked" would hold vacuously there.
+(c), not on the corpus: `placement` reports a gap when the routes checked are empty, as for a default-on slot of an HCM with no routes. §5's "for each route checked" would hold vacuously there. This predates the fail-closed rewrite.
