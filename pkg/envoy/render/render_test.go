@@ -289,6 +289,44 @@ two
 	}
 }
 
+// TestText_SlotWarnings (Codex r2 #7): a slot's warnings in a compact summary
+// or the upstream line pass the slot's row to Style, and upstream warnings
+// print when the HCM has no rendered route.
+func TestText_SlotWarnings(t *testing.T) {
+	snap := sample()
+	up := func() []model.HTTPFilter { return []model.HTTPFilter{{Name: "envoy.filters.http.upstream_codec"}} }
+	snap.Listeners = append(snap.Listeners,
+		model.Listener{Name: "missing", FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{RouteConfigName: "x",
+			RouteConfigUse: model.RouteConfigUse{State: model.RouteConfigMissing}, UpstreamFilters: up()}}}},
+		model.Listener{Name: "empty", FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{RouteConfigName: "y",
+			RouteConfig: &model.RouteConfig{Name: "y"}, UpstreamFilters: up()}}}})
+	snaptest.IDs(snap)
+	snap.Warnings = []model.Warning{
+		{Subject: "L0/C0/N0/F2", Message: "on ratelimit"},
+		{Subject: "L0/C0/N0/U0", Message: "on upstream"},
+		{Subject: "L2/C0/N0/U0", Message: "on missing's upstream"},
+		{Subject: "L3/C0/N0/U0", Message: "on empty's upstream"},
+	}
+	rows := map[string]render.Row{}
+	out := text(t, snap, render.Options{Style: func(c render.Class, r render.Row, s string) string {
+		if c == render.ClassWarning {
+			rows[s] = r
+		}
+		return s
+	}})
+	const route = "L0/C0/N0/RC/V0/R0"
+	for msg, want := range map[string]render.Row{
+		"warning: on ratelimit":          {Subject: "L0/C0/N0/F2", Route: route, Slot: "L0/C0/N0/F2"},
+		"warning: on upstream":           {Subject: "L0/C0/N0/U0", Route: route, Slot: "L0/C0/N0/U0"},
+		"warning: on missing's upstream": {Subject: "L2/C0/N0/U0", Slot: "L2/C0/N0/U0"},
+		"warning: on empty's upstream":   {Subject: "L3/C0/N0/U0", Slot: "L3/C0/N0/U0"},
+	} {
+		if got, ok := rows[msg]; !ok || got != want {
+			t.Errorf("%q styled with %+v (printed %v), want %+v\n%s", msg, got, ok, want, out)
+		}
+	}
+}
+
 func TestText_NoListeners(t *testing.T) {
 	if got := text(t, &model.Snapshot{}, render.Options{}); got != "no listeners\n" {
 		t.Errorf("Text = %q", got)

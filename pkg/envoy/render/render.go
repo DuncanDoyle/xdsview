@@ -110,13 +110,13 @@ type printer struct {
 	warned   map[model.ID]bool     // slots whose warnings the current chain printed
 }
 
-// warnSlots is warn for filter slots: once per chain, though a slot can be
-// in both the request and response order.
-func (p *printer) warnSlots(row Row, indent string, ids ...model.ID) {
+// warnSlots is warn for filter slots under route, each with its own row:
+// once per chain, though a slot can be in both the request and response order.
+func (p *printer) warnSlots(route model.ID, indent string, ids ...model.ID) {
 	for _, id := range ids {
 		if !p.warned[id] {
 			p.warned[id] = true
-			p.warn(row, indent, id)
+			p.warn(Row{Subject: id, Route: route, Slot: id}, indent, id)
 		}
 	}
 }
@@ -340,9 +340,11 @@ func (p *printer) chainBody(fc model.NetworkFilterChain, indent string) {
 		p.line(prefix + p.style(ClassWarning, useRow, text))
 		p.warn(useRow, body, hcm.RouteConfigUse.ID)
 		p.filters(p.chains[hcm.RouteConfigUse.ID], "", body)
+		p.upstream(*hcm, "", body)
 		return
 	}
 	vhs := hcm.RouteConfig.VirtualHosts
+	routes := 0
 	for i, vh := range vhs {
 		row := Row{Subject: vh.ID}
 		prefix, vhIndent := node(indent, i == len(vhs)-1)
@@ -356,6 +358,11 @@ func (p *printer) chainBody(fc model.NetworkFilterChain, indent string) {
 			rPrefix, rIndent := node(vhIndent, j == len(vh.Routes)-1)
 			p.route(*hcm, r, rPrefix, rIndent)
 		}
+		routes += len(vh.Routes)
+	}
+	if routes == 0 {
+		_, body := node(indent, true)
+		p.upstream(*hcm, "", body)
 	}
 }
 
@@ -381,21 +388,29 @@ func (p *printer) route(hcm model.HCMConfig, r model.Route, prefix, body string)
 		response := func(e model.ChainEntry) bool { return e.Runs != model.TriNo && e.Response != model.TriNo }
 		p.rows(body, heading("response", c), c, r.ID, pick(c, response, true), func(e model.ChainEntry) model.Tri { return e.Response })
 	}
-	if len(hcm.UpstreamFilters) > 0 {
-		var names []string
-		var ids []model.ID
-		for _, f := range hcm.UpstreamFilters {
-			names, ids = append(names, f.Name), append(ids, f.ID)
-		}
-		p.line(body + "router upstream filters (as configured): " + clean(strings.Join(names, ", ")))
-		p.warn(row, body, ids...)
-	}
+	p.upstream(hcm, r.ID, body)
 	if p.opts.Trailer != nil {
 		for _, t := range p.opts.Trailer(row) {
 			p.line(body + clean(t.Label) + ": " + p.style(ClassOrigin, row, t.Text))
 		}
 	}
 	p.routeActions(r, row, body)
+}
+
+// upstream prints hcm's router upstream filters and each slot's warnings,
+// styled with the slot's row under route (empty when the HCM has no route).
+func (p *printer) upstream(hcm model.HCMConfig, route model.ID, body string) {
+	if len(hcm.UpstreamFilters) == 0 {
+		return
+	}
+	var names []string
+	for _, f := range hcm.UpstreamFilters {
+		names = append(names, f.Name)
+	}
+	p.line(body + "router upstream filters (as configured): " + clean(strings.Join(names, ", ")))
+	for _, f := range hcm.UpstreamFilters {
+		p.warn(Row{Subject: f.ID, Route: route, Slot: f.ID}, body, f.ID)
+	}
 }
 
 // heading titles an order, and says when the chain is only the baseline.
@@ -451,14 +466,13 @@ func (p *printer) filters(c model.EffectiveChain, route model.ID, body string) {
 			responseIDs = append(responseIDs, e.Slot)
 		}
 	}
-	routeRow := Row{Subject: route, Route: route}
 	if len(off) > 0 {
 		p.line(body + "not run: " + strings.Join(off, ", "))
-		p.warnSlots(routeRow, body, offIDs...)
+		p.warnSlots(route, body, offIDs...)
 	}
 	if len(responseOnly) > 0 && !p.opts.ResponseOrder {
 		p.line(body + "response only: " + strings.Join(responseOnly, ", "))
-		p.warnSlots(routeRow, body, responseIDs...)
+		p.warnSlots(route, body, responseIDs...)
 	}
 }
 
@@ -493,7 +507,7 @@ func (p *printer) rows(body, title string, c model.EffectiveChain, route model.I
 		pad := strings.Repeat(" ", nameWidth-utf8.RuneCountInString(clean(e.Name))+2)
 		p.line(indent + num + " " + p.style(class, row, e.Name) + pad + describeState(e) + p.labels(row))
 		p.notes(row, indent+"    ")
-		p.warnSlots(row, indent+"    ", e.Slot)
+		p.warnSlots(route, indent+"    ", e.Slot)
 	}
 }
 
