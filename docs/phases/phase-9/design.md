@@ -203,7 +203,7 @@ type Resolution[T Assertion] struct {
 }
 
 type Dependencies struct {
-	Objects []model.Ref // every object the block's claims rest on, sorted
+	Objects []Dependent // every object the block's claims rest on, with the claim kind, sorted
 	Gaps    []Gap       // expected attribution that is missing or ambiguous
 }
 
@@ -222,6 +222,18 @@ A gap is recorded per expected kind, not per subject: a route without `RouteSour
 
 kgwctl's route lookup is `Resolve[RouteSource](ix, routeID)`. Snellius withholds a block when the viewer can't read every object in `Dependencies(block).Objects`, or when `Gaps` is not empty (R6).
 
+```go
+type Dependent struct {
+	Object model.Ref
+	Kind   string // assertion kind, e.g. "backendSource": consumers treat kinds differently
+}
+```
+
+**Expected gaps** (Snellius review, snellius#70). An empty `Gaps` means every expected input is attributed. Besides the per-kind gaps above:
+1. `policyRecord`: per-filter config at route, virtual host or route config level with no `PolicyRecord` at that level; and an HCM slot that runs by default, is not the router, has no `ExtensionSource` marking it a helper, and has no listener-level `PolicyRecord`. Without `merge.*` at a level (U1), a hidden policy could add config there; the gap makes that visible.
+2. `dropped`: a claim in scope that Compose rule 3 dropped. Its subject gets a gap of the dropped claim's kind.
+3. `gatewaySource`: a listener with no `GatewaySource` above unknown. A consumer that knows the Gateway it captured may close this gap itself, as its own context. Listeners from a ListenerSet are not attributed in Phase 9: they show this gap.
+
 ### 6. kgateway module (R5, R8, R9, R13)
 
 `kgateway.New() provenance.Module`. It takes no caller context. `KgatewayOptions.Gateway` is gone: a consumer that knows which Gateway it captured shows that itself, labelled as its own context. `Known` moves to selection.
@@ -239,27 +251,41 @@ func Select(ix *provenance.Index, snap *model.Snapshot, q Query) Selection
 
 type Query struct {
 	Route     model.Ref
-	RuleIndex int // or AllRules
+	RuleIndex *int // nil: any rule. With RuleName, both must match
 	RuleName  string
-	Known     []model.Ref // HTTPRoutes that exist; used to narrow readings
+	Known     []model.Ref // HTTPRoutes that exist; narrows readings (rules below)
 }
 
 type Selection struct {
-	Routes     []model.ID  // selected
-	Ambiguous  []model.ID  // could match, not selected
-	Unresolved []model.ID  // carry a route-name marker that could name the queried HTTPRoute and rule, but no valid reading
-	Narrowed   []Narrowing // a reading dropped because its HTTPRoute isn't in Known
+	Routes     []model.ID  // one reading, matching the query, not narrowed by Known
+	Ambiguous  []model.ID  // several readings, or one left only by Known; at least one matches
+	Unresolved []model.ID  // a route-name marker whose text could name the queried HTTPRoute, but no valid reading
+	Narrowed   []Narrowing // every route Known narrowed, whatever its bucket
+}
+
+type Narrowing struct {
+	Route   model.ID
+	Kept    []provenance.Claim // RouteSource claims Known kept
+	Dropped []provenance.Claim // RouteSource claims Known removed
 }
 
 // Narrow applies Known to every route's readings, without a query.
 func Narrow(ix *provenance.Index, known []model.Ref) []Narrowing
 ```
 
-`Known` only removes readings. It never establishes a match on its own: a route whose readings all fall outside `Known` stays unresolved, not narrowed to nothing (kgwctl `view.go:114`, design review #8). krp's live mode without `--route` calls `Narrow` and shows the narrowed reading with its note, as today. A reading that `Known` alone leaves single keeps its ambiguity label (`narrowed`); its certainty is not raised.
+Selection rules (kgwctl review, kgwctl#14):
+1. `Query.Route` is an HTTPRoute (`gateway.networking.k8s.io`). Other route kinds are additive later.
+2. A reading matches when its HTTPRoute equals `Query.Route`, and the rule index and rule name match where set.
+3. `Routes`: the route's `RouteSource` resolves to one reading at inferred or exact, it matches, and Known did not narrow it.
+4. `Ambiguous`: several readings and at least one matches; or one reading left only because Known removed the others (kgwctl `view.go:169`). Ambiguous routes are never selected.
+5. Known removes a reading only when its HTTPRoute is absent from Known. It never removes an exact reading, and never removes the last one: when every reading is outside Known, Known is ignored for that route and no narrowing is recorded.
+6. Certainty is never raised by Known, and there is no `narrowed` certainty: a narrowed route keeps `ambiguous`, and its `Narrowing` names what was kept.
+
+krp's live mode without `--route` calls `Narrow` and prints the kept reading inline, marked as narrowed, as today.
 
 Consumers prune with `model.Prune(snap, in(sel.Routes))`. The index keeps every candidate.
 
-Names (R9): `kgateway.Names(opts) provenance.NameMapper`.
+Names (R9): `kgateway.Names() provenance.NameMapper`. It takes no options and names the kgateway minors its name rules were checked against (R14); a consumer that supports several minors checks its minor against that list. Every ambiguous answer lists every candidate the name can read as, never a subset: Snellius hides a name unless the viewer can read all of them.
 
 ```go
 type NameMapper interface {
@@ -268,7 +294,6 @@ type NameMapper interface {
 
 type NameAnswer struct {
 	Certainty  model.Certainty
-	Kind       string      // resource kind of the candidates, e.g. "Service"
 	Candidates []model.Ref // several when ambiguous
 }
 
@@ -294,6 +319,18 @@ Labels func(r Row) []string // text on the row itself, e.g. today's "(policy Tra
 `provenance.Notes(ix)` returns a `Notes` function with today's origin, policy and contribution lines, so krp and kgwctl print the same text. A test puts one slot under two routes with different per-filter config and links, and checks each row gets its own.
 
 krp flow: parse → `chain.Effective` → `provenance.Compose(snap, kgateway.New())` → `kgateway.Select` when `--route` is set, else `kgateway.Narrow` in live mode → `model.Prune` → render. The TUI reads the same results.
+
+
+**kgwctl review additions** (kgwctl#14):
+1. `provenance.Labels(ix, narrowings)` returns the on-row origin text, including a narrowed reading inline; `Notes(ix)` keeps the lines below rows.
+2. `Assertion` has `Kind() string`. In JSON a claim's assertion is an object with `kind` plus its fields; the schema doc lists each kind.
+3. `Snapshot` has typed lookups by ID (`Listener`, `VirtualHost`, `Route`, `Slot`, each returning the item and a bool). A route in a shared route config also has `SourcePath` (`RD3/V2/R5`), equal across its uses, so a consumer can list it once.
+4. Order: claims are sorted by subject with `model.CompareID`, which compares index segments numerically (`L2` before `L10`), then module order, then emission order. Candidates keep the module's reading order.
+5. `Row.Subject` is the listener, filter chain, vhost, route or slot ID of the printed row. `render.Text` prints a subject's warnings under its row and one coverage line for ignored sections; dump-wide warnings stay with the caller.
+6. `ix.Claims()` returns all claims. `provenance.Records(ix, snap, routeID)` returns the `PolicyRecord`s at every level that applies to the route, each with its level.
+7. `Conditional` has two meanings by level, both kept: `EffectiveChain.Conditional` means a weighted backend may override per-filter config; `ChainEntry.Conditional` means the entry's matcher decides.
+8. Warning codes are exported constants in `model`. `NameAnswer` has no separate `Kind`: each candidate `Ref` carries it.
+
 
 Pruned output projects every result onto the retained subjects: chains, claims and warnings for subjects that remain. Prune keeps the route config source of every retained use, so evidence subjects stay present; a claim whose evidence names a dropped subject is dropped from the output. `selection` is the exception: it describes the full snapshot, so its ambiguous and unresolved entries carry the route name and vhost name beside the ID, and the schema says those IDs may be absent from `snapshot` (design review r2).
 
