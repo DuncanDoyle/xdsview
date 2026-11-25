@@ -8,6 +8,7 @@ import (
 
 	"github.com/DuncanDoyle/xdsview/pkg/adapter/kgateway"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/chain"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/parser"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/provenance"
 )
@@ -80,6 +81,31 @@ func BenchmarkCompose(b *testing.B) {
 		ix, err := provenance.Compose(snap, kgateway.New())
 		if err != nil || len(ix.Warnings()) > 0 {
 			b.Fatal(err, ix.Warnings())
+		}
+	}
+}
+
+// BenchmarkDependencies composes and checks every route block, as Snellius does.
+func BenchmarkDependencies(b *testing.B) {
+	snap, err := parser.Parse(bytes.NewReader(benchDump(benchVhosts, benchRoutes)), parser.Options{})
+	if err != nil {
+		b.Fatal(err)
+	}
+	var routes []model.ID
+	for _, vh := range snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts {
+		for _, r := range vh.Routes {
+			routes = append(routes, r.ID)
+		}
+	}
+	for b.Loop() {
+		ix, err := provenance.Compose(snap, kgateway.New())
+		if err != nil {
+			b.Fatal(err)
+		}
+		for _, r := range routes {
+			if len(ix.Dependencies(r).Objects) == 0 {
+				b.Fatal("no objects")
+			}
 		}
 	}
 }

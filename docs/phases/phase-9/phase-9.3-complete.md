@@ -140,4 +140,13 @@ Close benchmark (Codex review #8), in `pkg/adapter/kgateway/bench_test.go`. The 
 | `chain.Effective` | 2.5 ms | 7.6 MB | 15,048 |
 | `provenance.Compose` (kgateway module) | 39.1 ms | 85.3 MB | 590,063 |
 
+Fail-closed `Dependencies` (Codex re-review 4), rerun on the same machine. `BenchmarkDependencies` composes once and checks all 5,000 route blocks:
+
+| Benchmark | Time/op | Memory/op | Allocs/op |
+|---|---|---|---|
+| `provenance.Compose` (kgateway module) | 39.8 ms | 85.3 MB | 590,066 |
+| `Compose` + `Dependencies` on every route block | 67.1 ms | 135.0 MB | 1,032,906 |
+
+`Dependencies` on all route blocks costs about 27 ms (5.5 µs and 89 allocations per block). The first call builds the per-HCM structure and link placements, so the cost is linear in routes.
+
 Not measured: the kind capture for scoped `merge.*`; that is for the owner (R5 tested on hand-built fixtures, design Risks).
