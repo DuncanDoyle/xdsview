@@ -139,7 +139,7 @@ The document (`schemaVersion` `v1alpha2`) has these fields:
 | `selection` | With `--route`: the `query`, the `routes` krp shows, the `ambiguous` and `unresolved` routes it leaves out, and the `narrowed` routes with the readings kept and dropped. In live mode without `--route`: `narrowed` only. Absent otherwise. |
 | `warnings` | Every warning, typed: `subject` (absent for a dump-wide one), `code` and `message`. Parse warnings and dropped claims alike. |
 
-With `--route`, every field except `selection` covers only what `snapshot` keeps: no ID outside `selection` is absent from `snapshot`. `selection` describes the whole dump, so its entries may name routes `snapshot` lacks; they carry the route `name` and `virtualHost` beside the `id`. `schemaVersion` changes only when a field is removed or renamed. `testdata/golden/` holds the expected output for every test dump. `-o json` can't be combined with `--interactive`.
+With `--route`, every field except `selection` covers only what `snapshot` keeps: no ID outside `selection` is absent from `snapshot`. `selection` describes the whole dump, so its entries may name routes `snapshot` lacks; they carry the route `name` and `virtualHost` beside the `id`. `schemaVersion` changes only when a field is removed or renamed; new assertion kinds may appear without it. The Go `provenance.Claim` decoder reads a kind it doesn't know as `provenance.Opaque`, keeping the kind and the raw object, so older readers keep working. `testdata/golden/` holds the expected output for every test dump. `-o json` can't be combined with `--interactive`.
 
 ### Collecting a config dump manually
 

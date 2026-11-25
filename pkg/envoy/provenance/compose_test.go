@@ -257,6 +257,29 @@ func TestCompose_Order(t *testing.T) {
 	}
 }
 
+// TestClaim_UnknownKind (Codex #6): a claim of a kind this version doesn't
+// know decodes to an Opaque assertion that writes its fields back unchanged,
+// and Compose drops it.
+func TestClaim_UnknownKind(t *testing.T) {
+	in := `{"id":"m/0","subject":"L0","assertion":{"kind":"futureSource","x":[1,2]},"certainty":"exact","evidence":[],"module":"m"}`
+	var c provenance.Claim
+	if err := json.Unmarshal([]byte(in), &c); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	o, ok := c.Assertion.(provenance.Opaque)
+	if !ok || o.Kind() != "futureSource" {
+		t.Fatalf("assertion = %#v, want Opaque futureSource", c.Assertion)
+	}
+	out, err := json.Marshal(c)
+	if err != nil || !strings.Contains(string(out), `"assertion":{"kind":"futureSource","x":[1,2]}`) {
+		t.Errorf("re-encoded %s (%v)", out, err)
+	}
+	c.Evidence = ev(l0, nil)
+	if ix := compose(t, twoListeners(), fixed{"m", []provenance.Claim{c}}); len(ix.Claims()) != 0 {
+		t.Errorf("Compose kept an opaque claim: %+v", ix.Claims())
+	}
+}
+
 // TestClaim_JSON: an assertion encodes as an object with its kind, and a
 // claim decodes back to the same value.
 func TestClaim_JSON(t *testing.T) {

@@ -10,7 +10,7 @@ package provenance
 
 import (
 	"encoding/json"
-	"fmt"
+	"slices"
 
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 )
@@ -160,6 +160,14 @@ type FilterLink struct {
 	Slot   model.ID `json:"slot"`
 }
 
+// Opaque is an assertion of a kind this version doesn't know, read from JSON.
+// It keeps the kind and the raw object, and writes the object back unchanged.
+// [Compose] drops an Opaque claim: no subject kind takes it.
+type Opaque struct {
+	Name string          // the assertion's kind
+	Raw  json.RawMessage // the whole assertion object, "kind" included
+}
+
 var (
 	allAnchors   = []subjectKind{subjectListener, subjectFilterChain, subjectSource, subjectVirtualHost}
 	policyLevels = map[subjectKind]Level{subjectListener: LevelListener, subjectSource: LevelRouteConfig, subjectVirtualHost: LevelVirtualHost, subjectRoute: LevelRoute}
@@ -295,6 +303,22 @@ func (a FilterLink) MarshalJSON() ([]byte, error) {
 	}{a.Kind(), plain(a)})
 }
 
+// Kind implements [Assertion].
+func (a Opaque) Kind() string { return a.Name }
+
+func (Opaque) spec() kindSpec       { return kindSpec{} }
+func (Opaque) objects() []model.Ref { return nil }
+
+// MarshalJSON writes the assertion object as it was read.
+func (a Opaque) MarshalJSON() ([]byte, error) {
+	if len(a.Raw) == 0 {
+		return json.Marshal(struct {
+			Kind string `json:"kind"`
+		}{a.Name})
+	}
+	return a.Raw, nil
+}
+
 // decode reads an assertion of kind T, ignoring its "kind" field.
 func decode[T Assertion](b []byte) (Assertion, error) {
 	var v T
@@ -304,7 +328,8 @@ func decode[T Assertion](b []byte) (Assertion, error) {
 	return v, nil
 }
 
-// UnmarshalJSON reads a claim, picking its assertion's type by "kind".
+// UnmarshalJSON reads a claim, picking its assertion's type by "kind". An
+// unknown kind reads as an [Opaque] assertion.
 func (c *Claim) UnmarshalJSON(b []byte) error {
 	type plain Claim
 	var raw struct {
@@ -327,7 +352,9 @@ func (c *Claim) UnmarshalJSON(b []byte) error {
 	}
 	s, ok := specs[head.Kind]
 	if !ok {
-		return fmt.Errorf("unknown assertion kind %q", head.Kind)
+		// A newer writer may add kinds (P-010 rule 7).
+		c.Assertion = Opaque{Name: head.Kind, Raw: slices.Clone(raw.Assertion)}
+		return nil
 	}
 	a, err := s.unmarshaler(raw.Assertion)
 	if err != nil {
