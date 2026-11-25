@@ -12,13 +12,13 @@ import (
 const xformType = "type.googleapis.com/example.transformation.v1.Transformation"
 
 // oneFilter is one route that enables filter f per route and carries meta.
-func oneFilter(f model.HTTPFilter, meta map[string]any) *model.EnvoySnapshot {
+func oneFilter(f model.HTTPFilter, meta map[string]any) *model.Snapshot {
 	f.Disabled = true
 	rc := &model.RouteConfig{VirtualHosts: []model.VirtualHost{{Routes: []model.Route{{
 		TypedPerFilterConfig: map[string]any{f.Name: map[string]any{"@type": filterConfigType, "config": map[string]any{}}},
 		Metadata:             meta,
 	}}}}}
-	return &model.EnvoySnapshot{Listeners: []model.Listener{{FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
+	return &model.Snapshot{Listeners: []model.Listener{{FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
 		HTTPFilters: []model.HTTPFilter{f}, RouteConfig: rc,
 	}}}}}}
 }

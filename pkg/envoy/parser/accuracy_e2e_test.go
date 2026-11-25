@@ -17,8 +17,8 @@ import (
 // TestE2E_TrafficSplit checks the weighted backends of 07 on every version (#13).
 func TestE2E_TrafficSplit(t *testing.T) {
 	want := []model.WeightedCluster{
-		{Name: "kube_httpbin_httpbin_8000", Weight: 80},
-		{Name: "kube_httpbin_httpbin-v2_8000", Weight: 20},
+		{ID: "L0/C0/N0/RC/V0/R0/W0", Name: "kube_httpbin_httpbin_8000", Weight: 80},
+		{ID: "L0/C0/N0/RC/V0/R0/W1", Name: "kube_httpbin_httpbin-v2_8000", Weight: 20},
 	}
 	for path, snap := range matcherSnapshots(t, "07-traffic-split") {
 		r := firstRoute(t, snap)
@@ -29,7 +29,7 @@ func TestE2E_TrafficSplit(t *testing.T) {
 }
 
 // filterType returns the Type of the HCM filter named name on listener~80.
-func filterType(t *testing.T, snap *model.EnvoySnapshot, name string) string {
+func filterType(t *testing.T, snap *model.Snapshot, name string) string {
 	t.Helper()
 	for _, l := range snap.Listeners {
 		for _, fc := range l.FilterChains {
@@ -77,11 +77,11 @@ func TestE2E_UpstreamFilters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := parser.Parse(bytes.NewReader(data))
+	res, err := parser.Parse(bytes.NewReader(data), parser.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	snap := res.Snapshot
+	snap := res
 	var got []string
 	for _, f := range snap.Listeners[0].FilterChains[0].HCM.UpstreamFilters {
 		got = append(got, f.Name)

@@ -34,13 +34,13 @@ func (acmeMapper) HTTPFilter(f model.HTTPFilter) model.FilterOrigin {
 		Extension: &model.Ref{Group: "acme.example", Kind: "WafPolicy", Namespace: ns, Name: "default"}}
 }
 
-func parseString(t *testing.T, s string) *model.EnvoySnapshot {
+func parseString(t *testing.T, s string) *model.Snapshot {
 	t.Helper()
-	res, err := parser.Parse(strings.NewReader(s))
+	res, err := parser.Parse(strings.NewReader(s), parser.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return res.Snapshot
+	return res
 }
 
 // TestAnnotate_PluginAndFallback checks what a consumer of a chained mapper

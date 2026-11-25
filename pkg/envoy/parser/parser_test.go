@@ -21,11 +21,11 @@ func TestParse_SimpleHTTP(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	result, err := parser.Parse(bytes.NewReader(data))
+	result, err := parser.Parse(bytes.NewReader(data), parser.Options{})
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
-	snapshot := result.Snapshot
+	snapshot := result
 
 	// Should have at least one dynamic listener
 	if len(snapshot.Listeners) == 0 {
@@ -102,11 +102,11 @@ func TestParse_HTTPSWithSNI(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	result, err := parser.Parse(bytes.NewReader(data))
+	result, err := parser.Parse(bytes.NewReader(data), parser.Options{})
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
-	snapshot := result.Snapshot
+	snapshot := result
 
 	for _, l := range snapshot.Listeners {
 		if l.Name != "listener~443" {
@@ -159,11 +159,11 @@ func TestParse_ExtAuth(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	result, err := parser.Parse(bytes.NewReader(data))
+	result, err := parser.Parse(bytes.NewReader(data), parser.Options{})
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
-	snapshot := result.Snapshot
+	snapshot := result
 
 	for _, l := range snapshot.Listeners {
 		if l.Name != "listener~80" {
@@ -197,11 +197,11 @@ func TestParse_RequestHeaderModifier(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	result, err := parser.Parse(bytes.NewReader(data))
+	result, err := parser.Parse(bytes.NewReader(data), parser.Options{})
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
-	snapshot := result.Snapshot
+	snapshot := result
 
 	for _, l := range snapshot.Listeners {
 		if l.Name != "listener~80" {
@@ -230,11 +230,11 @@ func TestParse_ResponseHeaderModifier(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	result, err := parser.Parse(bytes.NewReader(data))
+	result, err := parser.Parse(bytes.NewReader(data), parser.Options{})
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
-	snapshot := result.Snapshot
+	snapshot := result
 
 	for _, l := range snapshot.Listeners {
 		if l.Name != "listener~80" {
@@ -265,11 +265,11 @@ func TestParse_RequestMirror(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	result, err := parser.Parse(bytes.NewReader(data))
+	result, err := parser.Parse(bytes.NewReader(data), parser.Options{})
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
-	snapshot := result.Snapshot
+	snapshot := result
 
 	for _, l := range snapshot.Listeners {
 		if l.Name != "listener~80" {
@@ -293,11 +293,11 @@ func TestParse_URLRewrite(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	result, err := parser.Parse(bytes.NewReader(data))
+	result, err := parser.Parse(bytes.NewReader(data), parser.Options{})
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
-	snapshot := result.Snapshot
+	snapshot := result
 
 	for _, l := range snapshot.Listeners {
 		if l.Name != "listener~80" {
@@ -335,11 +335,11 @@ func TestParse_CORSPolicy(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	result, err := parser.Parse(bytes.NewReader(data))
+	result, err := parser.Parse(bytes.NewReader(data), parser.Options{})
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
-	snapshot := result.Snapshot
+	snapshot := result
 
 	for _, l := range snapshot.Listeners {
 		if l.Name != "listener~80" {
@@ -365,11 +365,11 @@ func TestParse_RateLimit(t *testing.T) {
 		t.Fatalf("reading fixture: %v", err)
 	}
 
-	result, err := parser.Parse(bytes.NewReader(data))
+	result, err := parser.Parse(bytes.NewReader(data), parser.Options{})
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
-	snapshot := result.Snapshot
+	snapshot := result
 
 	for _, l := range snapshot.Listeners {
 		if l.Name != "listener~80" {
@@ -391,7 +391,7 @@ func TestParse_RateLimit(t *testing.T) {
 }
 
 func TestParse_MalformedJSON(t *testing.T) {
-	_, err := parser.Parse(strings.NewReader("{invalid json"))
+	_, err := parser.Parse(strings.NewReader("{invalid json"), parser.Options{})
 	if err == nil {
 		t.Fatal("expected error for malformed JSON")
 	}
@@ -411,15 +411,15 @@ func TestParse_MalformedSection(t *testing.T) {
 		]
 	}`
 
-	result, err := parser.Parse(strings.NewReader(input))
+	result, err := parser.Parse(strings.NewReader(input), parser.Options{})
 	if err != nil {
 		t.Fatalf("unexpected hard error: %v", err)
 	}
 	if len(result.Warnings) == 0 {
 		t.Fatal("expected at least one warning for the malformed ListenersConfigDump section")
 	}
-	if len(result.Snapshot.Listeners) != 0 {
-		t.Errorf("expected 0 listeners from malformed section, got %d", len(result.Snapshot.Listeners))
+	if len(result.Listeners) != 0 {
+		t.Errorf("expected 0 listeners from malformed section, got %d", len(result.Listeners))
 	}
 }
 
@@ -429,7 +429,7 @@ func TestParse_WarningForUnreadableType(t *testing.T) {
 	// A config entry that is not a valid JSON object (cannot read @type).
 	input := `{"configs": ["not-an-object"]}`
 
-	result, err := parser.Parse(strings.NewReader(input))
+	result, err := parser.Parse(strings.NewReader(input), parser.Options{})
 	if err != nil {
 		t.Fatalf("unexpected hard error: %v", err)
 	}
@@ -439,12 +439,12 @@ func TestParse_WarningForUnreadableType(t *testing.T) {
 }
 
 func TestParse_EmptyConfigs(t *testing.T) {
-	result, err := parser.Parse(strings.NewReader(`{"configs": []}`))
+	result, err := parser.Parse(strings.NewReader(`{"configs": []}`), parser.Options{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result.Snapshot.Listeners) != 0 {
-		t.Errorf("expected 0 listeners, got %d", len(result.Snapshot.Listeners))
+	if len(result.Listeners) != 0 {
+		t.Errorf("expected 0 listeners, got %d", len(result.Listeners))
 	}
 }
 
@@ -461,7 +461,7 @@ func (e errReader) Read(p []byte) (int, error) {
 // TestParse_ReaderError verifies that a read error mid-stream fails the parse
 // rather than returning a snapshot of the partial document.
 func TestParse_ReaderError(t *testing.T) {
-	_, err := parser.Parse(errReader{strings.NewReader(`{"configs": [`)})
+	_, err := parser.Parse(errReader{strings.NewReader(`{"configs": [`)}, parser.Options{})
 	if err == nil || !strings.Contains(err.Error(), "connection reset") {
 		t.Fatalf("err = %v, want the reader's error", err)
 	}
@@ -470,7 +470,7 @@ func TestParse_ReaderError(t *testing.T) {
 // TestParse_TrailingData verifies that data after the JSON document is rejected.
 func TestParse_TrailingData(t *testing.T) {
 	for _, input := range []string{`{"configs": []} garbage`, `{"configs": []}{"configs": []}`} {
-		if _, err := parser.Parse(strings.NewReader(input)); err == nil {
+		if _, err := parser.Parse(strings.NewReader(input), parser.Options{}); err == nil {
 			t.Errorf("Parse(%q): expected an error for trailing data", input)
 		}
 	}

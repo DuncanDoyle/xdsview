@@ -1,17 +1,22 @@
 {
   "schemaVersion": "v1alpha1",
   "snapshot": {
+    "capture": "unverified",
     "listeners": [
       {
+        "id": "L0",
         "name": "listener~8080",
         "address": ":::8080",
         "filterChains": [
           {
+            "id": "L0/C0",
             "name": "listener~8080",
             "hcm": {
+              "id": "L0/C0/N0",
               "routeConfigName": "listener~8080",
               "httpFilters": [
                 {
+                  "id": "L0/C0/N0/F0",
                   "name": "envoy.filters.http.ext_proc",
                   "type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
                   "typedConfig": {
@@ -32,6 +37,7 @@
                   }
                 },
                 {
+                  "id": "L0/C0/N0/F1",
                   "name": "envoy.filters.http.router",
                   "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
@@ -76,6 +82,7 @@
               ],
               "upstreamFilters": [
                 {
+                  "id": "L0/C0/N0/U0",
                   "name": "envoy.filters.http.upstream_ext_proc",
                   "type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
                   "typedConfig": {
@@ -104,6 +111,7 @@
                   }
                 },
                 {
+                  "id": "L0/C0/N0/U1",
                   "name": "envoy.filters.http.upstream_codec",
                   "type": "type.googleapis.com/envoy.extensions.filters.http.upstream_codec.v3.UpstreamCodec",
                   "typedConfig": {
@@ -115,16 +123,23 @@
                   }
                 }
               ],
+              "routeConfigUse": {
+                "id": "L0/C0/N0/RC",
+                "source": "RD0",
+                "state": "found"
+              },
               "routeConfig": {
                 "name": "listener~8080",
                 "virtualHosts": [
                   {
+                    "id": "L0/C0/N0/RC/V0",
                     "name": "listener~8080~app_example",
                     "domains": [
                       "app.example"
                     ],
                     "routes": [
                       {
+                        "id": "L0/C0/N0/RC/V0/R0",
                         "name": "listener~8080~app_example-route-0-httproute-app-default-0-0-matcher-0",
                         "match": {
                           "prefix": "/private"
@@ -175,6 +190,7 @@
                         }
                       },
                       {
+                        "id": "L0/C0/N0/RC/V0/R1",
                         "name": "listener~8080~app_example-route-1-httproute-app-default-1-0-matcher-0",
                         "match": {
                           "prefix": "/"
@@ -239,6 +255,13 @@
           "certainty": "inferred",
           "port": 8080
         }
+      }
+    ],
+    "routeConfigs": [
+      {
+        "id": "RD0",
+        "kind": "dynamic",
+        "name": "listener~8080"
       }
     ]
   },

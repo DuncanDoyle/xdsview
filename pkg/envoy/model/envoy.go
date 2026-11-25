@@ -6,15 +6,20 @@
 // Data flows: parser → model → renderer.
 package model
 
-// EnvoySnapshot is the complete parsed Envoy configuration.
-// Built by joining data from ListenersConfigDump and RoutesConfigDump.
-type EnvoySnapshot struct {
-	Listeners []Listener `json:"listeners"`
+// Snapshot is the parsed Envoy configuration of one config dump. Listeners
+// join their route configs from RouteConfigs. Every occurrence in it carries
+// an [ID] that is unique in the snapshot.
+type Snapshot struct {
+	Capture      Capture             `json:"capture"`
+	Listeners    []Listener          `json:"listeners"`
+	RouteConfigs []RouteConfigSource `json:"routeConfigs,omitempty"` // every route config source, in dump order
+	Warnings     []Warning           `json:"warnings,omitempty"`
 }
 
 // Listener represents an Envoy listener (e.g. listener~80, listener~443).
 // An LDS-wide error with no listener name is a rejected Listener with an empty Name.
 type Listener struct {
+	ID           ID                   `json:"id"`
 	Name         string               `json:"name"`
 	Address      string               `json:"address"` // e.g. "0.0.0.0:80"
 	FilterChains []NetworkFilterChain `json:"filterChains"`
@@ -52,6 +57,7 @@ type ListenerError struct {
 // NetworkFilterChain is a network-level filter chain within a listener.
 // For HTTPS listeners, there is typically one filter chain per SNI host.
 type NetworkFilterChain struct {
+	ID   ID          `json:"id"`
 	Name string      `json:"name"`
 	TLS  *TLSContext `json:"tls,omitempty"` // nil for plaintext
 	HCM  *HCMConfig  `json:"hcm,omitempty"` // extracted from the network filter list
@@ -62,16 +68,20 @@ type TLSContext struct {
 	SNIHosts []string `json:"sniHosts"` // from filter_chain_match.server_names
 }
 
-// HCMConfig represents the HTTP Connection Manager configuration.
+// HCMConfig represents the HTTP Connection Manager configuration. Its ID is
+// that of the network filter it is.
 type HCMConfig struct {
-	RouteConfigName string       `json:"routeConfigName"`           // rds.route_config_name
-	HTTPFilters     []HTTPFilter `json:"httpFilters"`               // the HTTP filter pipeline
-	UpstreamFilters []HTTPFilter `json:"upstreamFilters,omitempty"` // router upstream_http_filters, run per upstream request
-	RouteConfig     *RouteConfig `json:"routeConfig,omitempty"`     // joined from RDS section
+	ID              ID             `json:"id"`
+	RouteConfigName string         `json:"routeConfigName"`           // rds.route_config_name
+	HTTPFilters     []HTTPFilter   `json:"httpFilters"`               // the HTTP filter pipeline
+	UpstreamFilters []HTTPFilter   `json:"upstreamFilters,omitempty"` // router upstream_http_filters, run per upstream request
+	RouteConfigUse  RouteConfigUse `json:"routeConfigUse"`
+	RouteConfig     *RouteConfig   `json:"routeConfig,omitempty"` // the use's content, copied from its source; nil unless found
 }
 
 // HTTPFilter is a single filter in the HTTP filter pipeline.
 type HTTPFilter struct {
+	ID          ID             `json:"id"`                    // the filter slot
 	Name        string         `json:"name"`                  // label chosen by the control plane, e.g. "ext_auth/ns/name"
 	Type        string         `json:"type,omitempty"`        // typed_config @type; the inner type for an ExtensionWithMatcher
 	TypedConfig map[string]any `json:"typedConfig,omitempty"` // raw typed config; displayed in interactive mode (Phase 3)
@@ -88,6 +98,7 @@ type RouteConfig struct {
 
 // VirtualHost is an Envoy virtual host within a route config.
 type VirtualHost struct {
+	ID                   ID                 `json:"id"`
 	Name                 string             `json:"name"`    // e.g. "listener~80~api_example_com"
 	Domains              []string           `json:"domains"` // e.g. ["api.example.com"]
 	Routes               []Route            `json:"routes"`
@@ -97,6 +108,7 @@ type VirtualHost struct {
 
 // Route is an Envoy route within a virtual host.
 type Route struct {
+	ID                      ID                `json:"id"`
 	Name                    string            `json:"name"`
 	Match                   RouteMatch        `json:"match"`
 	Cluster                 string            `json:"cluster"`                           // backend cluster name; empty for a traffic split
@@ -123,6 +135,7 @@ type RouteRewrite struct {
 
 // WeightedCluster is one backend of a traffic-split route.
 type WeightedCluster struct {
+	ID                   ID             `json:"id"`
 	Name                 string         `json:"name"`
 	Weight               int            `json:"weight"`
 	TypedPerFilterConfig map[string]any `json:"typedPerFilterConfig,omitempty"` // overrides the route's when Envoy picks this backend

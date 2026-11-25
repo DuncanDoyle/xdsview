@@ -48,19 +48,19 @@ const listenerJSONB = `{"name": "listener~81", "active_state": {"listener": {"na
  "address": {"socket_address": {"address": "0.0.0.0", "port_value": 81}},
  "filter_chains": [{"name": "listener~81", ` + listenerHCM + `}]}}}`
 
-func parseAccuracy(t *testing.T) *model.EnvoySnapshot {
+func parseAccuracy(t *testing.T) *model.Snapshot {
 	t.Helper()
-	result, err := parser.Parse(strings.NewReader(accuracyDump))
+	result, err := parser.Parse(strings.NewReader(accuracyDump), parser.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(result.Warnings) != 0 {
 		t.Fatalf("warnings: %v", result.Warnings)
 	}
-	if len(result.Snapshot.Listeners) != 2 {
-		t.Fatalf("listeners = %d, want 2", len(result.Snapshot.Listeners))
+	if len(result.Listeners) != 2 {
+		t.Fatalf("listeners = %d, want 2", len(result.Listeners))
 	}
-	return result.Snapshot
+	return result
 }
 
 func routesOf(l model.Listener) []model.Route {
@@ -70,7 +70,7 @@ func routesOf(l model.Listener) []model.Route {
 // TestParse_WeightedClusters covers traffic-split routes (#13).
 func TestParse_WeightedClusters(t *testing.T) {
 	split := routesOf(parseAccuracy(t).Listeners[0])[0]
-	want := []model.WeightedCluster{{Name: "kube_ns_v1_8080", Weight: 80}, {Name: "kube_ns_v2_8080", Weight: 20}}
+	want := []model.WeightedCluster{{ID: "L0/C0/N0/RC/V0/R0/W0", Name: "kube_ns_v1_8080", Weight: 80}, {ID: "L0/C0/N0/RC/V0/R0/W1", Name: "kube_ns_v2_8080", Weight: 20}}
 	if !reflect.DeepEqual(split.WeightedClusters, want) {
 		t.Errorf("WeightedClusters = %v, want %v", split.WeightedClusters, want)
 	}
@@ -154,11 +154,11 @@ func TestParse_CompositeFilterType(t *testing.T) {
 	  {"name": "envoy.filters.network.http_connection_manager", "typed_config": {"http_filters": [` +
 		compositeFilter("same", extProc, extProc) + `,` + compositeFilter("mixed", extProc, extAuthz) + `,` +
 		compositeFilter("dynamic", extProc, "dynamic") + `]}}]}]}}}]}]}`
-	result, err := parser.Parse(strings.NewReader(dump))
+	result, err := parser.Parse(strings.NewReader(dump), parser.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	filters := result.Snapshot.Listeners[0].FilterChains[0].HCM.HTTPFilters
+	filters := result.Listeners[0].FilterChains[0].HCM.HTTPFilters
 	if filters[0].Type != extProc {
 		t.Errorf("same-type composite: Type = %q, want %q", filters[0].Type, extProc)
 	}

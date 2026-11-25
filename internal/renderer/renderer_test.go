@@ -24,7 +24,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestRender_SimpleHTTP(t *testing.T) {
-	snapshot := &model.EnvoySnapshot{
+	snapshot := &model.Snapshot{
 		Listeners: []model.Listener{
 			{
 				Name:    "listener~80",
@@ -76,7 +76,7 @@ func TestRender_SimpleHTTP(t *testing.T) {
 }
 
 func TestRender_HTTPS_TwoFilterChains(t *testing.T) {
-	snapshot := &model.EnvoySnapshot{
+	snapshot := &model.Snapshot{
 		Listeners: []model.Listener{
 			{
 				Name:    "listener~443",
@@ -143,7 +143,7 @@ func TestRender_HTTPS_TwoFilterChains(t *testing.T) {
 }
 
 func TestRender_RoutePolicies_HeaderModifier(t *testing.T) {
-	snapshot := &model.EnvoySnapshot{
+	snapshot := &model.Snapshot{
 		Listeners: []model.Listener{
 			{
 				Name:    "listener~80",
@@ -192,7 +192,7 @@ func TestRender_RoutePolicies_HeaderModifier(t *testing.T) {
 }
 
 func TestRender_RoutePolicies_Mirror(t *testing.T) {
-	snapshot := &model.EnvoySnapshot{
+	snapshot := &model.Snapshot{
 		Listeners: []model.Listener{
 			{
 				Name:    "listener~80",
@@ -238,7 +238,7 @@ func TestRender_RoutePolicies_Mirror(t *testing.T) {
 // TestRender_DisabledFilter_ActiveOnRoute verifies that a filter marked disabled at HCM
 // level is NOT shown as "(disabled)" when the route has a typed_per_filter_config for it.
 func TestRender_DisabledFilter_ActiveOnRoute(t *testing.T) {
-	snapshot := &model.EnvoySnapshot{
+	snapshot := &model.Snapshot{
 		Listeners: []model.Listener{
 			{
 				Name:    "listener~443",
@@ -288,7 +288,7 @@ func TestRender_DisabledFilter_ActiveOnRoute(t *testing.T) {
 }
 
 func TestRender_EmptySnapshot(t *testing.T) {
-	snapshot := &model.EnvoySnapshot{}
+	snapshot := &model.Snapshot{}
 	output := renderer.Render(snapshot)
 	if !strings.Contains(output, "no listeners") {
 		t.Errorf("expected 'no listeners' message for empty snapshot, got:\n%s", output)
@@ -299,7 +299,7 @@ func TestRender_EmptySnapshot(t *testing.T) {
 // (URLRewrite HTTPRouteFilter) is rendered with a "rewrite:" policy line.
 // Covers issue #9.
 func TestRender_RoutePolicies_URLRewrite(t *testing.T) {
-	snapshot := &model.EnvoySnapshot{
+	snapshot := &model.Snapshot{
 		Listeners: []model.Listener{
 			{
 				Name:    "listener~80",
@@ -444,8 +444,8 @@ func TestRender_MatchTypes_QueryParamRegex(t *testing.T) {
 // interactiveSnapshot returns a minimal snapshot with one listener, one filter
 // chain, one virtual host, one route, and two HTTP filters. The first filter
 // has TypedConfig set (HCM-level config); the second has none.
-func interactiveSnapshot() *model.EnvoySnapshot {
-	return &model.EnvoySnapshot{
+func interactiveSnapshot() *model.Snapshot {
+	return &model.Snapshot{
 		Listeners: []model.Listener{
 			{
 				Name:    "listener~80",
@@ -514,7 +514,7 @@ func TestRenderInteractive_CursorOnFirstFilter(t *testing.T) {
 // TestRenderInteractive_ExpandedPerRouteConfig verifies that a filter with per-route
 // TypedPerFilterConfig shows that config inline when expanded.
 func TestRenderInteractive_ExpandedPerRouteConfig(t *testing.T) {
-	snapshot := &model.EnvoySnapshot{
+	snapshot := &model.Snapshot{
 		Listeners: []model.Listener{
 			{
 				Name:    "listener~80",
@@ -600,7 +600,7 @@ func TestRenderInteractive_ExpandedNoConfig(t *testing.T) {
 // TestRenderInteractive_ExpandedEmptyMap verifies that an empty map TypedPerFilterConfig
 // entry is treated as "has config" and renders as "{}".
 func TestRenderInteractive_ExpandedEmptyMap(t *testing.T) {
-	snapshot := &model.EnvoySnapshot{
+	snapshot := &model.Snapshot{
 		Listeners: []model.Listener{
 			{
 				Name:    "listener~80",
@@ -667,7 +667,7 @@ func TestRenderInteractive_AllExpanded(t *testing.T) {
 // TestRenderInteractive_NilHCM verifies that a filter chain with a nil HCM does
 // not crash and produces no cursor or expansion output.
 func TestRenderInteractive_NilHCM(t *testing.T) {
-	snapshot := &model.EnvoySnapshot{
+	snapshot := &model.Snapshot{
 		Listeners: []model.Listener{
 			{
 				Name:    "listener~80",
@@ -699,7 +699,7 @@ func TestRenderInteractive_NilHCM(t *testing.T) {
 // a disabled filter active on one route via TypedPerFilterConfig, multiple virtual
 // hosts, and routes with header match conditions.
 func TestRenderInteractive_NoOpts_RicherSnapshot(t *testing.T) {
-	snapshot := &model.EnvoySnapshot{
+	snapshot := &model.Snapshot{
 		Listeners: []model.Listener{
 			{
 				Name:    "listener~80",
@@ -827,10 +827,10 @@ func TestRenderInteractive_CursorAndExpanded(t *testing.T) {
 	}
 }
 
-// routeSnapshotWithMatch constructs a minimal EnvoySnapshot with one route using the given match.
+// routeSnapshotWithMatch constructs a minimal Snapshot with one route using the given match.
 // Shared helper for match-type renderer tests.
-func routeSnapshotWithMatch(match model.RouteMatch) *model.EnvoySnapshot {
-	return &model.EnvoySnapshot{
+func routeSnapshotWithMatch(match model.RouteMatch) *model.Snapshot {
+	return &model.Snapshot{
 		Listeners: []model.Listener{
 			{
 				Name:    "listener~80",

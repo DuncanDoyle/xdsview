@@ -99,7 +99,7 @@ func TestFilter_MultipleFilterChains_PartialMatch(t *testing.T) {
 	// slice so the renderer can still display its HTTP filter pipeline.
 	matchingRoute := routeName("api-example-com", "default", 0)
 	nonMatchingRoute := "listener~80~other-route-0-httproute-other-default-0-0-matcher-0"
-	snap := &model.EnvoySnapshot{
+	snap := &model.Snapshot{
 		Listeners: []model.Listener{
 			{Name: "listener~80", FilterChains: []model.NetworkFilterChain{
 				{Name: "fc1", HCM: &model.HCMConfig{RouteConfig: &model.RouteConfig{
@@ -132,16 +132,16 @@ func TestFilter_MultipleFilterChains_PartialMatch(t *testing.T) {
 
 // --- snapshot builder helpers ---
 
-func snapshotWithRoute(name string) *model.EnvoySnapshot {
+func snapshotWithRoute(name string) *model.Snapshot {
 	return snapshotWithRoutes([]string{name})
 }
 
-func snapshotWithRoutes(names []string) *model.EnvoySnapshot {
+func snapshotWithRoutes(names []string) *model.Snapshot {
 	routes := make([]model.Route, len(names))
 	for i, n := range names {
 		routes[i] = model.Route{Name: n}
 	}
-	return &model.EnvoySnapshot{
+	return &model.Snapshot{
 		Listeners: []model.Listener{
 			{Name: "listener~80", FilterChains: []model.NetworkFilterChain{
 				{HCM: &model.HCMConfig{RouteConfig: &model.RouteConfig{
@@ -152,8 +152,8 @@ func snapshotWithRoutes(names []string) *model.EnvoySnapshot {
 	}
 }
 
-func snapshotWithTwoVHs(route1, route2 string) *model.EnvoySnapshot {
-	return &model.EnvoySnapshot{
+func snapshotWithTwoVHs(route1, route2 string) *model.Snapshot {
+	return &model.Snapshot{
 		Listeners: []model.Listener{
 			{Name: "listener~80", FilterChains: []model.NetworkFilterChain{
 				{HCM: &model.HCMConfig{RouteConfig: &model.RouteConfig{
@@ -167,8 +167,8 @@ func snapshotWithTwoVHs(route1, route2 string) *model.EnvoySnapshot {
 	}
 }
 
-func snapshotWithTwoListeners(route1, route2 string) *model.EnvoySnapshot {
-	return &model.EnvoySnapshot{
+func snapshotWithTwoListeners(route1, route2 string) *model.Snapshot {
+	return &model.Snapshot{
 		Listeners: []model.Listener{
 			{Name: "listener~80", FilterChains: []model.NetworkFilterChain{
 				{HCM: &model.HCMConfig{RouteConfig: &model.RouteConfig{
@@ -193,7 +193,7 @@ func TestFilter_RouteSourceMetadata(t *testing.T) {
 			"rule": rule, "match": "_match-0",
 		}}
 	}
-	snap := &model.EnvoySnapshot{Listeners: []model.Listener{{Name: "l", FilterChains: []model.NetworkFilterChain{
+	snap := &model.Snapshot{Listeners: []model.Listener{{Name: "l", FilterChains: []model.NetworkFilterChain{
 		{HCM: &model.HCMConfig{RouteConfig: &model.RouteConfig{VirtualHosts: []model.VirtualHost{{Name: "vh", Routes: []model.Route{
 			{Name: "named", Metadata: md("api")},
 			{Name: "indexed", Metadata: md("_rule-1")},

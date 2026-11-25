@@ -114,7 +114,7 @@ func mapper(gateway, namespace, routeName, routeNS string, known []model.Ref) or
 }
 
 // hasRoutes reports whether any filter chain in snap kept a virtual host.
-func hasRoutes(snap *model.EnvoySnapshot) bool {
+func hasRoutes(snap *model.Snapshot) bool {
 	for _, l := range snap.Listeners {
 		for _, fc := range l.FilterChains {
 			if fc.HCM != nil && fc.HCM.RouteConfig != nil && len(fc.HCM.RouteConfig.VirtualHosts) > 0 {
@@ -212,19 +212,19 @@ func runDump(cmd *cobra.Command, args []string) error {
 	}
 	defer rc.Close()
 
-	// Parse the config dump into an EnvoySnapshot.
-	result, err := parser.Parse(rc)
+	// Parse the config dump into a Snapshot.
+	parsed, err := parser.Parse(rc, parser.Options{Capture: src.Capture()})
 	if err != nil {
 		return err
 	}
 
 	// Print any non-fatal parse warnings to stderr so users know if sections were skipped.
-	for _, w := range result.Warnings {
-		fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s\n", w)
+	for _, w := range parsed.Warnings {
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s\n", w.Message)
 	}
 
 	// Apply the HTTPRoute filter when requested.
-	snapshot := result.Snapshot
+	snapshot := parsed
 	if routeName != "" {
 		snapshot = filter.Filter(snapshot, filter.Options{
 			HTTPRouteName:      routeName,
@@ -260,7 +260,7 @@ func runDump(cmd *cobra.Command, args []string) error {
 	case interactive:
 		return tui.Run(snapshot, cmd.OutOrStdout(), cmd.ErrOrStderr())
 	case output == outputJSON:
-		return writeJSON(cmd.OutOrStdout(), snapshot, result.Warnings)
+		return writeJSON(cmd.OutOrStdout(), snapshot, parsed.Warnings)
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), renderer.Render(snapshot))
 	return nil

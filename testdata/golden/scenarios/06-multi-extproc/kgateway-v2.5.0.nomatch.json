@@ -1,7 +1,25 @@
 {
   "schemaVersion": "v1alpha1",
   "snapshot": {
-    "listeners": []
+    "capture": "unverified",
+    "listeners": [],
+    "routeConfigs": [
+      {
+        "id": "RS0",
+        "kind": "static",
+        "name": "main_route"
+      },
+      {
+        "id": "RS1",
+        "kind": "static",
+        "name": "prometheus_route"
+      },
+      {
+        "id": "RD0",
+        "kind": "dynamic",
+        "name": "listener~80"
+      }
+    ]
   },
   "warnings": []
 }

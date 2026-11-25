@@ -1,4 +1,4 @@
-// Package filter narrows an [model.EnvoySnapshot] to the routes that belong
+// Package filter narrows a [model.Snapshot] to the routes that belong
 // to a specific Kubernetes HTTPRoute.
 //
 // Kgateway encodes the HTTPRoute identity in each Envoy route name using the
@@ -60,7 +60,7 @@ type Options struct {
 // AllRules is the [Options.RuleIndex] value that keeps routes from every rule.
 const AllRules = -1
 
-// Filter returns a new [model.EnvoySnapshot] that contains only the routes
+// Filter returns a new [model.Snapshot] that contains only the routes
 // whose Envoy route name embeds the HTTPRoute identity described by opts.
 //
 // Pruning behaviour:
@@ -70,18 +70,19 @@ const AllRules = -1
 //   - Listeners where no filter chain retains any virtual hosts are removed.
 //
 // If opts.HTTPRouteName is empty, snapshot is returned unchanged.
-func Filter(snapshot *model.EnvoySnapshot, opts Options) *model.EnvoySnapshot {
+func Filter(snapshot *model.Snapshot, opts Options) *model.Snapshot {
 	if opts.HTTPRouteName == "" {
 		return snapshot
 	}
 
-	result := &model.EnvoySnapshot{}
+	result := *snapshot
+	result.Listeners = nil
 	for _, l := range snapshot.Listeners {
 		if filtered := filterListener(l, opts); filtered != nil {
 			result.Listeners = append(result.Listeners, *filtered)
 		}
 	}
-	return result
+	return &result
 }
 
 // filterListener returns a copy of l containing only the virtual hosts that
@@ -241,7 +242,7 @@ func isDigits(s string) bool {
 // that Known set aside count, because Envoy can still serve a route for a
 // deleted HTTPRoute. Each name appears once, in snapshot order. Use it to tell
 // the user that a route may be missing from the narrowed view.
-func Ambiguous(snapshot *model.EnvoySnapshot, opts Options) []string {
+func Ambiguous(snapshot *model.Snapshot, opts Options) []string {
 	if opts.HTTPRouteName == "" {
 		return nil
 	}

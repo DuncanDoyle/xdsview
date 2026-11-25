@@ -12,8 +12,8 @@ import (
 )
 
 // oneHCM is a listener with one route over the given HCM filters.
-func oneHCM(filters []model.HTTPFilter, r model.Route) *model.EnvoySnapshot {
-	return &model.EnvoySnapshot{Listeners: []model.Listener{{Name: "l", Address: ":::80",
+func oneHCM(filters []model.HTTPFilter, r model.Route) *model.Snapshot {
+	return &model.Snapshot{Listeners: []model.Listener{{Name: "l", Address: ":::80",
 		State: model.ListenerState{Status: model.ListenerActive},
 		FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{HTTPFilters: filters,
 			RouteConfig: &model.RouteConfig{VirtualHosts: []model.VirtualHost{{Name: "vh", Routes: []model.Route{r}}}}}}}}}}
@@ -133,7 +133,7 @@ func TestText_RouteExtraRefs(t *testing.T) {
 		return model.NetworkFilterChain{Name: name, TLS: &model.TLSContext{SNIHosts: []string{name}},
 			HCM: &model.HCMConfig{RouteConfig: &model.RouteConfig{VirtualHosts: vhs}}}
 	}
-	snap := &model.EnvoySnapshot{Listeners: []model.Listener{
+	snap := &model.Snapshot{Listeners: []model.Listener{
 		{Name: "l0", FilterChains: []model.NetworkFilterChain{chainOf("c0", vh("v0", "/a"))}},
 		{Name: "l1", FilterChains: []model.NetworkFilterChain{chainOf("c0", vh("v0", "/b")), chainOf("c1", vh("v0", "/c"), vh("v1", "/d", "/e"))}},
 	}}

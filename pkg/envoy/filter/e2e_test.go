@@ -85,22 +85,22 @@ var scenarioRoutes = map[string][]httpRoute{
 	},
 }
 
-func parseDump(t *testing.T, path string) *model.EnvoySnapshot {
+func parseDump(t *testing.T, path string) *model.Snapshot {
 	t.Helper()
 	f, err := os.Open(path)
 	if err != nil {
 		t.Fatalf("reading fixture: %v", err)
 	}
 	defer f.Close()
-	result, err := parser.Parse(f)
+	result, err := parser.Parse(f, parser.Options{})
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
-	return result.Snapshot
+	return result
 }
 
 // routeNames returns the names of all routes in snap, in order.
-func routeNames(snap *model.EnvoySnapshot) []string {
+func routeNames(snap *model.Snapshot) []string {
 	var names []string
 	for _, l := range snap.Listeners {
 		for _, fc := range l.FilterChains {
@@ -120,7 +120,7 @@ func routeNames(snap *model.EnvoySnapshot) []string {
 // checkScenario asserts that filtering snap keeps exactly the expected route
 // names for each HTTPRoute, for all rules and for each rule, and nothing for a
 // rule index past the last one.
-func checkScenario(t *testing.T, snap *model.EnvoySnapshot, routes []httpRoute) {
+func checkScenario(t *testing.T, snap *model.Snapshot, routes []httpRoute) {
 	t.Helper()
 	keep := func(hr httpRoute, rule int) []string {
 		names := routeNames(filter.Filter(snap, filter.Options{

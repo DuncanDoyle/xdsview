@@ -2,15 +2,24 @@
 // domain model defined in [model]. The Envoy config_dump is a heterogeneous
 // JSON array where each element has a "@type" discriminator; the parser dispatches
 // on that field to extract ListenersConfigDump and RoutesConfigDump sections, then
-// joins them into an [model.EnvoySnapshot].
+// joins them into a [model.Snapshot].
 //
-// Non-fatal errors (e.g. a single malformed section) are collected as warnings and
-// returned alongside the best-effort snapshot so the caller can surface them to the
-// user rather than silently dropping data.
+// Non-fatal errors (e.g. a single malformed section) are collected as warnings in
+// the best-effort snapshot so the caller can surface them to the user rather than
+// silently dropping data.
+//
+// # Occurrence IDs
+//
+// Parse assigns every occurrence a [model.ID] as a structural path: L0 (listener),
+// L0/C1 (filter chain), L0/C1/N0 (network filter; the HCM), .../F3 (HTTP filter
+// slot), .../U0 (upstream filter), .../RC (route config use), .../RC/V2/R5/W1
+// (virtual host, route, weighted backend). Route config sources are RD<n>
+// (dynamic), RS<n> (static) and <HCM>/RCI (inline). RDS names resolve against
+// dynamic sources only.
 //
 // # Ownership
 //
-// The snapshot in a [Result] belongs to the caller. Treat it as read-only once
+// The returned snapshot belongs to the caller. Treat it as read-only once
 // it is shared: [filter.Filter] returns views that share nested slices, maps and
 // pointers with it. Store derived data alongside a snapshot, not inside it.
 //
@@ -22,43 +31,47 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
+	"slices"
 
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 )
 
-// Result holds the parsed [model.EnvoySnapshot] and any non-fatal warnings
-// collected during parsing (e.g. malformed config sections that were skipped).
-// Warnings are surfaced to the user so that silently dropped sections are visible.
-type Result struct {
-	Snapshot *model.EnvoySnapshot
-	Warnings []string
+// Options controls [Parse].
+type Options struct {
+	// Capture says whether the dump is known to be complete. The zero value
+	// means [model.CaptureUnverified].
+	Capture model.Capture
 }
 
-// Parse reads a complete Envoy /config_dump JSON document from r and returns a
-// [Result]. Trailing data after the document, or a read error, fails the parse.
-// Non-fatal errors (e.g. a single malformed config section) are collected as
-// warnings rather than aborting the parse, so the caller receives a best-effort
-// snapshot alongside a description of what was skipped.
-func Parse(r io.Reader) (Result, error) {
+// Parse reads a complete Envoy /config_dump JSON document from r and returns
+// its [model.Snapshot]. Trailing data after the document, or a read error,
+// fails the parse. Non-fatal errors (e.g. a single malformed config section)
+// are collected in [model.Snapshot.Warnings] rather than aborting the parse.
+func Parse(r io.Reader, opts Options) (*model.Snapshot, error) {
 	// ReadAll + Unmarshal (not a streaming Decoder) so trailing data is rejected.
 	data, err := io.ReadAll(r)
 	if err != nil {
-		return Result{}, fmt.Errorf("reading config dump: %w", err)
+		return nil, fmt.Errorf("reading config dump: %w", err)
 	}
 	var dump configDump
 	if err := json.Unmarshal(data, &dump); err != nil {
-		return Result{}, fmt.Errorf("parsing config dump JSON: %w", err)
+		return nil, fmt.Errorf("parsing config dump JSON: %w", err)
+	}
+	capture := opts.Capture
+	if capture == "" {
+		capture = model.CaptureUnverified
 	}
 
 	// Parse each config section by @type, collecting warnings for any that fail.
+	p := &parse{dynamic: map[string][]*routeEntry{}}
 	var listeners []rawListener
-	routeConfigs := map[string]*model.RouteConfig{} // keyed by name
-	var warnings []string
+	listenersAt := -1 // section index of the listeners, where inline sources go
 
-	for _, raw := range dump.Configs {
+	for pos, raw := range dump.Configs {
 		var typed typedConfig
 		if err := json.Unmarshal(raw, &typed); err != nil {
-			warnings = append(warnings, fmt.Sprintf("skipped config section: cannot read @type: %v", err))
+			p.warn("", model.WarnSectionSkipped, "skipped config section: cannot read @type: %v", err)
 			continue
 		}
 
@@ -66,61 +79,132 @@ func Parse(r io.Reader) (Result, error) {
 		case "type.googleapis.com/envoy.admin.v3.ListenersConfigDump":
 			var ld listenersConfigDump
 			if err := json.Unmarshal(raw, &ld); err != nil {
-				warnings = append(warnings, fmt.Sprintf("skipped ListenersConfigDump: %v", err))
+				p.warn("", model.WarnSectionSkipped, "skipped ListenersConfigDump: %v", err)
 				continue
 			}
-			listeners = ld.DynamicListeners
+			listeners, listenersAt = ld.DynamicListeners, pos
 
 		case "type.googleapis.com/envoy.admin.v3.RoutesConfigDump":
 			var rd routesConfigDump
 			if err := json.Unmarshal(raw, &rd); err != nil {
-				warnings = append(warnings, fmt.Sprintf("skipped RoutesConfigDump: %v", err))
+				p.warn("", model.WarnSectionSkipped, "skipped RoutesConfigDump: %v", err)
 				continue
 			}
-			// Each route config separately, so a bad one costs only itself.
-			for _, raw := range rd.DynamicRouteConfigs {
-				var drc struct {
-					RouteConfig rawRouteConfig `json:"route_config"`
-				}
-				if err := json.Unmarshal(raw, &drc); err != nil {
-					var named struct {
-						RouteConfig struct {
-							Name string `json:"name"`
-						} `json:"route_config"`
-					}
-					_ = json.Unmarshal(raw, &named) // best effort, for the warning
-					warnings = append(warnings, fmt.Sprintf("skipped route config %q: %v", named.RouteConfig.Name, err))
-					continue
-				}
-				// A null or nameless entry would join any HCM without an RDS name.
-				if drc.RouteConfig.Name == "" {
-					warnings = append(warnings, "skipped a route config with no name")
-					continue
-				}
-				rc := parseRouteConfig(drc.RouteConfig)
-				routeConfigs[rc.Name] = rc
-			}
+			p.routeSection(pos, rd)
 		}
 	}
 
-	// Build the EnvoySnapshot by joining listeners with route configs
-	snapshot := &model.EnvoySnapshot{}
-	for _, rl := range listeners {
-		l, ws := parseListener(rl, routeConfigs)
-		warnings = append(warnings, ws...)
-		snapshot.Listeners = append(snapshot.Listeners, l)
+	// Build the Snapshot by joining listeners with route configs.
+	snapshot := &model.Snapshot{Capture: capture}
+	for i, rl := range listeners {
+		snapshot.Listeners = append(snapshot.Listeners, p.listener(i, rl))
 	}
-
-	return Result{Snapshot: snapshot, Warnings: warnings}, nil
+	if listenersAt >= 0 {
+		p.batches = append(p.batches, batch{pos: listenersAt, entries: p.inline})
+	}
+	slices.SortStableFunc(p.batches, func(a, b batch) int { return a.pos - b.pos })
+	for _, b := range p.batches {
+		for _, e := range b.entries {
+			if !e.matched {
+				snapshot.RouteConfigs = append(snapshot.RouteConfigs, e.source)
+			}
+		}
+	}
+	snapshot.Warnings = p.warnings
+	return snapshot, nil
 }
 
-// parseListener converts a raw dynamic listener into the model.Listener,
-// joining each HCM to its route config via `route_config_name`. It shows the
-// active version, else the warming one, else the draining one. It returns a
-// warning for each HCM it skips.
-func parseListener(rl rawListener, routeConfigs map[string]*model.RouteConfig) (model.Listener, []string) {
-	var warnings []string
+// parse holds the state of one [Parse] call.
+type parse struct {
+	dynamic  map[string][]*routeEntry // dynamic sources by name, the only ones RDS resolves to
+	static   []*routeEntry
+	inline   []*routeEntry
+	batches  []batch // sources per dump section, for dump order
+	nDynamic int
+	nStatic  int
+	warnings []model.Warning
+}
+
+// routeEntry is one route config source with its parsed and raw content.
+// A static entry is matched when it is an inline config's Reported entry.
+type routeEntry struct {
+	source  model.RouteConfigSource
+	config  *model.RouteConfig
+	raw     json.RawMessage
+	matched bool
+}
+
+// batch is the sources of one dump section.
+type batch struct {
+	pos     int
+	entries []*routeEntry
+}
+
+func (p *parse) warn(subject model.ID, code, format string, args ...any) {
+	p.warnings = append(p.warnings, model.Warning{Subject: subject, Code: code, Message: fmt.Sprintf(format, args...)})
+}
+
+// routeSection adds the static and dynamic entries of one RoutesConfigDump
+// section. Each entry is decoded on its own, so a bad one costs only itself.
+func (p *parse) routeSection(pos int, rd routesConfigDump) {
+	b := batch{pos: pos}
+	for _, raw := range rd.StaticRouteConfigs {
+		id := model.ID(fmt.Sprintf("RS%d", p.nStatic))
+		p.nStatic++
+		if e := p.routeEntry(id, model.SourceStatic, raw); e != nil {
+			p.static = append(p.static, e)
+			b.entries = append(b.entries, e)
+		}
+	}
+	for _, raw := range rd.DynamicRouteConfigs {
+		id := model.ID(fmt.Sprintf("RD%d", p.nDynamic))
+		p.nDynamic++
+		if e := p.routeEntry(id, model.SourceDynamic, raw); e != nil {
+			p.dynamic[e.source.Name] = append(p.dynamic[e.source.Name], e)
+			b.entries = append(b.entries, e)
+		}
+	}
+	p.batches = append(p.batches, b)
+}
+
+// routeEntry decodes a static or dynamic route config entry, or warns and
+// returns nil.
+func (p *parse) routeEntry(id model.ID, kind model.RouteConfigSourceKind, raw json.RawMessage) *routeEntry {
+	var entry struct {
+		RouteConfig rawRouteConfig `json:"route_config"`
+	}
+	if err := json.Unmarshal(raw, &entry); err != nil {
+		var named struct {
+			RouteConfig struct {
+				Name string `json:"name"`
+			} `json:"route_config"`
+		}
+		_ = json.Unmarshal(raw, &named) // best effort, for the warning
+		p.warn("", model.WarnRouteConfigSkipped, "skipped route config %q: %v", named.RouteConfig.Name, err)
+		return nil
+	}
+	// A null or nameless entry would join any HCM without an RDS name.
+	if entry.RouteConfig.Name == "" {
+		p.warn("", model.WarnRouteConfigSkipped, "skipped a route config with no name")
+		return nil
+	}
+	var content struct {
+		RouteConfig json.RawMessage `json:"route_config"`
+	}
+	_ = json.Unmarshal(raw, &content) // decoded above, so this succeeds
+	return &routeEntry{
+		source: model.RouteConfigSource{ID: id, Kind: kind, Name: entry.RouteConfig.Name},
+		config: parseRouteConfig(entry.RouteConfig),
+		raw:    content.RouteConfig,
+	}
+}
+
+// listener converts raw dynamic listener i into the model.Listener, joining
+// each HCM to its route config. It shows the active version, else the warming
+// one, else the draining one, and warns for each HCM it skips.
+func (p *parse) listener(i int, rl rawListener) model.Listener {
 	l := model.Listener{
+		ID:   model.ID(fmt.Sprintf("L%d", i)),
 		Name: rl.Name,
 	}
 	if rl.ErrorState != nil {
@@ -141,7 +225,7 @@ func parseListener(rl rawListener, routeConfigs map[string]*model.RouteConfig) (
 		shown = rl.DrainingState
 	default:
 		l.State.Status = model.ListenerRejected
-		return l, nil
+		return l
 	}
 	l.State.LastUpdated = shown.LastUpdated
 
@@ -154,6 +238,7 @@ func parseListener(rl rawListener, routeConfigs map[string]*model.RouteConfig) (
 
 	for i, rfc := range shown.Listener.FilterChains {
 		nfc := model.NetworkFilterChain{
+			ID:   model.ID(fmt.Sprintf("%s/C%d", l.ID, i)),
 			Name: rfc.Name,
 		}
 
@@ -165,28 +250,107 @@ func parseListener(rl rawListener, routeConfigs map[string]*model.RouteConfig) (
 		}
 
 		// Find the HCM in the network filters
-		for _, nf := range rfc.Filters {
+		for n, nf := range rfc.Filters {
 			if nf.Name != "envoy.filters.network.http_connection_manager" {
 				continue
 			}
-			hcm, err := parseHCM(nf.TypedConfig)
+			label := fmt.Sprintf("listener %q filter chain %s", l.Name, chainLabel(i, rfc.Name))
+			hcm, inline, err := parseHCM(nf.TypedConfig)
 			if err != nil {
-				warnings = append(warnings, fmt.Sprintf("listener %q filter chain %s: skipped HTTP connection manager: %v", l.Name, chainLabel(i, rfc.Name), err))
+				p.warn(nfc.ID, model.WarnHCMSkipped, "%s: skipped HTTP connection manager: %v", label, err)
 				continue
 			}
-			// Join with RDS route config. Deep-copy so each HCM owns its RouteConfig
-			// and mutations in future phases cannot corrupt other filter chains sharing
-			// the same route_config_name.
-			if rc, ok := routeConfigs[hcm.RouteConfigName]; ok {
-				hcm.RouteConfig = cloneRouteConfig(rc)
-			}
+			hcm.ID = model.ID(fmt.Sprintf("%s/N%d", nfc.ID, n))
+			p.join(hcm, inline, label)
+			assignIDs(hcm)
 			nfc.HCM = hcm
 		}
 
 		l.FilterChains = append(l.FilterChains, nfc)
 	}
 
-	return l, warnings
+	return l
+}
+
+// join resolves hcm's route config use: its inline config, else its RDS name
+// against the dynamic sources. Each use gets its own copy of the content.
+func (p *parse) join(hcm *model.HCMConfig, inline json.RawMessage, label string) {
+	use := &hcm.RouteConfigUse
+	use.ID = hcm.ID + "/RC"
+	use.State = model.RouteConfigUnknown
+	switch {
+	case len(inline) > 0 && string(inline) != "null":
+		var rrc rawRouteConfig
+		if err := json.Unmarshal(inline, &rrc); err != nil {
+			p.warn(use.ID, model.WarnRouteConfigSkipped, "%s: skipped route config %q: %v", label, rrc.Name, err)
+			return
+		}
+		e := &routeEntry{source: model.RouteConfigSource{ID: hcm.ID + "/RCI", Kind: model.SourceInline, Name: rrc.Name}}
+		e.source.Reported = p.reported(rrc.Name, inline)
+		p.inline = append(p.inline, e)
+		use.Source, use.State = e.source.ID, model.RouteConfigFound
+		hcm.RouteConfig = parseRouteConfig(rrc)
+	case hcm.RouteConfigName != "":
+		switch found := p.dynamic[hcm.RouteConfigName]; len(found) {
+		case 0:
+			// Missing needs a complete capture; until then it is unknown.
+		case 1:
+			use.Source, use.State = found[0].source.ID, model.RouteConfigFound
+			hcm.RouteConfig = cloneRouteConfig(found[0].config)
+		default:
+			use.State = model.RouteConfigAmbiguous
+			p.warn(use.ID, model.WarnRDSAmbiguous, "%s: route config %q is ambiguous: %d dynamic route configs have that name",
+				label, hcm.RouteConfigName, len(found))
+		}
+	}
+}
+
+// reported returns the first unmatched static entry with the inline config's
+// name and content, and marks it matched; Envoy lists inline configs there.
+func (p *parse) reported(name string, inline json.RawMessage) model.ID {
+	for _, e := range p.static {
+		if !e.matched && e.source.Name == name && sameConfig(e.raw, inline) {
+			e.matched = true
+			return e.source.ID
+		}
+	}
+	return ""
+}
+
+// sameConfig reports whether two route_config documents are equal, ignoring
+// the @type that Envoy adds to static entries.
+func sameConfig(a, b json.RawMessage) bool {
+	var va, vb map[string]any
+	if json.Unmarshal(a, &va) != nil || json.Unmarshal(b, &vb) != nil {
+		return false
+	}
+	delete(va, "@type")
+	delete(vb, "@type")
+	return reflect.DeepEqual(va, vb)
+}
+
+// assignIDs gives hcm's filter slots and its use's content their IDs.
+func assignIDs(hcm *model.HCMConfig) {
+	for i := range hcm.HTTPFilters {
+		hcm.HTTPFilters[i].ID = model.ID(fmt.Sprintf("%s/F%d", hcm.ID, i))
+	}
+	for i := range hcm.UpstreamFilters {
+		hcm.UpstreamFilters[i].ID = model.ID(fmt.Sprintf("%s/U%d", hcm.ID, i))
+	}
+	if hcm.RouteConfig == nil {
+		return
+	}
+	for v := range hcm.RouteConfig.VirtualHosts {
+		vh := &hcm.RouteConfig.VirtualHosts[v]
+		vh.ID = model.ID(fmt.Sprintf("%s/V%d", hcm.RouteConfigUse.ID, v))
+		for r := range vh.Routes {
+			route := &vh.Routes[r]
+			route.ID = model.ID(fmt.Sprintf("%s/R%d", vh.ID, r))
+			for w := range route.WeightedClusters {
+				route.WeightedClusters[w].ID = model.ID(fmt.Sprintf("%s/W%d", route.ID, w))
+			}
+		}
+	}
 }
 
 // chainLabel names filter chain i for a warning: by name, or by index if unnamed.
@@ -197,15 +361,15 @@ func chainLabel(i int, name string) string {
 	return fmt.Sprintf("%q", name)
 }
 
-// parseHCM extracts the HCM config from the raw `typed_config` JSON, or returns
-// the decode error.
-func parseHCM(raw json.RawMessage) (*model.HCMConfig, error) {
+// parseHCM extracts the HCM config and its raw inline route_config from the
+// raw `typed_config` JSON, or returns the decode error.
+func parseHCM(raw json.RawMessage) (*model.HCMConfig, json.RawMessage, error) {
 	if len(raw) == 0 || string(raw) == "null" {
-		return nil, errors.New("no typed_config")
+		return nil, nil, errors.New("no typed_config")
 	}
 	var hcm rawHCM
 	if err := json.Unmarshal(raw, &hcm); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	result := &model.HCMConfig{
@@ -225,7 +389,7 @@ func parseHCM(raw json.RawMessage) (*model.HCMConfig, error) {
 		}
 	}
 
-	return result, nil
+	return result, hcm.RouteConfig, nil
 }
 
 const (
@@ -470,12 +634,13 @@ type rawNetworkFilter struct {
 // HCM
 
 // rawHCM represents the `typed_config` of an `envoy.filters.network.http_connection_manager`
-// network filter. Only the `rds` and `http_filters` fields are extracted; all other HCM
-// options (timeouts, access log, tracing, etc.) are ignored.
+// network filter. Only the `rds`, `route_config` and `http_filters` fields are extracted;
+// all other HCM options (timeouts, access log, tracing, etc.) are ignored.
 type rawHCM struct {
 	RDS struct {
 		RouteConfigName string `json:"route_config_name"`
 	} `json:"rds"`
+	RouteConfig json.RawMessage `json:"route_config"` // inline; decoded in join
 	HTTPFilters []rawHTTPFilter `json:"http_filters"`
 }
 
@@ -544,9 +709,9 @@ type rawRouter struct {
 // Routes
 
 // routesConfigDump corresponds to type.googleapis.com/envoy.admin.v3.RoutesConfigDump.
-// Only `dynamic_route_configs` are read; static route configs are ignored.
 // Entries stay raw so each one is decoded on its own.
 type routesConfigDump struct {
+	StaticRouteConfigs  []json.RawMessage `json:"static_route_configs"`
 	DynamicRouteConfigs []json.RawMessage `json:"dynamic_route_configs"`
 }
 

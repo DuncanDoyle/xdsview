@@ -45,11 +45,11 @@ func TestParse_BadRouteConfigSkipped(t *testing.T) {
   null,
   {"route_config": null},
   {"route_config": {"name": "good", "virtual_hosts": [{"name": "vh", "routes": [{"name": "r", "match": {"prefix": "/"}}]}]}}]}]}`
-	result, err := parser.Parse(strings.NewReader(dump))
+	result, err := parser.Parse(strings.NewReader(dump), parser.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	ls := result.Snapshot.Listeners
+	ls := result.Listeners
 	if rc := ls[0].FilterChains[0].HCM.RouteConfig; rc == nil || rc.Name != "good" || len(rc.VirtualHosts) != 1 {
 		t.Errorf("good route config not joined: %+v", rc)
 	}
@@ -60,21 +60,21 @@ func TestParse_BadRouteConfigSkipped(t *testing.T) {
 	if rc := ls[2].FilterChains[0].HCM.RouteConfig; rc != nil {
 		t.Errorf("listener c (no RDS name) joined a nameless route config: %+v", rc)
 	}
-	if len(result.Warnings) != 3 || !strings.Contains(result.Warnings[0], `route config "bad"`) {
+	if len(result.Warnings) != 3 || !strings.Contains(result.Warnings[0].Message, `route config "bad"`) {
 		t.Errorf("warnings = %q, want three, the first naming route config \"bad\"", result.Warnings)
 	}
 }
 
-func parsePerFilter(t *testing.T) *model.EnvoySnapshot {
+func parsePerFilter(t *testing.T) *model.Snapshot {
 	t.Helper()
-	result, err := parser.Parse(strings.NewReader(perFilterDump))
+	result, err := parser.Parse(strings.NewReader(perFilterDump), parser.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(result.Warnings) != 0 {
 		t.Fatalf("warnings: %v", result.Warnings)
 	}
-	return result.Snapshot
+	return result
 }
 
 func filterConfig(fields map[string]any) map[string]any {

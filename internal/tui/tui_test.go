@@ -27,7 +27,7 @@ func TestMain(m *testing.M) {
 // TestBuildItems_SimpleSnapshot verifies that buildItems produces one FilterRef
 // per filter per route, in the canonical traversal order.
 func TestBuildItems_SimpleSnapshot(t *testing.T) {
-	snapshot := &envoymodel.EnvoySnapshot{
+	snapshot := &envoymodel.Snapshot{
 		Listeners: []envoymodel.Listener{
 			{
 				Name: "listener~80",
@@ -79,7 +79,7 @@ func TestBuildItems_SimpleSnapshot(t *testing.T) {
 
 // TestBuildItems_NilHCM verifies that filter chains with a nil HCM are skipped.
 func TestBuildItems_NilHCM(t *testing.T) {
-	snapshot := &envoymodel.EnvoySnapshot{
+	snapshot := &envoymodel.Snapshot{
 		Listeners: []envoymodel.Listener{
 			{
 				Name: "listener~80",
@@ -99,7 +99,7 @@ func TestBuildItems_NilHCM(t *testing.T) {
 
 // TestBuildItems_NilRouteConfig verifies that filter chains with a nil RouteConfig are skipped.
 func TestBuildItems_NilRouteConfig(t *testing.T) {
-	snapshot := &envoymodel.EnvoySnapshot{
+	snapshot := &envoymodel.Snapshot{
 		Listeners: []envoymodel.Listener{
 			{
 				Name: "listener~80",
@@ -125,7 +125,7 @@ func TestBuildItems_NilRouteConfig(t *testing.T) {
 
 // TestBuildItems_EmptySnapshot verifies that an empty snapshot produces no items.
 func TestBuildItems_EmptySnapshot(t *testing.T) {
-	items := buildItems(&envoymodel.EnvoySnapshot{})
+	items := buildItems(&envoymodel.Snapshot{})
 	if len(items) != 0 {
 		t.Errorf("expected 0 items for empty snapshot, got %d", len(items))
 	}
@@ -147,7 +147,7 @@ func TestBuildItems_MultipleListeners(t *testing.T) {
 		}
 	}
 
-	snapshot := &envoymodel.EnvoySnapshot{
+	snapshot := &envoymodel.Snapshot{
 		Listeners: []envoymodel.Listener{
 			{
 				Name: "listener~80",
@@ -187,7 +187,7 @@ func TestBuildItems_MultipleListeners(t *testing.T) {
 // The inner loop over fc.HCM.HTTPFilters simply yields nothing, so buildItems
 // must return an empty slice rather than panicking or emitting partial refs.
 func TestBuildItems_EmptyHTTPFilters(t *testing.T) {
-	snapshot := &envoymodel.EnvoySnapshot{
+	snapshot := &envoymodel.Snapshot{
 		Listeners: []envoymodel.Listener{
 			{
 				Name: "listener~80",
@@ -224,7 +224,7 @@ func TestBuildItems_EmptyHTTPFilters(t *testing.T) {
 // down (YOffset > 0), pressing ↑ must decrement YOffset by 1 so the user can
 // glide smoothly to the top of the configuration line by line.
 func TestUpdate_UpKey_AtFirstItem_ScrollsViewportUp(t *testing.T) {
-	snapshot := &envoymodel.EnvoySnapshot{
+	snapshot := &envoymodel.Snapshot{
 		Listeners: []envoymodel.Listener{
 			{
 				Name: "listener~80",
@@ -272,7 +272,7 @@ func TestUpdate_UpKey_AtFirstItem_ScrollsViewportUp(t *testing.T) {
 // cursor is at item 0 and the viewport is already at the top (YOffset==0) is a
 // no-op and does not produce a negative offset.
 func TestUpdate_UpKey_AtFirstItem_AtTop_IsNoop(t *testing.T) {
-	snapshot := &envoymodel.EnvoySnapshot{
+	snapshot := &envoymodel.Snapshot{
 		Listeners: []envoymodel.Listener{
 			{
 				Name: "listener~80",
@@ -403,7 +403,7 @@ func TestFindCursorLine(t *testing.T) {
 // highlighted row is the selected filter and that Enter shows its config.
 func TestNavigation_EnabledDisabledEnabled(t *testing.T) {
 	const fc = "type.googleapis.com/envoy.config.route.v3.FilterConfig"
-	snapshot := &envoymodel.EnvoySnapshot{Listeners: []envoymodel.Listener{{
+	snapshot := &envoymodel.Snapshot{Listeners: []envoymodel.Listener{{
 		Name: "listener~80",
 		FilterChains: []envoymodel.NetworkFilterChain{{HCM: &envoymodel.HCMConfig{
 			HTTPFilters: []envoymodel.HTTPFilter{
@@ -470,7 +470,7 @@ func TestNavigation_CursorStaysOnScreen(t *testing.T) {
 	for _, n := range []string{"a", "b", "c", "d", "e"} {
 		filters = append(filters, envoymodel.HTTPFilter{Name: n})
 	}
-	snapshot := &envoymodel.EnvoySnapshot{Listeners: []envoymodel.Listener{{Name: "l",
+	snapshot := &envoymodel.Snapshot{Listeners: []envoymodel.Listener{{Name: "l",
 		FilterChains: []envoymodel.NetworkFilterChain{{HCM: &envoymodel.HCMConfig{HTTPFilters: filters,
 			RouteConfig: &envoymodel.RouteConfig{VirtualHosts: []envoymodel.VirtualHost{{Name: "vh",
 				Routes: []envoymodel.Route{{Cluster: "c"}}}}}}}}}}}

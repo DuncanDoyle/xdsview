@@ -1,12 +1,15 @@
 {
   "schemaVersion": "v1alpha1",
   "snapshot": {
+    "capture": "unverified",
     "listeners": [
       {
+        "id": "L0",
         "name": "listener~443",
         "address": ":::443",
         "filterChains": [
           {
+            "id": "L0/C0",
             "name": "https-api",
             "tls": {
               "sniHosts": [
@@ -14,9 +17,11 @@
               ]
             },
             "hcm": {
+              "id": "L0/C0/N0",
               "routeConfigName": "https-api",
               "httpFilters": [
                 {
+                  "id": "L0/C0/N0/F0",
                   "name": "dynamic_modules/simple_mutations",
                   "type": "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilter",
                   "typedConfig": {
@@ -37,6 +42,7 @@
                   }
                 },
                 {
+                  "id": "L0/C0/N0/F1",
                   "name": "envoy.filters.http.router",
                   "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
@@ -48,16 +54,23 @@
                   }
                 }
               ],
+              "routeConfigUse": {
+                "id": "L0/C0/N0/RC",
+                "source": "RD0",
+                "state": "found"
+              },
               "routeConfig": {
                 "name": "https-api",
                 "virtualHosts": [
                   {
+                    "id": "L0/C0/N0/RC/V0",
                     "name": "https-api~api_example_com",
                     "domains": [
                       "api.example.com"
                     ],
                     "routes": [
                       {
+                        "id": "L0/C0/N0/RC/V0/R0",
                         "name": "https-api~api_example_com-route-0-httproute-api-example-com-kgateway-system-0-0-matcher-0",
                         "match": {
                           "prefix": "/"
@@ -192,6 +205,7 @@
             }
           },
           {
+            "id": "L0/C1",
             "name": "https-developer",
             "tls": {
               "sniHosts": [
@@ -199,9 +213,11 @@
               ]
             },
             "hcm": {
+              "id": "L0/C1/N0",
               "routeConfigName": "https-developer",
               "httpFilters": [
                 {
+                  "id": "L0/C1/N0/F0",
                   "name": "dynamic_modules/simple_mutations",
                   "type": "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilter",
                   "typedConfig": {
@@ -222,6 +238,7 @@
                   }
                 },
                 {
+                  "id": "L0/C1/N0/F1",
                   "name": "envoy.filters.http.router",
                   "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
@@ -233,16 +250,23 @@
                   }
                 }
               ],
+              "routeConfigUse": {
+                "id": "L0/C1/N0/RC",
+                "source": "RD1",
+                "state": "found"
+              },
               "routeConfig": {
                 "name": "https-developer",
                 "virtualHosts": [
                   {
+                    "id": "L0/C1/N0/RC/V0",
                     "name": "https-developer~developer_example_com",
                     "domains": [
                       "developer.example.com"
                     ],
                     "routes": [
                       {
+                        "id": "L0/C1/N0/RC/V0/R0",
                         "name": "https-developer~developer_example_com-route-0-httproute-api-example-com-kgateway-system-0-0-matcher-0",
                         "match": {
                           "prefix": "/"
@@ -385,6 +409,28 @@
           "certainty": "inferred",
           "port": 443
         }
+      }
+    ],
+    "routeConfigs": [
+      {
+        "id": "RS0",
+        "kind": "static",
+        "name": "prometheus_route"
+      },
+      {
+        "id": "RS1",
+        "kind": "static",
+        "name": "main_route"
+      },
+      {
+        "id": "RD0",
+        "kind": "dynamic",
+        "name": "https-api"
+      },
+      {
+        "id": "RD1",
+        "kind": "dynamic",
+        "name": "https-developer"
       }
     ]
   },

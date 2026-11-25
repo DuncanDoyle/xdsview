@@ -21,7 +21,7 @@ const (
 // sample is one Gateway with an active listener whose route enables ext_auth
 // per route, and a warming listener with an error. It is annotated the way
 // krp does it: origins and chains from the kgateway mapper.
-func sample() *model.EnvoySnapshot {
+func sample() *model.Snapshot {
 	hcm := &model.HCMConfig{
 		RouteConfigName: "listener~80",
 		HTTPFilters: []model.HTTPFilter{
@@ -45,7 +45,7 @@ func sample() *model.EnvoySnapshot {
 			}},
 		}}},
 	}
-	snap := &model.EnvoySnapshot{Listeners: []model.Listener{
+	snap := &model.Snapshot{Listeners: []model.Listener{
 		{Name: "listener~80", Address: "[::]:80", State: model.ListenerState{Status: model.ListenerActive},
 			FilterChains: []model.NetworkFilterChain{{Name: "listener~80", HCM: hcm}}},
 		{Name: "listener~8443", Address: "[::]:8443", State: model.ListenerState{Status: model.ListenerWarming,
@@ -56,7 +56,7 @@ func sample() *model.EnvoySnapshot {
 	return chain.Annotate(origin.Annotate(snap, m), m)
 }
 
-func text(t *testing.T, snap *model.EnvoySnapshot, opts render.Options) string {
+func text(t *testing.T, snap *model.Snapshot, opts render.Options) string {
 	t.Helper()
 	var b bytes.Buffer
 	if err := render.Text(&b, snap, opts); err != nil {
@@ -156,7 +156,7 @@ func TestText_Conditional(t *testing.T) {
 
 func TestText_ListenerStates(t *testing.T) {
 	errState := &model.ListenerError{Details: "dup", LastAttempt: "t1"}
-	snap := &model.EnvoySnapshot{Listeners: []model.Listener{
+	snap := &model.Snapshot{Listeners: []model.Listener{
 		{Name: "a", State: model.ListenerState{Status: model.ListenerActive, Updating: true, Draining: true, Error: errState}},
 		{Name: "b", State: model.ListenerState{Status: model.ListenerDraining}},
 		{Name: "c", State: model.ListenerState{Status: model.ListenerRejected, Error: &model.ListenerError{Details: "bad"}}},
@@ -224,7 +224,7 @@ func TestText_Unannotated(t *testing.T) {
 }
 
 func TestText_NoListeners(t *testing.T) {
-	if got := text(t, &model.EnvoySnapshot{}, render.Options{}); got != "no listeners\n" {
+	if got := text(t, &model.Snapshot{}, render.Options{}); got != "no listeners\n" {
 		t.Errorf("Text = %q", got)
 	}
 }

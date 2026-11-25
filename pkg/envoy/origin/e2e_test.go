@@ -120,18 +120,18 @@ func known(scenario string) []model.Ref {
 	return []model.Ref{httpRoute("api-example-com")}
 }
 
-func parse(t *testing.T, path string) *model.EnvoySnapshot {
+func parse(t *testing.T, path string) *model.Snapshot {
 	t.Helper()
 	f, err := os.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer f.Close()
-	res, err := parser.Parse(f)
+	res, err := parser.Parse(f, parser.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return res.Snapshot
+	return res
 }
 
 // dumps returns every OSS recording of a scenario, keyed by version directory.
@@ -148,7 +148,7 @@ func dumps(t *testing.T, scenario string) map[string]string {
 	return out
 }
 
-func eachRoute(snap *model.EnvoySnapshot, fn func(model.Route)) {
+func eachRoute(snap *model.Snapshot, fn func(model.Route)) {
 	for _, l := range snap.Listeners {
 		for _, fc := range l.FilterChains {
 			if fc.HCM == nil || fc.HCM.RouteConfig == nil {

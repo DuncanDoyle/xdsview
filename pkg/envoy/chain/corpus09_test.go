@@ -85,7 +85,7 @@ func TestAnnotate_Corpus02_1Transformation(t *testing.T) {
 // the given HCM filters, route config and route, and returns contributions by filter.
 func annotateOne(t *testing.T, filters []model.HTTPFilter, rcPFC map[string]any, r model.Route) map[string][]model.Contribution {
 	t.Helper()
-	snap := &model.EnvoySnapshot{Listeners: []model.Listener{{FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
+	snap := &model.Snapshot{Listeners: []model.Listener{{FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
 		HTTPFilters: filters,
 		RouteConfig: &model.RouteConfig{TypedPerFilterConfig: rcPFC, VirtualHosts: []model.VirtualHost{{Routes: []model.Route{r}}}},
 	}}}}}}

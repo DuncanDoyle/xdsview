@@ -13,27 +13,27 @@ import (
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/parser"
 )
 
-func parseFile(t *testing.T, path string) *model.EnvoySnapshot {
+func parseFile(t *testing.T, path string) *model.Snapshot {
 	t.Helper()
 	f, err := os.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer f.Close()
-	res, err := parser.Parse(f)
+	res, err := parser.Parse(f, parser.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return res.Snapshot
+	return res
 }
 
-func parseString(t *testing.T, s string) *model.EnvoySnapshot {
+func parseString(t *testing.T, s string) *model.Snapshot {
 	t.Helper()
-	res, err := parser.Parse(strings.NewReader(s))
+	res, err := parser.Parse(strings.NewReader(s), parser.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return res.Snapshot
+	return res
 }
 
 // recordings returns a scenario's OSS dumps, keyed by version directory.
@@ -51,7 +51,7 @@ func recordings(t *testing.T, scenario string) map[string]string {
 }
 
 // routes returns every route in snap with its chain.
-func routes(snap *model.EnvoySnapshot) []model.Route {
+func routes(snap *model.Snapshot) []model.Route {
 	var out []model.Route
 	for _, l := range snap.Listeners {
 		for _, fc := range l.FilterChains {
@@ -202,7 +202,7 @@ func (acmeMapper) PolicyFilter(p model.PolicyRef, f model.HTTPFilter) bool {
 // fieldless implements Mapper but not PolicyFilters.
 type fieldless struct{ origin.Mapper }
 
-func contributions(t *testing.T, snap *model.EnvoySnapshot, m origin.Mapper) map[string][]model.Contribution {
+func contributions(t *testing.T, snap *model.Snapshot, m origin.Mapper) map[string][]model.Contribution {
 	t.Helper()
 	out := map[string][]model.Contribution{}
 	for _, e := range routes(chain.Annotate(snap, m))[0].Chain.Filters {

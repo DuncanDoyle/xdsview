@@ -10,8 +10,9 @@ import (
 // defines its filter and, if m implements [origin.PolicyFilters] and the entry
 // has per-filter config, the policy fields attributed to it on the route.
 // Like origin.Annotate, the copy shares unannotated parts with snap.
-func Annotate(snap *model.EnvoySnapshot, m origin.Mapper) *model.EnvoySnapshot {
-	out := &model.EnvoySnapshot{Listeners: make([]model.Listener, len(snap.Listeners))}
+func Annotate(snap *model.Snapshot, m origin.Mapper) *model.Snapshot {
+	out := *snap
+	out.Listeners = make([]model.Listener, len(snap.Listeners))
 	for i, l := range snap.Listeners {
 		chains := make([]model.NetworkFilterChain, len(l.FilterChains))
 		for j, fc := range l.FilterChains {
@@ -38,7 +39,7 @@ func Annotate(snap *model.EnvoySnapshot, m origin.Mapper) *model.EnvoySnapshot {
 		l.FilterChains = chains
 		out.Listeners[i] = l
 	}
-	return out
+	return &out
 }
 
 // attribute adds contributions to c's entries, which are in filters' order:

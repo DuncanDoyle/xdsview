@@ -1,4 +1,4 @@
-// Package render writes an [model.EnvoySnapshot] as a deterministic plain-text
+// Package render writes a [model.Snapshot] as a deterministic plain-text
 // tree: listeners, virtual hosts and routes, with each route's effective filter
 // chain. It uses only the standard library and the pkg/envoy core, so CLIs and
 // UIs can print the same view. Styled or interactive callers add colour,
@@ -73,7 +73,7 @@ const (
 // Text writes snap to w. Routes without a chain get one from [chain.Effective]
 // with no mapper. Output is LF-terminated with no trailing spaces, and follows
 // the snapshot's order everywhere.
-func Text(w io.Writer, snap *model.EnvoySnapshot, opts Options) error {
+func Text(w io.Writer, snap *model.Snapshot, opts Options) error {
 	p := printer{opts: opts}
 	if opts.Header != "" {
 		p.line(clean(opts.Header))
@@ -207,7 +207,11 @@ func (p *printer) chainBody(fc model.NetworkFilterChain, indent string) {
 	}
 	if hcm.RouteConfig == nil {
 		prefix, body := node(indent, true)
-		p.line(prefix + p.style(ClassWarning, nil, "route config "+hcm.RouteConfigName+" not found"))
+		status := " not found"
+		if hcm.RouteConfigUse.State == model.RouteConfigAmbiguous {
+			status = " ambiguous: several route configs have this name"
+		}
+		p.line(prefix + p.style(ClassWarning, nil, "route config "+hcm.RouteConfigName+status))
 		p.filters(chain.Effective(*hcm, model.VirtualHost{}, model.Route{}), body)
 		return
 	}

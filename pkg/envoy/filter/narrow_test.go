@@ -38,7 +38,7 @@ func opts(ns, name string) filter.Options {
 // TestFilter_AnnotatedOrigins: annotated routes are matched on their origin,
 // and an Ambiguous route is never selected but reported.
 func TestFilter_AnnotatedOrigins(t *testing.T) {
-	raw := &model.EnvoySnapshot{Listeners: []model.Listener{
+	raw := &model.Snapshot{Listeners: []model.Listener{
 		listener("listener~80", model.ListenerState{Status: model.ListenerActive}, collidingRoute),
 	}}
 	unknown := origin.Annotate(raw, origin.Kgateway(origin.KgatewayOptions{}))
@@ -46,7 +46,7 @@ func TestFilter_AnnotatedOrigins(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		snap          *model.EnvoySnapshot
+		snap          *model.Snapshot
 		opts          filter.Options
 		wantRoutes    []string
 		wantAmbiguous []string
@@ -83,7 +83,7 @@ func TestFilter_AnnotatedOrigins(t *testing.T) {
 func TestFilter_ListenersThatExplain(t *testing.T) {
 	other := "listener~80~shop-route-0-httproute-other-ns-0-0-matcher-0"
 	errState := &model.ListenerError{Details: "bad"}
-	snap := &model.EnvoySnapshot{Listeners: []model.Listener{
+	snap := &model.Snapshot{Listeners: []model.Listener{
 		listener("active", model.ListenerState{Status: model.ListenerActive}, other),
 		listener("active-error", model.ListenerState{Status: model.ListenerActive, Error: errState}, other),
 		listener("active-updating", model.ListenerState{Status: model.ListenerActive, Updating: true}, other),
@@ -110,7 +110,7 @@ func TestFilter_ListenersThatExplain(t *testing.T) {
 	}
 }
 
-func stateOf(snap *model.EnvoySnapshot, name string) model.ListenerState {
+func stateOf(snap *model.Snapshot, name string) model.ListenerState {
 	for _, l := range snap.Listeners {
 		if l.Name == name {
 			return l.State
@@ -125,15 +125,15 @@ const readings4 = "listener~80~shop-route-0-httproute-a-b-c-d-0-0-matcher-0"
 // TestAmbiguous_AllNameReadings: a route Known narrowed may still serve a
 // deleted HTTPRoute, so Ambiguous judges it on all its name's readings (#29).
 func TestAmbiguous_AllNameReadings(t *testing.T) {
-	raw := &model.EnvoySnapshot{Listeners: []model.Listener{
+	raw := &model.Snapshot{Listeners: []model.Listener{
 		listener("listener~80", model.ListenerState{Status: model.ListenerActive}, readings4),
 	}}
-	annotate := func(known ...model.Ref) *model.EnvoySnapshot {
+	annotate := func(known ...model.Ref) *model.Snapshot {
 		return origin.Annotate(raw, origin.Kgateway(origin.KgatewayOptions{Known: known}))
 	}
 	tests := []struct {
 		name string
-		snap *model.EnvoySnapshot
+		snap *model.Snapshot
 	}{
 		{"Known keeps two other readings", annotate(routeRef("b-c-d", "a"), routeRef("c-d", "a-b"))},
 		{"Known keeps one other reading", annotate(routeRef("b-c-d", "a"))},
@@ -168,7 +168,7 @@ func TestAmbiguous_AllNameReadings(t *testing.T) {
 func TestFilter_NameMatchIgnoresVhost(t *testing.T) {
 	const vhost = "listener~80~httproute-orders-team-a-example"
 	name := vhost + "-route-0-httproute-web-shop-0-0-matcher-0"
-	snap := &model.EnvoySnapshot{Listeners: []model.Listener{{Name: "l", FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
+	snap := &model.Snapshot{Listeners: []model.Listener{{Name: "l", FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
 		RouteConfig: &model.RouteConfig{VirtualHosts: []model.VirtualHost{{Name: vhost, Routes: []model.Route{{Name: name}}}}}}}}}}}
 	if got := routeNames(filter.Filter(snap, opts("team-a", "orders"))); got != nil {
 		t.Errorf("team-a/orders selected %v; the marker is in the vhost name", got)
@@ -181,8 +181,8 @@ func TestFilter_NameMatchIgnoresVhost(t *testing.T) {
 // TestAmbiguous_ReviewCases: readings come from the route part only, a custom
 // mapper's candidates still count, and route_source metadata is authoritative.
 func TestAmbiguous_ReviewCases(t *testing.T) {
-	route := func(vhost, name string, o *model.RouteAnnotation, meta map[string]any) *model.EnvoySnapshot {
-		return &model.EnvoySnapshot{Listeners: []model.Listener{{Name: "l", FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
+	route := func(vhost, name string, o *model.RouteAnnotation, meta map[string]any) *model.Snapshot {
+		return &model.Snapshot{Listeners: []model.Listener{{Name: "l", FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
 			RouteConfig: &model.RouteConfig{VirtualHosts: []model.VirtualHost{{Name: vhost, Routes: []model.Route{{Name: name, Origin: o, Metadata: meta}}}}}}}}}}}
 	}
 	ambiguous := &model.RouteAnnotation{Certainty: model.Ambiguous, Candidates: []model.RouteOrigin{{Route: routeRef("x", "y")}, {Route: routeRef("z", "w")}}}
@@ -213,7 +213,7 @@ func TestAmbiguous_ReviewCases(t *testing.T) {
 func TestFilter_NameMatchIgnoresVhostRules(t *testing.T) {
 	const vhost = "listener~80~httproute-web-shop-1-0-api-matcher-0"
 	name := vhost + "-route-0-httproute-web-shop-0-0-matcher-0"
-	snap := &model.EnvoySnapshot{Listeners: []model.Listener{{Name: "l", FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
+	snap := &model.Snapshot{Listeners: []model.Listener{{Name: "l", FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
 		RouteConfig: &model.RouteConfig{VirtualHosts: []model.VirtualHost{{Name: vhost, Routes: []model.Route{{Name: name}}}}}}}}}}}
 	for _, c := range []struct {
 		o    filter.Options
@@ -237,7 +237,7 @@ func TestFilter_RuleIndexFromName(t *testing.T) {
 	for _, rule := range []string{"api", "_rule-1"} {
 		meta := map[string]any{"dev.kgateway.route_source": map[string]any{
 			"kind": "HTTPRoute", "group": "gateway.networking.k8s.io", "namespace": "shop", "name": "web", "rule": rule, "match": "_match-0"}}
-		snap := &model.EnvoySnapshot{Listeners: []model.Listener{{Name: "l", FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
+		snap := &model.Snapshot{Listeners: []model.Listener{{Name: "l", FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
 			RouteConfig: &model.RouteConfig{VirtualHosts: []model.VirtualHost{{Name: "listener~80~*", Routes: []model.Route{{Name: name, Metadata: meta}}}}}}}}}}}
 		o := opts("shop", "web")
 		o.RuleIndex = 1
@@ -266,7 +266,7 @@ func nameConflict(t *testing.T, name string) {
 	t.Helper()
 	meta := map[string]any{"dev.kgateway.route_source": map[string]any{
 		"kind": "HTTPRoute", "group": "gateway.networking.k8s.io", "namespace": "shop", "name": "web", "rule": "api", "match": "_match-0"}}
-	snap := &model.EnvoySnapshot{Listeners: []model.Listener{{Name: "l", FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
+	snap := &model.Snapshot{Listeners: []model.Listener{{Name: "l", FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
 		RouteConfig: &model.RouteConfig{VirtualHosts: []model.VirtualHost{{Name: "listener~80~*", Routes: []model.Route{{Name: name, Metadata: meta}}}}}}}}}}}
 	o := opts("shop", "web")
 	o.RuleIndex = 2
@@ -285,7 +285,7 @@ func TestFilter_UnnamedRuleNotSelectedByName(t *testing.T) {
 	const name = "listener~80~*-route-0-httproute-web-shop-2-0-api-matcher-0"
 	meta := map[string]any{"dev.kgateway.route_source": map[string]any{
 		"kind": "HTTPRoute", "group": "gateway.networking.k8s.io", "namespace": "shop", "name": "web", "rule": "_rule-2", "match": "_match-0"}}
-	snap := &model.EnvoySnapshot{Listeners: []model.Listener{{Name: "l", FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
+	snap := &model.Snapshot{Listeners: []model.Listener{{Name: "l", FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
 		RouteConfig: &model.RouteConfig{VirtualHosts: []model.VirtualHost{{Name: "listener~80~*", Routes: []model.Route{{Name: name, Metadata: meta}}}}}}}}}}}
 	o := opts("shop", "web")
 	o.RuleName = "api"

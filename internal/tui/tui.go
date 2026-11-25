@@ -1,5 +1,5 @@
 // Package tui provides the interactive bubbletea TUI for krp.
-// It wraps an [envoymodel.EnvoySnapshot] in a scrollable, navigable terminal
+// It wraps a [envoymodel.Snapshot] in a scrollable, navigable terminal
 // UI where the user can expand HTTP filter typed configs inline.
 package tui
 
@@ -27,7 +27,7 @@ const helpText = "↑/↓ navigate • Enter/Space expand • a toggle all • q
 
 // model holds all mutable state for the interactive TUI session.
 type model struct {
-	snapshot *envoymodel.EnvoySnapshot
+	snapshot *envoymodel.Snapshot
 	items    []render.FilterRef
 	cursor   int
 	expanded map[render.FilterRef]bool
@@ -40,7 +40,7 @@ type model struct {
 //
 // Filter chains with a nil HCM or a nil RouteConfig are skipped — they produce
 // no navigable filters (same as the renderer, which shows "[no HCM]" / "[RDS not found]").
-func buildItems(snapshot *envoymodel.EnvoySnapshot) []render.FilterRef {
+func buildItems(snapshot *envoymodel.Snapshot) []render.FilterRef {
 	var items []render.FilterRef
 	for lIdx, listener := range snapshot.Listeners {
 		for fcIdx, fc := range listener.FilterChains {
@@ -116,7 +116,7 @@ func (m *model) setContent() {
 // It calls buildItems once to populate the flat navigation list and initialises
 // the viewport with default dimensions; the actual terminal size is applied when
 // the first tea.WindowSizeMsg is received in Update.
-func initialModel(snapshot *envoymodel.EnvoySnapshot) model {
+func initialModel(snapshot *envoymodel.Snapshot) model {
 	vp := viewport.New(defaultWidth, defaultHeight)
 	m := model{
 		snapshot: snapshot,
@@ -211,7 +211,7 @@ func (m model) View() string {
 // select, for example when only rejected listeners remain, it prints the
 // static tree to out instead, so their state and errors still show. It blocks
 // until the user quits (q or Ctrl+C) and returns any bubbletea program error.
-func Run(snapshot *envoymodel.EnvoySnapshot, out, errOut io.Writer) error {
+func Run(snapshot *envoymodel.Snapshot, out, errOut io.Writer) error {
 	m := initialModel(snapshot)
 	if len(m.items) == 0 {
 		fmt.Fprintln(errOut, "no expandable filters found; printing the tree")

@@ -16,8 +16,8 @@ import (
 
 // oneRoute is a snapshot with one filter and one route, with per-filter config
 // at route, vhost and route config level.
-func oneRoute(f model.HTTPFilter, route, vhost, routeConfig map[string]any) *model.EnvoySnapshot {
-	return &model.EnvoySnapshot{Listeners: []model.Listener{{FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
+func oneRoute(f model.HTTPFilter, route, vhost, routeConfig map[string]any) *model.Snapshot {
+	return &model.Snapshot{Listeners: []model.Listener{{FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
 		HTTPFilters: []model.HTTPFilter{f},
 		RouteConfig: &model.RouteConfig{TypedPerFilterConfig: routeConfig, VirtualHosts: []model.VirtualHost{{
 			TypedPerFilterConfig: vhost, Routes: []model.Route{{TypedPerFilterConfig: route}},

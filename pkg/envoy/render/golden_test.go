@@ -34,7 +34,7 @@ func TestText_Golden(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			res, err := parser.Parse(f)
+			res, err := parser.Parse(f, parser.Options{})
 			f.Close()
 			if err != nil {
 				t.Fatal(err)
@@ -45,7 +45,7 @@ func TestText_Golden(t *testing.T) {
 				{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute", Namespace: "kgateway-system", Name: "api-example-com-admin"},
 			}
 			m := origin.Kgateway(origin.KgatewayOptions{Known: known})
-			snap := chain.Annotate(origin.Annotate(res.Snapshot, m), m)
+			snap := chain.Annotate(origin.Annotate(res, m), m)
 
 			var a, b bytes.Buffer
 			if err := render.Text(&a, snap, render.Options{}); err != nil {

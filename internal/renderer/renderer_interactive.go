@@ -23,7 +23,7 @@ type RenderOpts struct {
 // RenderInteractive renders every HCM filter of every route as a row, so each
 // row the TUI can select is visible. The cursor row is reversed, and expanded
 // rows show their deciding config as indented JSON.
-func RenderInteractive(snapshot *model.EnvoySnapshot, opts RenderOpts) string {
+func RenderInteractive(snapshot *model.Snapshot, opts RenderOpts) string {
 	return text(snapshot, render.Options{
 		AllFilters: true,
 		Style: func(c render.Class, ref *render.FilterRef, s string) string {
@@ -52,7 +52,7 @@ func RenderInteractive(snapshot *model.EnvoySnapshot, opts RenderOpts) string {
 // resolveFilterConfig returns the config that decides ref's filter on its
 // route: the most specific per-filter config (route, vhost, route config),
 // else the HCM filter's own config, else nil.
-func resolveFilterConfig(snapshot *model.EnvoySnapshot, ref render.FilterRef) any {
+func resolveFilterConfig(snapshot *model.Snapshot, ref render.FilterRef) any {
 	hcm := snapshot.Listeners[ref.ListenerIdx].FilterChains[ref.FilterChainIdx].HCM
 	f := hcm.HTTPFilters[ref.FilterIdx]
 	if rc := hcm.RouteConfig; rc != nil {

@@ -19,7 +19,7 @@ func renderRoute(hcm model.HCMConfig, route model.Route) string {
 	hcm.RouteConfig = &model.RouteConfig{Name: "rc", VirtualHosts: []model.VirtualHost{
 		{Name: "vh", Domains: []string{"*"}, Routes: []model.Route{route}},
 	}}
-	snap := &model.EnvoySnapshot{Listeners: []model.Listener{{
+	snap := &model.Snapshot{Listeners: []model.Listener{{
 		Name: "listener~80", Address: "[::]:80",
 		FilterChains: []model.NetworkFilterChain{{HCM: &hcm}},
 	}}}

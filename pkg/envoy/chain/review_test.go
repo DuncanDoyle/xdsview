@@ -41,12 +41,12 @@ func TestEffective_FilterConfigExactType(t *testing.T) {
 // for the route, the extAuth policy can't be placed, so neither gets it.
 func TestAnnotate_PolicyNeedsOneMatch(t *testing.T) {
 	enable := map[string]any{"@type": filterConfigType, "config": map[string]any{}}
-	snap := func(both bool) *model.EnvoySnapshot {
+	snap := func(both bool) *model.Snapshot {
 		pfc := map[string]any{"ext_auth/ns/a": enable}
 		if both {
 			pfc["ext_auth/ns/b"] = enable
 		}
-		return &model.EnvoySnapshot{Listeners: []model.Listener{{FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
+		return &model.Snapshot{Listeners: []model.Listener{{FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
 			HTTPFilters: []model.HTTPFilter{
 				{Name: "ext_auth/ns/a", Type: extAuthzType, Disabled: true},
 				{Name: "ext_auth/ns/b", Type: extAuthzType, Disabled: true},
@@ -58,7 +58,7 @@ func TestAnnotate_PolicyNeedsOneMatch(t *testing.T) {
 			}}}}},
 		}}}}}}
 	}
-	policies := func(s *model.EnvoySnapshot) map[string]int {
+	policies := func(s *model.Snapshot) map[string]int {
 		out := map[string]int{}
 		for _, e := range routes(chain.Annotate(s, origin.Kgateway(origin.KgatewayOptions{})))[0].Chain.Filters {
 			for _, c := range e.Contributions {

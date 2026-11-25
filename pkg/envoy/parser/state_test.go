@@ -24,14 +24,14 @@ func parseListeners(t *testing.T, entries ...string) []model.Listener {
 	t.Helper()
 	dump := `{"configs": [{"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
  "dynamic_listeners": [` + strings.Join(entries, ",") + `]}]}`
-	result, err := parser.Parse(strings.NewReader(dump))
+	result, err := parser.Parse(strings.NewReader(dump), parser.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(result.Warnings) != 0 {
 		t.Fatalf("warnings: %v", result.Warnings)
 	}
-	return result.Snapshot.Listeners
+	return result.Listeners
 }
 
 func chainNames(l model.Listener) []string {
@@ -132,7 +132,7 @@ func TestParse_UndecodableHCMWarns(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dump := `{"configs": [{"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
  "dynamic_listeners": [{"name": "listener~80", ` + tt.entry + `}]}]}`
-			result, err := parser.Parse(strings.NewReader(dump))
+			result, err := parser.Parse(strings.NewReader(dump), parser.Options{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -143,12 +143,12 @@ func TestParse_UndecodableHCMWarns(t *testing.T) {
 				t.Errorf("warnings = %q, want one", result.Warnings)
 			case tt.wantWarn != nil:
 				for _, s := range tt.wantWarn {
-					if !strings.Contains(result.Warnings[0], s) {
-						t.Errorf("warning %q, want it to contain %q", result.Warnings[0], s)
+					if !strings.Contains(result.Warnings[0].Message, s) {
+						t.Errorf("warning %q, want it to contain %q", result.Warnings[0].Message, s)
 					}
 				}
 			}
-			ls := result.Snapshot.Listeners
+			ls := result.Listeners
 			if len(ls) != 1 || !reflect.DeepEqual(chainNames(ls[0]), []string{tt.wantChain}) || (ls[0].FilterChains[0].HCM != nil) != tt.wantHCM {
 				t.Errorf("listeners = %+v, want one filter chain %q, HCM %v", ls, tt.wantChain, tt.wantHCM)
 			}

@@ -43,18 +43,18 @@ func TestParseAllScenarios(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer f.Close()
-			result, err := parser.Parse(f)
+			result, err := parser.Parse(f, parser.Options{})
 			if err != nil {
 				t.Fatalf("parse failed: %v", err)
 			}
 			if len(result.Warnings) > 0 {
 				t.Errorf("unexpected warnings: %v", result.Warnings)
 			}
-			if len(result.Snapshot.Listeners) == 0 {
+			if len(result.Listeners) == 0 {
 				t.Error("expected at least one listener")
 			}
 			// Verify rendering doesn't panic
-			if renderer.Render(result.Snapshot) == "" {
+			if renderer.Render(result) == "" {
 				t.Error("expected non-empty render output")
 			}
 		})
@@ -63,7 +63,7 @@ func TestParseAllScenarios(t *testing.T) {
 
 // firstRoute returns the first route from the first virtual host of the first
 // filter chain in listener~80. Fails the test if any step is missing.
-func firstRoute(t *testing.T, snapshot *model.EnvoySnapshot) model.Route {
+func firstRoute(t *testing.T, snapshot *model.Snapshot) model.Route {
 	t.Helper()
 	for _, l := range snapshot.Listeners {
 		if l.Name != "listener~80" {
@@ -84,19 +84,19 @@ func firstRoute(t *testing.T, snapshot *model.EnvoySnapshot) model.Route {
 
 // matcherSnapshots parses every dump of a 01_x-matchers scenario, keyed by path,
 // so each matcher assertion runs on every kgateway version.
-func matcherSnapshots(t *testing.T, scenario string) map[string]*model.EnvoySnapshot {
+func matcherSnapshots(t *testing.T, scenario string) map[string]*model.Snapshot {
 	t.Helper()
-	snaps := map[string]*model.EnvoySnapshot{}
+	snaps := map[string]*model.Snapshot{}
 	for _, dumpPath := range dumpsOf(t, scenario) {
 		data, err := os.ReadFile(dumpPath)
 		if err != nil {
 			t.Fatal(err)
 		}
-		result, err := parser.Parse(bytes.NewReader(data))
+		result, err := parser.Parse(bytes.NewReader(data), parser.Options{})
 		if err != nil {
 			t.Fatalf("%s: parse failed: %v", dumpPath, err)
 		}
-		snaps[dumpPath] = result.Snapshot
+		snaps[dumpPath] = result
 	}
 	return snaps
 }

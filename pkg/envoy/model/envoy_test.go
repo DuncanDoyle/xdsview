@@ -7,8 +7,8 @@ import (
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 )
 
-func TestEnvoySnapshotJSONRoundtrip(t *testing.T) {
-	snapshot := model.EnvoySnapshot{
+func TestSnapshotJSONRoundtrip(t *testing.T) {
+	snapshot := model.Snapshot{
 		Listeners: []model.Listener{
 			{
 				Name:    "listener~80",
@@ -49,7 +49,7 @@ func TestEnvoySnapshotJSONRoundtrip(t *testing.T) {
 		t.Fatalf("marshal failed: %v", err)
 	}
 
-	var got model.EnvoySnapshot
+	var got model.Snapshot
 	if err := json.Unmarshal(data, &got); err != nil {
 		t.Fatalf("unmarshal failed: %v", err)
 	}
@@ -66,8 +66,8 @@ func TestEnvoySnapshotJSONRoundtrip(t *testing.T) {
 	}
 }
 
-func TestEnvoySnapshotTLS(t *testing.T) {
-	snapshot := model.EnvoySnapshot{
+func TestSnapshotTLS(t *testing.T) {
+	snapshot := model.Snapshot{
 		Listeners: []model.Listener{
 			{
 				Name:    "listener~443",
@@ -96,7 +96,7 @@ func TestEnvoySnapshotTLS(t *testing.T) {
 		t.Fatalf("marshal failed: %v", err)
 	}
 
-	var got model.EnvoySnapshot
+	var got model.Snapshot
 	if err := json.Unmarshal(data, &got); err != nil {
 		t.Fatalf("unmarshal failed: %v", err)
 	}

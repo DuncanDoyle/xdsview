@@ -15,7 +15,7 @@ import (
 
 // composed runs origin.Annotate then chain.Annotate, as krp does, and returns
 // the first route.
-func composed(t *testing.T, snap *model.EnvoySnapshot, m origin.Mapper) model.Route {
+func composed(t *testing.T, snap *model.Snapshot, m origin.Mapper) model.Route {
 	t.Helper()
 	rs := routes(chain.Annotate(origin.Annotate(snap, m), m))
 	if len(rs) == 0 {
@@ -88,7 +88,7 @@ func TestCertainty_OneCandidate(t *testing.T) {
 				vh.TypedPerFilterConfig = map[string]any{c.provider: enable}
 			}
 			rc.VirtualHosts = []model.VirtualHost{vh}
-			snap := &model.EnvoySnapshot{Listeners: []model.Listener{{FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
+			snap := &model.Snapshot{Listeners: []model.Listener{{FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
 				HTTPFilters: []model.HTTPFilter{
 					{Name: c.helper, Type: setMetaType, Disabled: true},
 					{Name: c.provider, Type: c.typ, Disabled: true},
@@ -147,8 +147,8 @@ func TestCertainty_PolicyLinkNoStrongerThanRef(t *testing.T) {
 // doesn't get the policy (8.1 review #4).
 func TestCertainty_BackendOverrideIsACandidate(t *testing.T) {
 	enable := map[string]any{"@type": filterConfigType, "config": map[string]any{}}
-	snap := func(backendFilter string) *model.EnvoySnapshot {
-		return &model.EnvoySnapshot{Listeners: []model.Listener{{FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
+	snap := func(backendFilter string) *model.Snapshot {
+		return &model.Snapshot{Listeners: []model.Listener{{FilterChains: []model.NetworkFilterChain{{HCM: &model.HCMConfig{
 			HTTPFilters: []model.HTTPFilter{
 				{Name: "ext_auth/ns/a", Type: extAuthzType, Disabled: true},
 				{Name: "ext_auth/ns/b", Type: extAuthzType, Disabled: true},
@@ -160,7 +160,7 @@ func TestCertainty_BackendOverrideIsACandidate(t *testing.T) {
 			}}}}},
 		}}}}}}
 	}
-	policies := func(s *model.EnvoySnapshot) int {
+	policies := func(s *model.Snapshot) int {
 		n := 0
 		for _, cts := range contributionsOf(composed(t, s, origin.Kgateway(origin.KgatewayOptions{}))) {
 			for _, c := range cts {

@@ -1,17 +1,22 @@
 {
   "schemaVersion": "v1alpha1",
   "snapshot": {
+    "capture": "unverified",
     "listeners": [
       {
+        "id": "L0",
         "name": "listener~80",
         "address": ":::80",
         "filterChains": [
           {
+            "id": "L0/C0",
             "name": "listener~80",
             "hcm": {
+              "id": "L0/C0/N0",
               "routeConfigName": "listener~80",
               "httpFilters": [
                 {
+                  "id": "L0/C0/N0/F0",
                   "name": "envoy.filters.http.router",
                   "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
@@ -23,16 +28,23 @@
                   }
                 }
               ],
+              "routeConfigUse": {
+                "id": "L0/C0/N0/RC",
+                "source": "RD0",
+                "state": "found"
+              },
               "routeConfig": {
                 "name": "listener~80",
                 "virtualHosts": [
                   {
+                    "id": "L0/C0/N0/RC/V0",
                     "name": "listener~80~api_example_com",
                     "domains": [
                       "api.example.com"
                     ],
                     "routes": [
                       {
+                        "id": "L0/C0/N0/RC/V0/R0",
                         "name": "listener~80~api_example_com-route-0-httproute-api-example-com-kgateway-system-0-0-matcher-0",
                         "match": {
                           "pathSeparatedPrefix": "/api/v2",
@@ -133,6 +145,23 @@
           "certainty": "inferred",
           "port": 80
         }
+      }
+    ],
+    "routeConfigs": [
+      {
+        "id": "RS0",
+        "kind": "static",
+        "name": "main_route"
+      },
+      {
+        "id": "RS1",
+        "kind": "static",
+        "name": "prometheus_route"
+      },
+      {
+        "id": "RD0",
+        "kind": "dynamic",
+        "name": "listener~80"
       }
     ]
   },

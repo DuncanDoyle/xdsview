@@ -124,8 +124,9 @@ func ObjectForName(m Mapper, name string) (model.Ref, bool) {
 // HTTP filter annotated by m. snap is not modified. Annotations of Unknown
 // certainty are left nil. Like the filter package, the copy shares the parts
 // it doesn't annotate with snap; treat both as read-only.
-func Annotate(snap *model.EnvoySnapshot, m Mapper) *model.EnvoySnapshot {
-	out := &model.EnvoySnapshot{Listeners: make([]model.Listener, len(snap.Listeners))}
+func Annotate(snap *model.Snapshot, m Mapper) *model.Snapshot {
+	out := *snap
+	out.Listeners = make([]model.Listener, len(snap.Listeners))
 	for i, l := range snap.Listeners {
 		l.Origin = known(m.Listener(l), func(o model.ListenerOrigin) model.Certainty { return o.Certainty })
 		chains := make([]model.NetworkFilterChain, len(l.FilterChains))
@@ -146,7 +147,7 @@ func Annotate(snap *model.EnvoySnapshot, m Mapper) *model.EnvoySnapshot {
 		l.FilterChains = chains
 		out.Listeners[i] = l
 	}
-	return out
+	return &out
 }
 
 func annotateFilters(filters []model.HTTPFilter, m Mapper) []model.HTTPFilter {

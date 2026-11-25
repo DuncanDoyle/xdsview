@@ -26,11 +26,11 @@ var styles = map[render.Class]lipgloss.Style{
 func style(c render.Class, _ *render.FilterRef, s string) string { return styles[c].Render(s) }
 
 // Render returns the snapshot as krp's coloured text tree.
-func Render(snapshot *model.EnvoySnapshot) string {
+func Render(snapshot *model.Snapshot) string {
 	return text(snapshot, render.Options{Style: style})
 }
 
-func text(snapshot *model.EnvoySnapshot, opts render.Options) string {
+func text(snapshot *model.Snapshot, opts render.Options) string {
 	var b strings.Builder
 	_ = render.Text(&b, snapshot, opts) // a strings.Builder doesn't fail
 	return strings.TrimSuffix(b.String(), "\n")

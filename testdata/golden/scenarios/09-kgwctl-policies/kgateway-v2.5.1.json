@@ -1,17 +1,22 @@
 {
   "schemaVersion": "v1alpha1",
   "snapshot": {
+    "capture": "unverified",
     "listeners": [
       {
+        "id": "L0",
         "name": "listener~8080",
         "address": ":::8080",
         "filterChains": [
           {
+            "id": "L0/C0",
             "name": "listener~8080",
             "hcm": {
+              "id": "L0/C0/N0",
               "routeConfigName": "listener~8080",
               "httpFilters": [
                 {
+                  "id": "L0/C0/N0/F0",
                   "name": "global_disable/ext_auth",
                   "type": "type.googleapis.com/envoy.extensions.filters.http.set_metadata.v3.Config",
                   "typedConfig": {
@@ -33,6 +38,7 @@
                   }
                 },
                 {
+                  "id": "L0/C0/N0/F1",
                   "name": "ext_auth/kgwctl-proxy/authz",
                   "type": "type.googleapis.com/envoy.extensions.filters.http.ext_authz.v3.ExtAuthz",
                   "typedConfig": {
@@ -72,6 +78,7 @@
                   }
                 },
                 {
+                  "id": "L0/C0/N0/F2",
                   "name": "ratelimit/local",
                   "type": "type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit",
                   "typedConfig": {
@@ -85,6 +92,7 @@
                   }
                 },
                 {
+                  "id": "L0/C0/N0/F3",
                   "name": "dynamic_modules/simple_mutations",
                   "type": "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilter",
                   "typedConfig": {
@@ -105,6 +113,7 @@
                   }
                 },
                 {
+                  "id": "L0/C0/N0/F4",
                   "name": "envoy.filters.http.router",
                   "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
@@ -116,16 +125,23 @@
                   }
                 }
               ],
+              "routeConfigUse": {
+                "id": "L0/C0/N0/RC",
+                "source": "RD0",
+                "state": "found"
+              },
               "routeConfig": {
                 "name": "listener~8080",
                 "virtualHosts": [
                   {
+                    "id": "L0/C0/N0/RC/V0",
                     "name": "listener~8080~orders-kgwctl_proxy_example",
                     "domains": [
                       "orders-kgwctl.proxy.example"
                     ],
                     "routes": [
                       {
+                        "id": "L0/C0/N0/RC/V0/R0",
                         "name": "listener~8080~orders-kgwctl_proxy_example-route-0-httproute-orders-kgwctl-proxy-0-0-matcher-0",
                         "match": {
                           "prefix": "/"
@@ -224,12 +240,14 @@
                     }
                   },
                   {
+                    "id": "L0/C0/N0/RC/V1",
                     "name": "listener~8080~orders_kgwctl_example",
                     "domains": [
                       "orders.kgwctl.example"
                     ],
                     "routes": [
                       {
+                        "id": "L0/C0/N0/RC/V1/R0",
                         "name": "listener~8080~orders_kgwctl_example-route-0-httproute-orders-kgwctl-proxy-0-0-matcher-0",
                         "match": {
                           "prefix": "/"
@@ -455,12 +473,14 @@
                     }
                   },
                   {
+                    "id": "L0/C0/N0/RC/V2",
                     "name": "listener~8080~public_kgwctl_example",
                     "domains": [
                       "public.kgwctl.example"
                     ],
                     "routes": [
                       {
+                        "id": "L0/C0/N0/RC/V2/R0",
                         "name": "listener~8080~public_kgwctl_example-route-0-httproute-public-kgwctl-proxy-0-0-matcher-0",
                         "match": {
                           "prefix": "/"
@@ -611,6 +631,23 @@
           "certainty": "inferred",
           "port": 8080
         }
+      }
+    ],
+    "routeConfigs": [
+      {
+        "id": "RS0",
+        "kind": "static",
+        "name": "main_route"
+      },
+      {
+        "id": "RS1",
+        "kind": "static",
+        "name": "prometheus_route"
+      },
+      {
+        "id": "RD0",
+        "kind": "dynamic",
+        "name": "listener~8080"
       }
     ]
   },
