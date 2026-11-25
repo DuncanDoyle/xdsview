@@ -27,7 +27,14 @@ type Options struct {
 	Style  func(c Class, r Row, s string) string
 	Notes  func(r Row) []string // lines printed under a route or filter row; a route's come before its filters
 	Labels func(r Row) []string // printed on the row itself, each after " · ", styled as ClassOrigin
+	// Trailer gives lines printed under a route row after its filters and
+	// before its actions and backend, e.g. the policies that configure it.
+	Trailer func(r Row) []Line
 }
+
+// Line is one labelled line, printed as "label: text" with the text styled
+// as ClassOrigin.
+type Line struct{ Label, Text string }
 
 // Row names one printed row. A filter row appears once per route, so Route
 // and Slot together tell rows apart. Subject is the occurrence the row shows;
@@ -349,6 +356,11 @@ func (p *printer) route(hcm model.HCMConfig, r model.Route, prefix, body string)
 			parts = append(parts, policy(pr.Policy, pr.Field, pr.Certainty))
 		}
 		p.line(body + "policies: " + p.style(ClassOrigin, row, strings.Join(parts, ", ")))
+	}
+	if p.opts.Trailer != nil {
+		for _, t := range p.opts.Trailer(row) {
+			p.line(body + clean(t.Label) + ": " + p.style(ClassOrigin, row, t.Text))
+		}
 	}
 	p.routeActions(r, row, body)
 }

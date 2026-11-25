@@ -324,3 +324,37 @@ func TestText_RowsPerRoute(t *testing.T) {
 		}
 	}
 }
+
+// TestText_Trailer: trailer lines go after the filters and the upstream
+// filters line, before the actions and backend, where the policies line is
+// today (review 9.1-9.2 #4). Styling sees the route row.
+func TestText_Trailer(t *testing.T) {
+	snap := sample()
+	route := snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes[0]
+	route.Policies = nil
+	snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes[0] = route
+	var styled []render.Row
+	out := text(t, snap, render.Options{
+		Trailer: func(r render.Row) []render.Line {
+			if r.Route != route.ID {
+				return nil
+			}
+			return []render.Line{{Label: "policies", Text: "TrafficPolicy shop/auth (extAuth)"}}
+		},
+		Style: func(c render.Class, r render.Row, s string) string {
+			if c == render.ClassOrigin && strings.HasPrefix(s, "TrafficPolicy") {
+				styled = append(styled, r)
+			}
+			return s
+		},
+	})
+	want := "      router upstream filters (as configured): envoy.filters.http.upstream_codec\n" +
+		"      policies: TrafficPolicy shop/auth (extAuth)\n" +
+		"      request headers: + x-a: 1\n"
+	if !strings.Contains(out, want) {
+		t.Errorf("trailer not between filters and actions:\n%s", out)
+	}
+	if len(styled) != 1 || styled[0].Route != route.ID {
+		t.Errorf("styled rows = %+v", styled)
+	}
+}
