@@ -130,17 +130,21 @@ type Gap struct {
 //   - policyRecord: per-filter config for a slot at route, virtual host or
 //     route config level, unless for each route checked a kept [FilterLink]
 //     on that route places a record of that level on the slot, link and
-//     record both at inferred or exact; and an HTTP filter slot that runs by default, is not the
-//     router or a helper, with no listener-level PolicyRecord on its listener;
+//     record both at inferred or exact; and an HTTP filter slot that runs by
+//     default, is not the router or a helper, and that no such link places a
+//     listener-level record on (the link and record join Objects);
 //   - gatewaySource: a listener with no GatewaySource above unknown;
 //   - a dropped claim's kind on its subject (Compose rule 3).
 func (ix *Index) Dependencies(block model.ID) Dependencies {
 	scope := ix.scope(block)
 	var deps Dependencies
+	gaps, claims := ix.gaps(scope)
 	for _, c := range ix.claims {
-		if !scope[c.Subject] {
-			continue
+		if scope[c.Subject] {
+			claims = append(claims, c)
 		}
+	}
+	for _, c := range claims {
 		for _, e := range c.Evidence {
 			if e.Object == nil {
 				continue
@@ -154,7 +158,7 @@ func (ix *Index) Dependencies(block model.ID) Dependencies {
 	slices.SortFunc(deps.Objects, func(a, b Dependent) int {
 		return strings.Compare(refKey(a.Object)+"\x00"+a.Kind, refKey(b.Object)+"\x00"+b.Kind)
 	})
-	deps.Gaps = ix.gaps(scope)
+	deps.Gaps = gaps
 	return deps
 }
 
@@ -189,8 +193,9 @@ func (ix *Index) scope(block model.ID) map[model.ID]bool {
 	return out
 }
 
-// gaps returns the expected attributions missing in scope.
-func (ix *Index) gaps(scope map[model.ID]bool) []Gap {
+// gaps returns the expected attributions missing in scope, and the out-of-scope
+// claims that close a listener-level gap, whose objects the block depends on.
+func (ix *Index) gaps(scope map[model.ID]bool) ([]Gap, []Claim) {
 	var out []Gap
 	addGap := func(g Gap) {
 		if !slices.Contains(out, g) {
@@ -231,13 +236,20 @@ func (ix *Index) gaps(scope map[model.ID]bool) []Gap {
 	// placed holds (route, record subject, slot) for kept links whose link and
 	// record are both at inferred or exact.
 	placed := map[[3]model.ID]bool{}
+	// slotListener holds, per slot, the links placing a listener-level record
+	// on it and those records.
+	slotListener := map[model.ID][]Claim{}
 	for _, c := range ix.claims {
 		if l, ok := c.Assertion.(FilterLink); ok && c.Certainty >= model.Inferred {
 			if rec, ok := ix.Record(c); ok && rec.Certainty >= model.Inferred {
 				placed[[3]model.ID{c.Subject, rec.Subject, l.Slot}] = true
+				if p, ok := rec.Assertion.(PolicyRecord); ok && p.Level == LevelListener {
+					slotListener[l.Slot] = append(slotListener[l.Slot], c, rec)
+				}
 			}
 		}
 	}
+	var closers []Claim
 	// unplaced checks config at `at` against the in-scope routes beneath it, or
 	// all of them when none is in scope (e.g. a route config source block).
 	unplaced := func(at model.ID, level Level, pfc map[string]any, hcm *model.HCMConfig, routes []model.ID) {
@@ -262,7 +274,6 @@ func (ix *Index) gaps(scope map[model.ID]bool) []Gap {
 		if scope[l.ID] && !has(l.ID, KindGatewaySource, model.Unknown+1) {
 			add(l.ID, KindGatewaySource)
 		}
-		listenerPolicy := has(l.ID, KindPolicyRecord, model.Unknown+1)
 		for _, fc := range l.FilterChains {
 			hcm := fc.HCM
 			if hcm == nil {
@@ -275,8 +286,12 @@ func (ix *Index) gaps(scope map[model.ID]bool) []Gap {
 				if configured[f.ID] && !resolved(f.ID, KindExtensionSource) {
 					add(f.ID, KindExtensionSource)
 				}
-				if !f.Disabled && !isRouter(f) && !ix.helper(f.ID) && !listenerPolicy {
-					addGap(Gap{Subject: f.ID, Kind: KindPolicyRecord, Slot: f.ID, Level: LevelListener})
+				if !f.Disabled && !isRouter(f) && !ix.helper(f.ID) {
+					if c := slotListener[f.ID]; len(c) > 0 {
+						closers = append(closers, c...)
+					} else {
+						addGap(Gap{Subject: f.ID, Kind: KindPolicyRecord, Slot: f.ID, Level: LevelListener})
+					}
 				}
 			}
 			if src, ok := sources[hcm.RouteConfigUse.Source]; ok {
@@ -323,7 +338,7 @@ func (ix *Index) gaps(scope map[model.ID]bool) []Gap {
 		}
 		return strings.Compare(string(a.Level), string(b.Level))
 	})
-	return out
+	return out, closers
 }
 
 // routeIDs returns the IDs of vh's routes, or of every route in rc when vh is nil.

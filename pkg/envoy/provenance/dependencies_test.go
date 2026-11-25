@@ -152,12 +152,40 @@ func TestDependencies_PolicyGaps(t *testing.T) {
 		t.Error("the dropped claim's subject has no hostSource gap")
 	}
 
-	// A listener-level record closes the default-on slot's gap.
-	p := policyA
-	ix = compose(t, snap, fixed{"m", []provenance.Claim{{Subject: l0, Assertion: provenance.PolicyRecord{Policy: p, Field: "f", Level: provenance.LevelListener},
-		Certainty: model.Exact, Evidence: ev(l0, &p)}}})
-	if hasGap(ix.Dependencies(route0), slot0, provenance.KindPolicyRecord) {
-		t.Error("slot gap despite a listener-level record")
+}
+
+// TestDependencies_ListenerGap (Codex r2 listener-level gap): a default-on
+// slot keeps its listener-level gap unless a link attributes a listener-level
+// record to that slot; the record's objects are then in Dependencies, even
+// for a block that doesn't hold the listener.
+func TestDependencies_ListenerGap(t *testing.T) {
+	snap := twoListeners()
+	hcm := snap.Listeners[0].FilterChains[0].HCM
+	hcm.HTTPFilters[0].Disabled = false
+	cors := model.ID("L0/C0/N0/F2")
+	hcm.HTTPFilters = append(hcm.HTTPFilters, model.HTTPFilter{ID: cors, Name: "cors", Type: "type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors", Disabled: true})
+	hcm.RouteConfig.VirtualHosts[0].Routes[0].TypedPerFilterConfig = map[string]any{"authz": map[string]any{}, "cors": map[string]any{}}
+	gap := provenance.Gap{Subject: slot0, Kind: provenance.KindPolicyRecord, Slot: slot0, Level: provenance.LevelListener}
+	rec := record("l", l0, provenance.LevelListener, policyA)
+	for _, tc := range []struct {
+		name   string
+		claims []provenance.Claim
+		gap    bool
+	}{
+		{"unlinked listener record", []provenance.Claim{rec}, true},
+		{"listener record for another filter", []provenance.Claim{rec, link("l", route0, cors)}, true},
+		{"listener record linked to the slot", []provenance.Claim{rec, link("l", route0, slot0)}, false},
+	} {
+		ix := compose(t, snap, fixed{"m", tc.claims})
+		for _, block := range []model.ID{route0, "RD0"} {
+			d := ix.Dependencies(block)
+			if got := slices.Contains(d.Gaps, gap); got != tc.gap {
+				t.Errorf("%s: %s slot gap = %v, want %v", tc.name, block, got, tc.gap)
+			}
+			if !tc.gap && !hasObject(d, policyA, provenance.KindPolicyRecord) {
+				t.Errorf("%s: %s objects %v lack the listener record's policy", tc.name, block, d.Objects)
+			}
+		}
 	}
 }
 
