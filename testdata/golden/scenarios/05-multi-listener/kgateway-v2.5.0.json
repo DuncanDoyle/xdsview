@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "v1alpha1",
+  "schemaVersion": "v1alpha2",
   "snapshot": {
     "capture": "unverified",
     "listeners": [
@@ -28,10 +28,6 @@
                   "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
-                  },
-                  "origin": {
-                    "certainty": "inferred",
-                    "kind": "router"
                   }
                 }
               ],
@@ -61,76 +57,9 @@
                         "action": {
                           "kind": "route"
                         },
-                        "cluster": "kube_httpbin_httpbin_8000",
-                        "origin": {
-                          "certainty": "ambiguous",
-                          "candidates": [
-                            {
-                              "route": {
-                                "group": "gateway.networking.k8s.io",
-                                "kind": "HTTPRoute",
-                                "namespace": "example-com-kgateway-system",
-                                "name": "api"
-                              },
-                              "ruleIndex": 0,
-                              "matchIndex": 0
-                            },
-                            {
-                              "route": {
-                                "group": "gateway.networking.k8s.io",
-                                "kind": "HTTPRoute",
-                                "namespace": "com-kgateway-system",
-                                "name": "api-example"
-                              },
-                              "ruleIndex": 0,
-                              "matchIndex": 0
-                            },
-                            {
-                              "route": {
-                                "group": "gateway.networking.k8s.io",
-                                "kind": "HTTPRoute",
-                                "namespace": "kgateway-system",
-                                "name": "api-example-com"
-                              },
-                              "ruleIndex": 0,
-                              "matchIndex": 0
-                            },
-                            {
-                              "route": {
-                                "group": "gateway.networking.k8s.io",
-                                "kind": "HTTPRoute",
-                                "namespace": "system",
-                                "name": "api-example-com-kgateway"
-                              },
-                              "ruleIndex": 0,
-                              "matchIndex": 0
-                            }
-                          ]
-                        },
-                        "effectiveChain": {
-                          "filters": [
-                            {
-                              "slot": "L0/C0/N0/F0",
-                              "name": "envoy.filters.http.router",
-                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": "yes",
-                              "state": "on",
-                              "request": "yes",
-                              "response": "no",
-                              "configSource": "inline"
-                            }
-                          ]
-                        }
+                        "cluster": "kube_httpbin_httpbin_8000"
                       }
-                    ],
-                    "origin": {
-                      "certainty": "inferred",
-                      "listener": {
-                        "certainty": "inferred",
-                        "port": 80
-                      },
-                      "hostname": "api.example.com"
-                    }
+                    ]
                   }
                 ]
               }
@@ -140,10 +69,6 @@
         "state": {
           "status": "active",
           "lastUpdated": "2026-11-04T22:23:22.278Z"
-        },
-        "origin": {
-          "certainty": "inferred",
-          "port": 80
         }
       },
       {
@@ -176,10 +101,6 @@
                   "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
-                  },
-                  "origin": {
-                    "certainty": "inferred",
-                    "kind": "router"
                   }
                 }
               ],
@@ -209,76 +130,9 @@
                         "action": {
                           "kind": "route"
                         },
-                        "cluster": "kube_httpbin_httpbin_8000",
-                        "origin": {
-                          "certainty": "ambiguous",
-                          "candidates": [
-                            {
-                              "route": {
-                                "group": "gateway.networking.k8s.io",
-                                "kind": "HTTPRoute",
-                                "namespace": "example-com-kgateway-system",
-                                "name": "api"
-                              },
-                              "ruleIndex": 0,
-                              "matchIndex": 0
-                            },
-                            {
-                              "route": {
-                                "group": "gateway.networking.k8s.io",
-                                "kind": "HTTPRoute",
-                                "namespace": "com-kgateway-system",
-                                "name": "api-example"
-                              },
-                              "ruleIndex": 0,
-                              "matchIndex": 0
-                            },
-                            {
-                              "route": {
-                                "group": "gateway.networking.k8s.io",
-                                "kind": "HTTPRoute",
-                                "namespace": "kgateway-system",
-                                "name": "api-example-com"
-                              },
-                              "ruleIndex": 0,
-                              "matchIndex": 0
-                            },
-                            {
-                              "route": {
-                                "group": "gateway.networking.k8s.io",
-                                "kind": "HTTPRoute",
-                                "namespace": "system",
-                                "name": "api-example-com-kgateway"
-                              },
-                              "ruleIndex": 0,
-                              "matchIndex": 0
-                            }
-                          ]
-                        },
-                        "effectiveChain": {
-                          "filters": [
-                            {
-                              "slot": "L1/C0/N0/F0",
-                              "name": "envoy.filters.http.router",
-                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": "yes",
-                              "state": "on",
-                              "request": "yes",
-                              "response": "no",
-                              "configSource": "inline"
-                            }
-                          ]
-                        }
+                        "cluster": "kube_httpbin_httpbin_8000"
                       }
-                    ],
-                    "origin": {
-                      "certainty": "inferred",
-                      "listener": {
-                        "certainty": "inferred",
-                        "section": "https-api"
-                      },
-                      "hostname": "api.example.com"
-                    }
+                    ]
                   }
                 ]
               }
@@ -288,10 +142,6 @@
         "state": {
           "status": "active",
           "lastUpdated": "2026-11-04T22:23:22.279Z"
-        },
-        "origin": {
-          "certainty": "inferred",
-          "port": 443
         }
       },
       {
@@ -328,10 +178,6 @@
                       }
                     ],
                     "pass_through_mode": false
-                  },
-                  "origin": {
-                    "certainty": "inferred",
-                    "kind": "health_check"
                   }
                 },
                 {
@@ -340,10 +186,6 @@
                   "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
-                  },
-                  "origin": {
-                    "certainty": "inferred",
-                    "kind": "router"
                   }
                 }
               ],
@@ -380,31 +222,7 @@
                         "action": {
                           "kind": "route"
                         },
-                        "cluster": "admin_port_cluster",
-                        "effectiveChain": {
-                          "filters": [
-                            {
-                              "slot": "L2/C0/N0/F0",
-                              "name": "envoy.filters.http.health_check",
-                              "type": "type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck",
-                              "runs": "yes",
-                              "state": "on",
-                              "request": "yes",
-                              "response": "yes",
-                              "configSource": "inline"
-                            },
-                            {
-                              "slot": "L2/C0/N0/F1",
-                              "name": "envoy.filters.http.router",
-                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": "yes",
-                              "state": "on",
-                              "request": "yes",
-                              "response": "no",
-                              "configSource": "inline"
-                            }
-                          ]
-                        }
+                        "cluster": "admin_port_cluster"
                       }
                     ]
                   }
@@ -444,10 +262,6 @@
                   "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
-                  },
-                  "origin": {
-                    "certainty": "inferred",
-                    "kind": "router"
                   }
                 }
               ],
@@ -484,21 +298,7 @@
                         "action": {
                           "kind": "route"
                         },
-                        "cluster": "admin_port_cluster",
-                        "effectiveChain": {
-                          "filters": [
-                            {
-                              "slot": "L3/C0/N0/F0",
-                              "name": "envoy.filters.http.router",
-                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": "yes",
-                              "state": "on",
-                              "request": "yes",
-                              "response": "no",
-                              "configSource": "inline"
-                            }
-                          ]
-                        }
+                        "cluster": "admin_port_cluster"
                       },
                       {
                         "id": "L3/C0/N0/RC/V0/R1",
@@ -522,20 +322,6 @@
                           "regexPattern": "",
                           "substitution": "",
                           "prefix": "/stats/prometheus?usedonly"
-                        },
-                        "effectiveChain": {
-                          "filters": [
-                            {
-                              "slot": "L3/C0/N0/F0",
-                              "name": "envoy.filters.http.router",
-                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": "yes",
-                              "state": "on",
-                              "request": "yes",
-                              "response": "no",
-                              "configSource": "inline"
-                            }
-                          ]
                         }
                       },
                       {
@@ -560,20 +346,6 @@
                           "regexPattern": "",
                           "substitution": "",
                           "prefix": "/stats"
-                        },
-                        "effectiveChain": {
-                          "filters": [
-                            {
-                              "slot": "L3/C0/N0/F0",
-                              "name": "envoy.filters.http.router",
-                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": "yes",
-                              "state": "on",
-                              "request": "yes",
-                              "response": "no",
-                              "configSource": "inline"
-                            }
-                          ]
                         }
                       }
                     ]
@@ -653,5 +425,601 @@
       ]
     }
   },
+  "chains": {
+    "L0/C0/N0/RC/V0/R0": {
+      "filters": [
+        {
+          "slot": "L0/C0/N0/F0",
+          "name": "envoy.filters.http.router",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "no",
+          "configSource": "inline"
+        }
+      ]
+    },
+    "L1/C0/N0/RC/V0/R0": {
+      "filters": [
+        {
+          "slot": "L1/C0/N0/F0",
+          "name": "envoy.filters.http.router",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "no",
+          "configSource": "inline"
+        }
+      ]
+    },
+    "L2/C0/N0/RC/V0/R0": {
+      "filters": [
+        {
+          "slot": "L2/C0/N0/F0",
+          "name": "envoy.filters.http.health_check",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "yes",
+          "configSource": "inline"
+        },
+        {
+          "slot": "L2/C0/N0/F1",
+          "name": "envoy.filters.http.router",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "no",
+          "configSource": "inline"
+        }
+      ]
+    },
+    "L3/C0/N0/RC/V0/R0": {
+      "filters": [
+        {
+          "slot": "L3/C0/N0/F0",
+          "name": "envoy.filters.http.router",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "no",
+          "configSource": "inline"
+        }
+      ]
+    },
+    "L3/C0/N0/RC/V0/R1": {
+      "filters": [
+        {
+          "slot": "L3/C0/N0/F0",
+          "name": "envoy.filters.http.router",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "no",
+          "configSource": "inline"
+        }
+      ]
+    },
+    "L3/C0/N0/RC/V0/R2": {
+      "filters": [
+        {
+          "slot": "L3/C0/N0/F0",
+          "name": "envoy.filters.http.router",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "no",
+          "configSource": "inline"
+        }
+      ]
+    }
+  },
+  "claims": [
+    {
+      "id": "kgateway/2",
+      "subject": "L0",
+      "assertion": {
+        "kind": "listenerSource",
+        "port": 80
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/3",
+      "subject": "L0/C0",
+      "assertion": {
+        "kind": "listenerSource",
+        "port": 80
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/4",
+      "subject": "L0/C0/N0/F0",
+      "assertion": {
+        "kind": "extensionSource",
+        "filterKind": "router"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "structure",
+          "subject": "L0/C0/N0/F0",
+          "field": "type"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/5",
+      "subject": "L0/C0/N0/RC/V0",
+      "assertion": {
+        "kind": "listenerSource",
+        "port": 80
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0/N0/RC/V0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/6",
+      "subject": "L0/C0/N0/RC/V0",
+      "assertion": {
+        "kind": "hostSource",
+        "hostname": "api.example.com"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0/N0/RC/V0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/7",
+      "subject": "L0/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "routeSource",
+        "route": {
+          "group": "gateway.networking.k8s.io",
+          "kind": "HTTPRoute",
+          "namespace": "example-com-kgateway-system",
+          "name": "api"
+        },
+        "ruleIndex": 0,
+        "matchIndex": 0
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0/N0/RC/V0/R0",
+          "field": "name",
+          "object": {
+            "group": "gateway.networking.k8s.io",
+            "kind": "HTTPRoute",
+            "namespace": "example-com-kgateway-system",
+            "name": "api"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/8",
+      "subject": "L0/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "routeSource",
+        "route": {
+          "group": "gateway.networking.k8s.io",
+          "kind": "HTTPRoute",
+          "namespace": "com-kgateway-system",
+          "name": "api-example"
+        },
+        "ruleIndex": 0,
+        "matchIndex": 0
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0/N0/RC/V0/R0",
+          "field": "name",
+          "object": {
+            "group": "gateway.networking.k8s.io",
+            "kind": "HTTPRoute",
+            "namespace": "com-kgateway-system",
+            "name": "api-example"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/9",
+      "subject": "L0/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "routeSource",
+        "route": {
+          "group": "gateway.networking.k8s.io",
+          "kind": "HTTPRoute",
+          "namespace": "kgateway-system",
+          "name": "api-example-com"
+        },
+        "ruleIndex": 0,
+        "matchIndex": 0
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0/N0/RC/V0/R0",
+          "field": "name",
+          "object": {
+            "group": "gateway.networking.k8s.io",
+            "kind": "HTTPRoute",
+            "namespace": "kgateway-system",
+            "name": "api-example-com"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/10",
+      "subject": "L0/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "routeSource",
+        "route": {
+          "group": "gateway.networking.k8s.io",
+          "kind": "HTTPRoute",
+          "namespace": "system",
+          "name": "api-example-com-kgateway"
+        },
+        "ruleIndex": 0,
+        "matchIndex": 0
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0/N0/RC/V0/R0",
+          "field": "name",
+          "object": {
+            "group": "gateway.networking.k8s.io",
+            "kind": "HTTPRoute",
+            "namespace": "system",
+            "name": "api-example-com-kgateway"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/11",
+      "subject": "L0/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "backendSource",
+        "backend": {
+          "kind": "Service",
+          "namespace": "httpbin",
+          "name": "httpbin"
+        },
+        "port": 8000
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0/N0/RC/V0/R0",
+          "field": "cluster",
+          "object": {
+            "kind": "Service",
+            "namespace": "httpbin",
+            "name": "httpbin"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/12",
+      "subject": "L1",
+      "assertion": {
+        "kind": "listenerSource",
+        "port": 443
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L1",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/13",
+      "subject": "L1/C0",
+      "assertion": {
+        "kind": "listenerSource",
+        "section": "https-api"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L1/C0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/14",
+      "subject": "L1/C0/N0/F0",
+      "assertion": {
+        "kind": "extensionSource",
+        "filterKind": "router"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "structure",
+          "subject": "L1/C0/N0/F0",
+          "field": "type"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/15",
+      "subject": "L1/C0/N0/RC/V0",
+      "assertion": {
+        "kind": "listenerSource",
+        "section": "https-api"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L1/C0/N0/RC/V0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/16",
+      "subject": "L1/C0/N0/RC/V0",
+      "assertion": {
+        "kind": "hostSource",
+        "hostname": "api.example.com"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L1/C0/N0/RC/V0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/17",
+      "subject": "L1/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "routeSource",
+        "route": {
+          "group": "gateway.networking.k8s.io",
+          "kind": "HTTPRoute",
+          "namespace": "example-com-kgateway-system",
+          "name": "api"
+        },
+        "ruleIndex": 0,
+        "matchIndex": 0
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L1/C0/N0/RC/V0/R0",
+          "field": "name",
+          "object": {
+            "group": "gateway.networking.k8s.io",
+            "kind": "HTTPRoute",
+            "namespace": "example-com-kgateway-system",
+            "name": "api"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/18",
+      "subject": "L1/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "routeSource",
+        "route": {
+          "group": "gateway.networking.k8s.io",
+          "kind": "HTTPRoute",
+          "namespace": "com-kgateway-system",
+          "name": "api-example"
+        },
+        "ruleIndex": 0,
+        "matchIndex": 0
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L1/C0/N0/RC/V0/R0",
+          "field": "name",
+          "object": {
+            "group": "gateway.networking.k8s.io",
+            "kind": "HTTPRoute",
+            "namespace": "com-kgateway-system",
+            "name": "api-example"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/19",
+      "subject": "L1/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "routeSource",
+        "route": {
+          "group": "gateway.networking.k8s.io",
+          "kind": "HTTPRoute",
+          "namespace": "kgateway-system",
+          "name": "api-example-com"
+        },
+        "ruleIndex": 0,
+        "matchIndex": 0
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L1/C0/N0/RC/V0/R0",
+          "field": "name",
+          "object": {
+            "group": "gateway.networking.k8s.io",
+            "kind": "HTTPRoute",
+            "namespace": "kgateway-system",
+            "name": "api-example-com"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/20",
+      "subject": "L1/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "routeSource",
+        "route": {
+          "group": "gateway.networking.k8s.io",
+          "kind": "HTTPRoute",
+          "namespace": "system",
+          "name": "api-example-com-kgateway"
+        },
+        "ruleIndex": 0,
+        "matchIndex": 0
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L1/C0/N0/RC/V0/R0",
+          "field": "name",
+          "object": {
+            "group": "gateway.networking.k8s.io",
+            "kind": "HTTPRoute",
+            "namespace": "system",
+            "name": "api-example-com-kgateway"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/21",
+      "subject": "L1/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "backendSource",
+        "backend": {
+          "kind": "Service",
+          "namespace": "httpbin",
+          "name": "httpbin"
+        },
+        "port": 8000
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L1/C0/N0/RC/V0/R0",
+          "field": "cluster",
+          "object": {
+            "kind": "Service",
+            "namespace": "httpbin",
+            "name": "httpbin"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/0",
+      "subject": "RD0",
+      "assertion": {
+        "kind": "listenerSource",
+        "port": 80
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "RD0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/1",
+      "subject": "RD1",
+      "assertion": {
+        "kind": "listenerSource",
+        "section": "https-api"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "RD1",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    }
+  ],
   "warnings": []
 }

@@ -6,15 +6,17 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
-	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
-	"github.com/DuncanDoyle/xdsview/pkg/envoy/origin"
-	"github.com/DuncanDoyle/xdsview/pkg/envoy/source"
-	"github.com/DuncanDoyle/xdsview/pkg/envoy/source/kube"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/provenance"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/source"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/source/kube"
 )
 
 var update = flag.Bool("update", false, "rewrite the golden files in testdata/golden")
@@ -98,14 +100,18 @@ func checkEnvelope(t *testing.T, out string) {
 	if err := json.Unmarshal([]byte(out), &env); err != nil {
 		t.Fatalf("stdout is not one JSON document: %v", err)
 	}
-	if string(env["schemaVersion"]) != `"v1alpha1"` {
-		t.Errorf("schemaVersion = %s, want \"v1alpha1\"", env["schemaVersion"])
+	if string(env["schemaVersion"]) != `"v1alpha2"` {
+		t.Errorf("schemaVersion = %s, want \"v1alpha2\"", env["schemaVersion"])
 	}
-	if _, ok := env["snapshot"]; !ok {
-		t.Error("missing snapshot")
+	for _, k := range []string{"snapshot", "chains"} {
+		if s := string(env[k]); !strings.HasPrefix(s, "{") {
+			t.Errorf("%s = %s, want a JSON object", k, s)
+		}
 	}
-	if w := string(env["warnings"]); !strings.HasPrefix(w, "[") {
-		t.Errorf("warnings = %s, want a JSON array", w)
+	for _, k := range []string{"claims", "warnings"} {
+		if s := string(env[k]); !strings.HasPrefix(s, "[") {
+			t.Errorf("%s = %s, want a JSON array", k, s)
+		}
 	}
 }
 
@@ -145,6 +151,100 @@ func TestDumpJSON_Filtered(t *testing.T) {
 	}
 }
 
+// TestDumpJSON_Projection (plan §9.3 test 11): with --route, no field outside
+// selection refers to an ID absent from snapshot, and selection entries carry
+// route and vhost names.
+func TestDumpJSON_Projection(t *testing.T) {
+	queries := [][]string{
+		{"--route", "api-example-com", "--route-ns", "kgateway-system"},
+		{"--route", "api-example-com", "--route-ns", "kgateway-system", "--rule", "1"},
+		{"--route", "api-example-com-admin", "--route-ns", "kgateway-system"},
+		{"--route", "orders", "--route-ns", "kgwctl-proxy"},
+		{"--route", "does-not-exist", "--route-ns", "kgateway-system"},
+	}
+	var projected, named, selected, narrowedSelected int
+	for _, dump := range allDumps(t) {
+		for _, q := range queries {
+			out, _, err := runKrp(t, append([]string{"dump", "--file", dump, "-o", "json"}, q...)...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var env struct {
+				Snapshot  *model.Snapshot                   `json:"snapshot"`
+				Chains    map[model.ID]model.EffectiveChain `json:"chains"`
+				Claims    []provenance.Claim                `json:"claims"`
+				Selection selection                         `json:"selection"`
+				Warnings  []model.Warning                   `json:"warnings"`
+			}
+			if err := json.Unmarshal([]byte(out), &env); err != nil {
+				t.Fatal(err)
+			}
+			present := ids(env.Snapshot)
+			check := func(where string, id model.ID) {
+				if id != "" && !present[id] {
+					t.Errorf("%s %v: %s refers to %s, absent from snapshot", dump, q, where, id)
+				}
+			}
+			for _, s := range env.Snapshot.RouteConfigs {
+				check("route config reported", s.Reported)
+			}
+			for _, l := range env.Snapshot.Listeners {
+				for _, fc := range l.FilterChains {
+					if fc.HCM != nil {
+						check("route config use", fc.HCM.RouteConfigUse.Source)
+					}
+				}
+			}
+			for id, c := range env.Chains {
+				check("chains key", id)
+				for _, e := range c.Filters {
+					check("chain entry", e.Slot)
+				}
+			}
+			for _, c := range env.Claims {
+				check("claim subject", c.Subject)
+				for _, e := range c.Evidence {
+					check("evidence subject", e.Subject)
+				}
+				if l, ok := c.Assertion.(provenance.FilterLink); ok {
+					check("filter link slot", l.Slot)
+				}
+			}
+			for _, w := range env.Warnings {
+				check("warning subject", w.Subject)
+			}
+			for _, id := range env.Selection.Routes {
+				check("selected route", id)
+				selected++
+			}
+			res, _ := build(parseFile(t, dump), request{})
+			projected += len(res.ix.Claims()) - len(env.Claims)
+			for _, r := range append(append([]routeName{}, env.Selection.Ambiguous...), env.Selection.Unresolved...) {
+				if r.Name == "" || r.VirtualHost == "" {
+					t.Errorf("%s %v: selection entry %+v lacks names", dump, q, r)
+				}
+				named++
+			}
+			for _, n := range env.Selection.Narrowed {
+				if n.Name == "" || n.VirtualHost == "" || len(n.Kept) == 0 {
+					t.Errorf("%s %v: narrowing %+v lacks names or kept readings", dump, q, n)
+				}
+				// D-022: a narrowing krp selects is printed, and only then.
+				if n.Selected != slices.Contains(env.Selection.Routes, n.ID) {
+					t.Errorf("%s %v: narrowing %s selected=%v, in routes=%v", dump, q, n.ID, n.Selected, !n.Selected)
+				}
+				if n.Selected {
+					narrowedSelected++
+				}
+				named++
+			}
+		}
+	}
+	if projected == 0 || named == 0 || selected == 0 || narrowedSelected == 0 {
+		t.Errorf("projected %d claims, checked %d named entries, %d selected routes, %d by D-022: the test checks nothing", projected, named, selected, narrowedSelected)
+	}
+}
+
 // TestDumpJSON_Warnings verifies that skipped sections reach both the JSON and stderr.
 func TestDumpJSON_Warnings(t *testing.T) {
 	dump := filepath.Join(t.TempDir(), "config_dump.json")
@@ -157,16 +257,19 @@ func TestDumpJSON_Warnings(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	var env struct {
-		Warnings []string `json:"warnings"`
+		Snapshot struct {
+			Warnings []model.Warning `json:"warnings"`
+		} `json:"snapshot"`
+		Warnings []model.Warning `json:"warnings"`
 	}
 	if err := json.Unmarshal([]byte(out), &env); err != nil {
 		t.Fatal(err)
 	}
-	if len(env.Warnings) != 1 {
-		t.Fatalf("warnings = %v, want one", env.Warnings)
+	if len(env.Warnings) != 1 || env.Warnings[0].Code != model.WarnSectionSkipped || len(env.Snapshot.Warnings) != 0 {
+		t.Fatalf("warnings = %+v, snapshot warnings %+v; want one section-skipped, on the envelope only", env.Warnings, env.Snapshot.Warnings)
 	}
-	if !strings.Contains(stderr, "warning: "+env.Warnings[0]) {
-		t.Errorf("stderr %q does not repeat the warning %q", stderr, env.Warnings[0])
+	if !strings.Contains(stderr, "warning: "+env.Warnings[0].Message) {
+		t.Errorf("stderr %q does not repeat the warning %q", stderr, env.Warnings[0].Message)
 	}
 }
 
@@ -261,21 +364,39 @@ func TestDumpInteractive_NothingSelectable(t *testing.T) {
 	}
 }
 
-// waf is a test plugin mapper that claims every ext_auth filter.
-type waf struct{ origin.Mapper }
+// waf is a test vendor module that claims every ext_auth filter slot, exactly,
+// from its config.
+type waf struct{}
 
-func (waf) HTTPFilter(f model.HTTPFilter) model.FilterOrigin {
-	if !strings.HasPrefix(f.Name, "ext_auth/") {
-		return model.FilterOrigin{}
+func (waf) Name() string { return "acme" }
+
+func (waf) Claims(snap *model.Snapshot) []provenance.Claim {
+	var out []provenance.Claim
+	for _, l := range snap.Listeners {
+		for _, fc := range l.FilterChains {
+			if fc.HCM == nil {
+				continue
+			}
+			for _, f := range fc.HCM.HTTPFilters {
+				if !strings.HasPrefix(f.Name, "ext_auth/") {
+					continue
+				}
+				ref := &model.Ref{Group: "acme.example", Kind: "WafPolicy", Namespace: "acme", Name: "edge"}
+				out = append(out, provenance.Claim{Subject: f.ID, Certainty: model.Exact,
+					Assertion: provenance.ExtensionSource{Extension: ref, FilterKind: "waf"},
+					Evidence:  []provenance.Evidence{{Kind: provenance.EvidenceStructure, Subject: f.ID, Field: "typedConfig", Object: ref}}})
+			}
+		}
 	}
-	return model.FilterOrigin{Certainty: model.Inferred, Kind: "waf", Extension: &model.Ref{Group: "acme.example", Kind: "WafPolicy", Namespace: "acme", Name: "edge"}}
+	return out
 }
 
-// TestDumpJSON_PluginOrigin checks that a plugged-in mapper's origin reaches
-// the JSON output, and the kgateway mapper still answers everything else.
+// TestDumpJSON_PluginOrigin checks that a plugged-in module's claims reach
+// the JSON and text output beside the kgateway module's, and win where they
+// are more certain.
 func TestDumpJSON_PluginOrigin(t *testing.T) {
-	extraMappers = []origin.Mapper{waf{origin.Chain()}}
-	defer func() { extraMappers = nil }()
+	extraModules = []provenance.Module{waf{}}
+	defer func() { extraModules = nil }()
 	dump := filepath.Join(testdataDir, "scenarios", "02_7-single-policy", "envoy", "kgateway-v2.5.0", "config_dump.json")
 	out, _, err := runKrp(t, "dump", "--file", dump, "-o", "json")
 	if err != nil {
@@ -283,8 +404,15 @@ func TestDumpJSON_PluginOrigin(t *testing.T) {
 	}
 	checkEnvelope(t, out)
 	checkGolden(t, goldenPath(t, dump, ".plugin"), out)
-	if !strings.Contains(out, `"WafPolicy"`) || !strings.Contains(out, `"set_metadata"`) {
-		t.Error("expected the plugin origin and an OSS filter origin in the output")
+	if !strings.Contains(out, `"module": "acme"`) || !strings.Contains(out, `"filterKind": "set_metadata"`) {
+		t.Error("expected the plugin's claim and a kgateway filter claim in the output")
+	}
+	text, _, err := runKrp(t, "dump", "--file", dump)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(text, "ext_auth/kgateway-system/ext-authz  enabled by route · WafPolicy acme/edge · TrafficPolicy") {
+		t.Errorf("text lacks the plugin's exact extension:\n%s", text)
 	}
 }
 

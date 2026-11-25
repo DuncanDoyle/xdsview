@@ -7,17 +7,32 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DuncanDoyle/xdsview/pkg/envoy/chain"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
-	"github.com/DuncanDoyle/xdsview/pkg/envoy/origin"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/parser"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/render"
 )
 
-// TestText_Golden renders every OSS corpus dump and hand-built fixture the
-// way krp does, with origins and contribution labels from the kgateway
-// mapper, and compares it with testdata/golden/scenarios/<scenario>/<version>.txt
-// or testdata/golden/fixtures/<fixture>.txt.
+// corpusKnown are the corpus HTTPRoutes, as krp's live mode lists them.
+var corpusKnown = []model.Ref{
+	{Group: gatewayGroup, Kind: "HTTPRoute", Namespace: "kgateway-system", Name: "api-example-com"},
+	{Group: gatewayGroup, Kind: "HTTPRoute", Namespace: "kgateway-system", Name: "api-example-com-admin"},
+}
+
+// plainText renders res as krp's text without colour.
+func plainText(t *testing.T, res result) string {
+	t.Helper()
+	v := res.view()
+	var b bytes.Buffer
+	if err := render.Text(&b, v.Snapshot, v.Chains, render.Options{Labels: v.Labels, Trailer: v.Trailer}); err != nil {
+		t.Fatal(err)
+	}
+	return b.String()
+}
+
+// TestText_Golden renders every OSS corpus dump and hand-built fixture through
+// krp's flow in live mode, with the corpus HTTPRoutes listed, and compares it
+// with testdata/golden/scenarios/<scenario>/<version>.txt or
+// testdata/golden/fixtures/<fixture>.txt.
 func TestText_Golden(t *testing.T) {
 	dumps, _ := filepath.Glob(filepath.Join(testdataDir, "scenarios/*/envoy/kgateway-*/config_dump.json"))
 	if len(dumps) == 0 {
@@ -40,30 +55,17 @@ func TestText_Golden(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			res, err := parser.Parse(f, parser.Options{})
+			parsed, err := parser.Parse(f, parser.Options{})
 			f.Close()
 			if err != nil {
 				t.Fatal(err)
 			}
-			// The corpus HTTPRoutes, as krp's live mode lists them.
-			known := []model.Ref{
-				{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute", Namespace: "kgateway-system", Name: "api-example-com"},
-				{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute", Namespace: "kgateway-system", Name: "api-example-com-admin"},
-			}
-			m := origin.Kgateway(origin.KgatewayOptions{Known: known})
-			snap := origin.Annotate(res, m)
-			chains := chain.Effective(snap)
-			opts := render.Options{Labels: attribute(snap, chains, m).labels}
-
-			var a, b bytes.Buffer
-			if err := render.Text(&a, snap, chains, opts); err != nil {
+			res, err := build(parsed, request{live: true, known: corpusKnown})
+			if err != nil {
 				t.Fatal(err)
 			}
-			if err := render.Text(&b, snap, chains, opts); err != nil {
-				t.Fatal(err)
-			}
-			out := a.String()
-			if out != b.String() {
+			out := plainText(t, res)
+			if out != plainText(t, res) {
 				t.Error("two renders differ")
 			}
 			if strings.Contains(out, "\x1b") {

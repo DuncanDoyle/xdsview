@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "v1alpha1",
+  "schemaVersion": "v1alpha2",
   "snapshot": {
     "capture": "unverified",
     "listeners": [
@@ -55,10 +55,6 @@
                   "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
-                  },
-                  "origin": {
-                    "certainty": "inferred",
-                    "kind": "router"
                   }
                 }
               ],
@@ -88,21 +84,7 @@
                         "action": {
                           "kind": "route"
                         },
-                        "cluster": "web_backend",
-                        "effectiveChain": {
-                          "filters": [
-                            {
-                              "slot": "L1/C0/N1/F0",
-                              "name": "envoy.filters.http.router",
-                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": "yes",
-                              "state": "on",
-                              "request": "yes",
-                              "response": "no",
-                              "configSource": "inline"
-                            }
-                          ]
-                        }
+                        "cluster": "web_backend"
                       }
                     ]
                   }
@@ -133,5 +115,57 @@
       ]
     }
   },
+  "chains": {
+    "L1/C0/N1/RC/V0/R0": {
+      "filters": [
+        {
+          "slot": "L1/C0/N1/F0",
+          "name": "envoy.filters.http.router",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "no",
+          "configSource": "inline"
+        }
+      ]
+    }
+  },
+  "claims": [
+    {
+      "id": "kgateway/0",
+      "subject": "L0/C0",
+      "assertion": {
+        "kind": "listenerSource",
+        "section": "tcp"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/1",
+      "subject": "L1/C0/N1/F0",
+      "assertion": {
+        "kind": "extensionSource",
+        "filterKind": "router"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "structure",
+          "subject": "L1/C0/N1/F0",
+          "field": "type"
+        }
+      ],
+      "module": "kgateway"
+    }
+  ],
   "warnings": []
 }

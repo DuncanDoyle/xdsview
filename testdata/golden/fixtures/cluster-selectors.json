@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "v1alpha1",
+  "schemaVersion": "v1alpha2",
   "snapshot": {
     "capture": "unverified",
     "listeners": [
@@ -28,10 +28,6 @@
                   "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
-                  },
-                  "origin": {
-                    "certainty": "inferred",
-                    "kind": "router"
                   }
                 }
               ],
@@ -62,21 +58,7 @@
                           "kind": "route",
                           "clusterHeader": "x-target-cluster"
                         },
-                        "cluster": "",
-                        "effectiveChain": {
-                          "filters": [
-                            {
-                              "slot": "L0/C0/N0/F0",
-                              "name": "envoy.filters.http.router",
-                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": "yes",
-                              "state": "on",
-                              "request": "yes",
-                              "response": "no",
-                              "configSource": "inline"
-                            }
-                          ]
-                        }
+                        "cluster": ""
                       },
                       {
                         "id": "L0/C0/N0/RC/V0/R1",
@@ -89,21 +71,7 @@
                           "kind": "route",
                           "clusterSpecifierPlugin": "picker"
                         },
-                        "cluster": "",
-                        "effectiveChain": {
-                          "filters": [
-                            {
-                              "slot": "L0/C0/N0/F0",
-                              "name": "envoy.filters.http.router",
-                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": "yes",
-                              "state": "on",
-                              "request": "yes",
-                              "response": "no",
-                              "configSource": "inline"
-                            }
-                          ]
-                        }
+                        "cluster": ""
                       },
                       {
                         "id": "L0/C0/N0/RC/V0/R2",
@@ -119,21 +87,7 @@
                             "type": "type.googleapis.com/example.InlinePicker"
                           }
                         },
-                        "cluster": "",
-                        "effectiveChain": {
-                          "filters": [
-                            {
-                              "slot": "L0/C0/N0/F0",
-                              "name": "envoy.filters.http.router",
-                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": "yes",
-                              "state": "on",
-                              "request": "yes",
-                              "response": "no",
-                              "configSource": "inline"
-                            }
-                          ]
-                        }
+                        "cluster": ""
                       },
                       {
                         "id": "L0/C0/N0/RC/V0/R3",
@@ -145,21 +99,7 @@
                         "action": {
                           "kind": "route"
                         },
-                        "cluster": "web_backend",
-                        "effectiveChain": {
-                          "filters": [
-                            {
-                              "slot": "L0/C0/N0/F0",
-                              "name": "envoy.filters.http.router",
-                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": "yes",
-                              "state": "on",
-                              "request": "yes",
-                              "response": "no",
-                              "configSource": "inline"
-                            }
-                          ]
-                        }
+                        "cluster": "web_backend"
                       }
                     ]
                   }
@@ -194,5 +134,99 @@
       ]
     }
   },
+  "chains": {
+    "L0/C0/N0/RC/V0/R0": {
+      "filters": [
+        {
+          "slot": "L0/C0/N0/F0",
+          "name": "envoy.filters.http.router",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "no",
+          "configSource": "inline"
+        }
+      ]
+    },
+    "L0/C0/N0/RC/V0/R1": {
+      "filters": [
+        {
+          "slot": "L0/C0/N0/F0",
+          "name": "envoy.filters.http.router",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "no",
+          "configSource": "inline"
+        }
+      ]
+    },
+    "L0/C0/N0/RC/V0/R2": {
+      "filters": [
+        {
+          "slot": "L0/C0/N0/F0",
+          "name": "envoy.filters.http.router",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "no",
+          "configSource": "inline"
+        }
+      ]
+    },
+    "L0/C0/N0/RC/V0/R3": {
+      "filters": [
+        {
+          "slot": "L0/C0/N0/F0",
+          "name": "envoy.filters.http.router",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "no",
+          "configSource": "inline"
+        }
+      ]
+    }
+  },
+  "claims": [
+    {
+      "id": "kgateway/1",
+      "subject": "L0/C0/N0/F0",
+      "assertion": {
+        "kind": "extensionSource",
+        "filterKind": "router"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "structure",
+          "subject": "L0/C0/N0/F0",
+          "field": "type"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/0",
+      "subject": "RD0",
+      "assertion": {
+        "kind": "listenerSource",
+        "section": "web"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "RD0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    }
+  ],
   "warnings": []
 }

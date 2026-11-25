@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "v1alpha1",
+  "schemaVersion": "v1alpha2",
   "snapshot": {
     "capture": "unverified",
     "listeners": [
@@ -37,10 +37,6 @@
                       "request_header_mode": "SEND",
                       "response_header_mode": "SKIP"
                     }
-                  },
-                  "origin": {
-                    "certainty": "inferred",
-                    "kind": "ext_proc"
                   }
                 },
                 {
@@ -80,10 +76,6 @@
                         }
                       }
                     ]
-                  },
-                  "origin": {
-                    "certainty": "inferred",
-                    "kind": "router"
                   }
                 }
               ],
@@ -111,10 +103,6 @@
                       "request_header_mode": "SEND",
                       "response_header_mode": "SEND"
                     }
-                  },
-                  "origin": {
-                    "certainty": "inferred",
-                    "kind": "ext_proc"
                   }
                 },
                 {
@@ -123,10 +111,6 @@
                   "type": "type.googleapis.com/envoy.extensions.filters.http.upstream_codec.v3.UpstreamCodec",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.upstream_codec.v3.UpstreamCodec"
-                  },
-                  "origin": {
-                    "certainty": "inferred",
-                    "kind": "upstream_codec"
                   }
                 }
               ],
@@ -162,47 +146,6 @@
                             "@type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExtProcPerRoute",
                             "disabled": true
                           }
-                        },
-                        "origin": {
-                          "certainty": "inferred",
-                          "candidates": [
-                            {
-                              "route": {
-                                "group": "gateway.networking.k8s.io",
-                                "kind": "HTTPRoute",
-                                "namespace": "default",
-                                "name": "app"
-                              },
-                              "ruleIndex": 0,
-                              "matchIndex": 0
-                            }
-                          ]
-                        },
-                        "effectiveChain": {
-                          "filters": [
-                            {
-                              "slot": "L0/C0/N0/F0",
-                              "name": "envoy.filters.http.ext_proc",
-                              "type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
-                              "runs": "yes",
-                              "state": "on",
-                              "level": "route",
-                              "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExtProcPerRoute",
-                              "request": "yes",
-                              "response": "yes",
-                              "configSource": "inline"
-                            },
-                            {
-                              "slot": "L0/C0/N0/F1",
-                              "name": "envoy.filters.http.router",
-                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": "yes",
-                              "state": "on",
-                              "request": "yes",
-                              "response": "no",
-                              "configSource": "inline"
-                            }
-                          ]
                         }
                       },
                       {
@@ -215,56 +158,9 @@
                         "action": {
                           "kind": "route"
                         },
-                        "cluster": "kube_default_app_8080",
-                        "origin": {
-                          "certainty": "inferred",
-                          "candidates": [
-                            {
-                              "route": {
-                                "group": "gateway.networking.k8s.io",
-                                "kind": "HTTPRoute",
-                                "namespace": "default",
-                                "name": "app"
-                              },
-                              "ruleIndex": 1,
-                              "matchIndex": 0
-                            }
-                          ]
-                        },
-                        "effectiveChain": {
-                          "filters": [
-                            {
-                              "slot": "L0/C0/N0/F0",
-                              "name": "envoy.filters.http.ext_proc",
-                              "type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
-                              "runs": "yes",
-                              "state": "on",
-                              "request": "yes",
-                              "response": "yes",
-                              "configSource": "inline"
-                            },
-                            {
-                              "slot": "L0/C0/N0/F1",
-                              "name": "envoy.filters.http.router",
-                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": "yes",
-                              "state": "on",
-                              "request": "yes",
-                              "response": "no",
-                              "configSource": "inline"
-                            }
-                          ]
-                        }
+                        "cluster": "kube_default_app_8080"
                       }
-                    ],
-                    "origin": {
-                      "certainty": "inferred",
-                      "listener": {
-                        "certainty": "inferred",
-                        "port": 8080
-                      },
-                      "hostname": "app.example"
-                    }
+                    ]
                   }
                 ]
               }
@@ -274,10 +170,6 @@
         "state": {
           "status": "active",
           "lastUpdated": "2026-11-22T12:00:00Z"
-        },
-        "origin": {
-          "certainty": "inferred",
-          "port": 8080
         }
       }
     ],
@@ -301,5 +193,326 @@
       ]
     }
   },
+  "chains": {
+    "L0/C0/N0/RC/V0/R0": {
+      "filters": [
+        {
+          "slot": "L0/C0/N0/F0",
+          "name": "envoy.filters.http.ext_proc",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+          "runs": "yes",
+          "state": "on",
+          "level": "route",
+          "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExtProcPerRoute",
+          "request": "yes",
+          "response": "yes",
+          "configSource": "inline"
+        },
+        {
+          "slot": "L0/C0/N0/F1",
+          "name": "envoy.filters.http.router",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "no",
+          "configSource": "inline"
+        }
+      ]
+    },
+    "L0/C0/N0/RC/V0/R1": {
+      "filters": [
+        {
+          "slot": "L0/C0/N0/F0",
+          "name": "envoy.filters.http.ext_proc",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "yes",
+          "configSource": "inline"
+        },
+        {
+          "slot": "L0/C0/N0/F1",
+          "name": "envoy.filters.http.router",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "no",
+          "configSource": "inline"
+        }
+      ]
+    }
+  },
+  "claims": [
+    {
+      "id": "kgateway/1",
+      "subject": "L0",
+      "assertion": {
+        "kind": "listenerSource",
+        "port": 8080
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/2",
+      "subject": "L0/C0",
+      "assertion": {
+        "kind": "listenerSource",
+        "port": 8080
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/3",
+      "subject": "L0/C0/N0/F0",
+      "assertion": {
+        "kind": "extensionSource",
+        "filterKind": "ext_proc"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "structure",
+          "subject": "L0/C0/N0/F0",
+          "field": "type"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/4",
+      "subject": "L0/C0/N0/F1",
+      "assertion": {
+        "kind": "extensionSource",
+        "filterKind": "router"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "structure",
+          "subject": "L0/C0/N0/F1",
+          "field": "type"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/7",
+      "subject": "L0/C0/N0/RC/V0",
+      "assertion": {
+        "kind": "listenerSource",
+        "port": 8080
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0/N0/RC/V0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/8",
+      "subject": "L0/C0/N0/RC/V0",
+      "assertion": {
+        "kind": "hostSource",
+        "hostname": "app.example"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0/N0/RC/V0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/9",
+      "subject": "L0/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "routeSource",
+        "route": {
+          "group": "gateway.networking.k8s.io",
+          "kind": "HTTPRoute",
+          "namespace": "default",
+          "name": "app"
+        },
+        "ruleIndex": 0,
+        "matchIndex": 0
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0/N0/RC/V0/R0",
+          "field": "name",
+          "object": {
+            "group": "gateway.networking.k8s.io",
+            "kind": "HTTPRoute",
+            "namespace": "default",
+            "name": "app"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/10",
+      "subject": "L0/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "backendSource",
+        "backend": {
+          "kind": "Service",
+          "namespace": "default",
+          "name": "app"
+        },
+        "port": 8080
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0/N0/RC/V0/R0",
+          "field": "cluster",
+          "object": {
+            "kind": "Service",
+            "namespace": "default",
+            "name": "app"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/11",
+      "subject": "L0/C0/N0/RC/V0/R1",
+      "assertion": {
+        "kind": "routeSource",
+        "route": {
+          "group": "gateway.networking.k8s.io",
+          "kind": "HTTPRoute",
+          "namespace": "default",
+          "name": "app"
+        },
+        "ruleIndex": 1,
+        "matchIndex": 0
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0/N0/RC/V0/R1",
+          "field": "name",
+          "object": {
+            "group": "gateway.networking.k8s.io",
+            "kind": "HTTPRoute",
+            "namespace": "default",
+            "name": "app"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/12",
+      "subject": "L0/C0/N0/RC/V0/R1",
+      "assertion": {
+        "kind": "backendSource",
+        "backend": {
+          "kind": "Service",
+          "namespace": "default",
+          "name": "app"
+        },
+        "port": 8080
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0/N0/RC/V0/R1",
+          "field": "cluster",
+          "object": {
+            "kind": "Service",
+            "namespace": "default",
+            "name": "app"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/5",
+      "subject": "L0/C0/N0/U0",
+      "assertion": {
+        "kind": "extensionSource",
+        "filterKind": "ext_proc"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "structure",
+          "subject": "L0/C0/N0/U0",
+          "field": "type"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/6",
+      "subject": "L0/C0/N0/U1",
+      "assertion": {
+        "kind": "extensionSource",
+        "filterKind": "upstream_codec"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "structure",
+          "subject": "L0/C0/N0/U1",
+          "field": "type"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/0",
+      "subject": "RD0",
+      "assertion": {
+        "kind": "listenerSource",
+        "port": 8080
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "RD0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    }
+  ],
   "warnings": []
 }

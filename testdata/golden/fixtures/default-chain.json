@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "v1alpha1",
+  "schemaVersion": "v1alpha2",
   "snapshot": {
     "capture": "unverified",
     "listeners": [
@@ -45,10 +45,6 @@
                   "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
-                  },
-                  "origin": {
-                    "certainty": "inferred",
-                    "kind": "router"
                   }
                 }
               ],
@@ -78,21 +74,7 @@
                         "action": {
                           "kind": "route"
                         },
-                        "cluster": "fallback_backend",
-                        "effectiveChain": {
-                          "filters": [
-                            {
-                              "slot": "L0/Cd/N0/F0",
-                              "name": "envoy.filters.http.router",
-                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                              "runs": "yes",
-                              "state": "on",
-                              "request": "yes",
-                              "response": "no",
-                              "configSource": "inline"
-                            }
-                          ]
-                        }
+                        "cluster": "fallback_backend"
                       }
                     ]
                   }
@@ -123,5 +105,74 @@
       ]
     }
   },
+  "chains": {
+    "L0/Cd/N0/RC/V0/R0": {
+      "filters": [
+        {
+          "slot": "L0/Cd/N0/F0",
+          "name": "envoy.filters.http.router",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "no",
+          "configSource": "inline"
+        }
+      ]
+    }
+  },
+  "claims": [
+    {
+      "id": "kgateway/0",
+      "subject": "L0/C0",
+      "assertion": {
+        "kind": "listenerSource",
+        "section": "known"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/1",
+      "subject": "L0/Cd",
+      "assertion": {
+        "kind": "listenerSource",
+        "section": "fallback"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/Cd",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/2",
+      "subject": "L0/Cd/N0/F0",
+      "assertion": {
+        "kind": "extensionSource",
+        "filterKind": "router"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "structure",
+          "subject": "L0/Cd/N0/F0",
+          "field": "type"
+        }
+      ],
+      "module": "kgateway"
+    }
+  ],
   "warnings": []
 }

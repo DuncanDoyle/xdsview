@@ -23,11 +23,12 @@ import (
 
 	"github.com/DuncanDoyle/xdsview/internal/renderer"
 	"github.com/DuncanDoyle/xdsview/internal/tui"
+	"github.com/DuncanDoyle/xdsview/pkg/adapter/kgateway"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/chain"
-	"github.com/DuncanDoyle/xdsview/pkg/envoy/filter"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
-	"github.com/DuncanDoyle/xdsview/pkg/envoy/origin"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/parser"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/provenance"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/render"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/source"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/source/kube"
 	"github.com/spf13/cobra"
@@ -77,8 +78,8 @@ func newRootCmd() *cobra.Command {
 	return root
 }
 
-// extraMappers run before the kgateway mapper. Tests use it to plug in a mapper.
-var extraMappers []origin.Mapper
+// extraModules are composed after the kgateway module. Tests use it to plug in a module.
+var extraModules []provenance.Module
 
 // listTimeout bounds the optional HTTPRoute listing, so a slow API server can't
 // hold back a dump that's already fetched.
@@ -99,18 +100,72 @@ var (
 	kubeHTTPRoutes = kube.HTTPRoutes
 )
 
-// mapper builds the origin mapper from what the CLI knows: the Gateway behind
-// --gateway, and the HTTPRoutes listed from the cluster or named by --route,
-// which resolve route names.
-func mapper(gateway, namespace, routeName, routeNS string, known []model.Ref) origin.Mapper {
-	opts := origin.KgatewayOptions{Known: known}
-	if gateway != "" {
-		opts.Gateway = &model.Ref{Group: "gateway.networking.k8s.io", Kind: "Gateway", Namespace: namespace, Name: gateway}
+const gatewayGroup = "gateway.networking.k8s.io"
+
+// request is what the CLI knows beyond the dump.
+type request struct {
+	query   *kgateway.Query // --route and --rule; nil shows every route
+	live    bool            // the dump was fetched from a cluster
+	known   []model.Ref     // HTTPRoutes listed from the cluster in live mode
+	gateway *model.Ref      // the Gateway behind --gateway, krp's own context
+}
+
+// result is krp's view of one dump: the snapshot it prints, pruned under
+// --route, with the chains, index and selection computed on the whole dump.
+type result struct {
+	full       *model.Snapshot
+	snap       *model.Snapshot
+	chains     map[model.ID]model.EffectiveChain
+	ix         *provenance.Index
+	narrowings []provenance.Narrowing // printed inline, marked as chosen from known HTTPRoutes
+	selection  *selection             // nil unless --route is set or the dump is live
+	gateway    *model.Ref
+}
+
+// build runs krp's flow: chain.Effective, Compose, then Select under --route
+// or Narrow in live mode, then Prune (design §7, D-022).
+func build(parsed *model.Snapshot, req request) (result, error) {
+	ix, err := provenance.Compose(parsed, append([]provenance.Module{kgateway.New()}, extraModules...)...)
+	if err != nil {
+		return result{}, err
 	}
-	if routeName != "" {
-		opts.Known = append(opts.Known, model.Ref{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute", Namespace: routeNS, Name: routeName})
+	res := result{full: parsed, snap: parsed, chains: chain.Effective(parsed), ix: ix, gateway: req.gateway}
+	switch {
+	case req.query != nil:
+		sel := kgateway.Select(ix, parsed, *req.query)
+		res.selection = newSelection(parsed, *req.query, sel)
+		keep := map[model.ID]bool{}
+		for _, id := range res.selection.Routes {
+			keep[id] = true
+		}
+		res.snap = model.Prune(parsed, func(id model.ID) bool { return keep[id] })
+		res.narrowings = sel.Narrowed
+	case req.live:
+		res.narrowings = kgateway.Narrow(ix, req.known)
+		res.selection = liveSelection(parsed, res.narrowings)
 	}
-	return origin.Chain(append(append([]origin.Mapper(nil), extraMappers...), origin.Kgateway(opts))...)
+	return res, nil
+}
+
+// labels is the render Labels hook: the provenance labels, plus the --gateway
+// Gateway on listener rows, labelled as krp's context rather than a claim (D-022).
+func (r result) labels() func(render.Row) []string {
+	base := provenance.Labels(r.ix, r.narrowings)
+	return func(row render.Row) []string {
+		out := base(row)
+		if r.gateway == nil || row.Route != "" || row.Slot != "" {
+			return out
+		}
+		if l, ok := r.snap.Listener(row.Subject); ok && !l.Static {
+			out = append(out, r.gateway.String()+" (from --gateway)")
+		}
+		return out
+	}
+}
+
+// view is the renderer's input for r.
+func (r result) view() renderer.View {
+	return renderer.View{Snapshot: r.snap, Chains: r.chains, Labels: r.labels(), Trailer: provenance.Notes(r.ix)}
 }
 
 // hasRoutes reports whether any filter chain in snap kept a virtual host.
@@ -127,17 +182,20 @@ func hasRoutes(snap *model.Snapshot) bool {
 
 // parseRule reads --rule: empty or -1 means all rules, a non-negative integer
 // is a rule index, and anything else is a rule name.
-func parseRule(rule string) (index int, name string, err error) {
+func parseRule(rule string) (index *int, name string, err error) {
 	if rule == "" {
-		return filter.AllRules, "", nil
+		return nil, "", nil
 	}
 	if n, err := strconv.Atoi(rule); err == nil {
-		if n < filter.AllRules {
-			return 0, "", fmt.Errorf("--rule must be a rule index >= 0 or a rule name")
+		if n < -1 {
+			return nil, "", fmt.Errorf("--rule must be a rule index >= 0 or a rule name")
 		}
-		return n, "", nil
+		if n == -1 {
+			return nil, "", nil
+		}
+		return &n, "", nil
 	}
-	return filter.AllRules, rule, nil
+	return nil, rule, nil
 }
 
 // runDump is the cobra RunE handler for the "dump" subcommand.
@@ -223,49 +281,49 @@ func runDump(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s\n", w.Message)
 	}
 
-	// Apply the HTTPRoute filter when requested.
-	snapshot := parsed
+	req := request{live: file == ""}
+	if gateway != "" {
+		req.gateway = &model.Ref{Group: gatewayGroup, Kind: "Gateway", Namespace: namespace, Name: gateway}
+	}
 	if routeName != "" {
-		snapshot = filter.Filter(snapshot, filter.Options{
-			HTTPRouteName:      routeName,
-			HTTPRouteNamespace: routeNS,
-			RuleIndex:          ruleIndex,
-			RuleName:           ruleName,
-		})
-		// Listeners that aren't active survive narrowing, so count routes.
-		if !hasRoutes(snapshot) {
-			fmt.Fprintf(cmd.ErrOrStderr(),
-				"warning: no routes found for HTTPRoute %s/%s — check name, namespace, and that the HTTPRoute is attached to this Gateway\n",
-				routeNS, routeName)
-		}
+		// --route names the HTTPRoute, so it is also the known HTTPRoute (D-022).
+		ref := model.Ref{Group: gatewayGroup, Kind: "HTTPRoute", Namespace: routeNS, Name: routeName}
+		req.query = &kgateway.Query{Route: ref, RuleIndex: ruleIndex, RuleName: ruleName, Known: []model.Ref{ref}}
 	}
 
-	// In live mode, the cluster's HTTPRoutes resolve route names with several
+	// In live mode, the cluster's HTTPRoutes narrow route names with several
 	// readings (D-006). --route names the HTTPRoute itself, so it skips the
 	// listing; a failed or slow listing only costs route origins.
-	var known []model.Ref
-	if file == "" && routeName == "" {
+	if req.live && req.query == nil {
 		ctx, cancel := context.WithTimeout(cmdContext(cmd), listTimeout)
-		known, err = kubeHTTPRoutes(ctx, kube.Options{KubeContext: kubeContext})
+		req.known, err = kubeHTTPRoutes(ctx, kube.Options{KubeContext: kubeContext})
 		cancel()
 		if err != nil {
 			fmt.Fprintf(cmd.ErrOrStderr(), "warning: route origins unavailable: %v\n", err)
 		}
 	}
-	// Execution comes from Envoy data alone; origins and contributions are krp's.
-	m := mapper(gateway, namespace, routeName, routeNS, known)
-	snapshot = origin.Annotate(snapshot, m)
-	chains := chain.Effective(snapshot)
-	contribs := attribute(snapshot, chains, m)
-	view := renderer.View{Snapshot: snapshot, Chains: chains, Labels: contribs.labels}
+
+	res, err := build(parsed, req)
+	if err != nil {
+		return err
+	}
+	for _, w := range res.ix.Warnings() {
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s\n", w.Message)
+	}
+	// Listeners that aren't active survive pruning, so count routes.
+	if req.query != nil && !hasRoutes(res.snap) {
+		fmt.Fprintf(cmd.ErrOrStderr(),
+			"warning: no routes found for HTTPRoute %s/%s — check name, namespace, and that the HTTPRoute is attached to this Gateway\n",
+			routeNS, routeName)
+	}
 
 	// Render and print — or launch the interactive TUI.
 	switch {
 	case interactive:
-		return tui.Run(view, cmd.OutOrStdout(), cmd.ErrOrStderr())
+		return tui.Run(res.view(), cmd.OutOrStdout(), cmd.ErrOrStderr())
 	case output == outputJSON:
-		return writeJSON(cmd.OutOrStdout(), snapshot, chains, contribs, parsed.Warnings)
+		return writeJSON(cmd.OutOrStdout(), res)
 	}
-	fmt.Fprintln(cmd.OutOrStdout(), renderer.Render(view))
+	fmt.Fprintln(cmd.OutOrStdout(), renderer.Render(res.view()))
 	return nil
 }

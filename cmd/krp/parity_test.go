@@ -22,12 +22,6 @@ import (
 // the Phase 8 P1 fixes, none of which the corpus shows; TestParity_P1Fixes
 // lists each one on a hand-built route.
 
-// corpusKnown are the corpus HTTPRoutes, as krp's live mode lists them.
-var corpusKnown = []model.Ref{
-	{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute", Namespace: "kgateway-system", Name: "api-example-com"},
-	{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute", Namespace: "kgateway-system", Name: "api-example-com-admin"},
-}
-
 // TestParity_Text renders every dump both ways: today's annotated snapshot
 // with krp's contribution labels, and the unannotated snapshot with the
 // provenance text hooks. The text is identical.
@@ -60,6 +54,70 @@ func TestParity_Text(t *testing.T) {
 			}
 		})
 	}
+}
+
+// oldKrpText is krp's text before part B: filter.Filter under --route, then
+// origin.Annotate with Known, then attribute's labels.
+func oldKrpText(t *testing.T, dump string, q *kgateway.Query, known []model.Ref) string {
+	snap := parseFile(t, dump)
+	if q != nil {
+		opts := filter.Options{HTTPRouteName: q.Route.Name, HTTPRouteNamespace: q.Route.Namespace, RuleIndex: filter.AllRules, RuleName: q.RuleName}
+		if q.RuleIndex != nil {
+			opts.RuleIndex = *q.RuleIndex
+		}
+		snap = filter.Filter(snap, opts)
+		known = append(known, q.Route)
+	}
+	m := origin.Kgateway(origin.KgatewayOptions{Known: known})
+	snap = origin.Annotate(snap, m)
+	chains := chain.Effective(snap)
+	var b bytes.Buffer
+	if err := render.Text(&b, snap, chains, render.Options{Labels: attribute(snap, chains, m).labels}); err != nil {
+		t.Fatal(err)
+	}
+	return b.String()
+}
+
+// TestParity_Krp runs krp's old and new paths on every dump and fixture: in
+// file mode, in live mode with the corpus HTTPRoutes, and under a set of
+// --route and --rule queries. The text is identical.
+func TestParity_Krp(t *testing.T) {
+	ruleIndex := func(i int) *int { return &i }
+	queries := []kgateway.Query{
+		{Route: httpRoute("kgateway-system", "api-example-com")},
+		{Route: httpRoute("kgateway-system", "api-example-com"), RuleIndex: ruleIndex(0)},
+		{Route: httpRoute("kgateway-system", "api-example-com"), RuleIndex: ruleIndex(1)},
+		{Route: httpRoute("kgateway-system", "api-example-com"), RuleName: "a-b"},
+		{Route: httpRoute("kgateway-system", "api-example-com"), RuleName: "a"},
+		{Route: httpRoute("kgateway-system", "api-example-com-admin")},
+		{Route: httpRoute("kgwctl-proxy", "orders")},
+		{Route: httpRoute("kgwctl-proxy", "public")},
+		{Route: httpRoute("kgateway-system", "does-not-exist")},
+	}
+	compared := 0
+	for _, dump := range allDumps(t) {
+		reqs := []request{{}, {live: true, known: corpusKnown}}
+		for _, q := range queries {
+			q.Known = []model.Ref{q.Route}
+			reqs = append(reqs, request{query: &q})
+		}
+		for _, req := range reqs {
+			res, err := build(parseFile(t, dump), req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := oldKrpText(t, dump, req.query, req.known)
+			if got := plainText(t, res); got != want {
+				t.Errorf("%s %+v: text differs\n--- new\n%s\n--- old\n%s", dump, req.query, got, want)
+			}
+			compared++
+		}
+	}
+	t.Logf("%d outputs compared", compared)
+}
+
+func httpRoute(ns, name string) model.Ref {
+	return model.Ref{Group: gatewayGroup, Kind: "HTTPRoute", Namespace: ns, Name: name}
 }
 
 // TestParity_Structured compares, per occurrence, the resolved origins,

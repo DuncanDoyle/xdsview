@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "v1alpha1",
+  "schemaVersion": "v1alpha2",
   "snapshot": {
     "capture": "unverified",
     "listeners": [
@@ -29,30 +29,12 @@
                   "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
                   "typedConfig": {
                     "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
-                  },
-                  "origin": {
-                    "certainty": "inferred",
-                    "kind": "router"
                   }
                 }
               ],
               "routeConfigUse": {
                 "id": "L0/C0/N0/RC",
-                "state": "unknown",
-                "effectiveChain": {
-                  "filters": [
-                    {
-                      "slot": "L0/C0/N0/F0",
-                      "name": "envoy.filters.http.router",
-                      "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-                      "runs": "yes",
-                      "state": "on",
-                      "request": "yes",
-                      "response": "no",
-                      "configSource": "inline"
-                    }
-                  ]
-                }
+                "state": "unknown"
               }
             }
           }
@@ -109,15 +91,47 @@
           "status": "ignored"
         }
       ]
-    },
-    "warnings": [
-      {
-        "code": "route-config-skipped",
-        "message": "skipped route config \"broken\": json: cannot unmarshal number into Go struct field .route_config.virtual_hosts of type []parser.rawVirtualHost"
-      }
-    ]
+    }
   },
+  "chains": {
+    "L0/C0/N0/RC": {
+      "filters": [
+        {
+          "slot": "L0/C0/N0/F0",
+          "name": "envoy.filters.http.router",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "no",
+          "configSource": "inline"
+        }
+      ]
+    }
+  },
+  "claims": [
+    {
+      "id": "kgateway/0",
+      "subject": "L0/C0/N0/F0",
+      "assertion": {
+        "kind": "extensionSource",
+        "filterKind": "router"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "structure",
+          "subject": "L0/C0/N0/F0",
+          "field": "type"
+        }
+      ],
+      "module": "kgateway"
+    }
+  ],
   "warnings": [
-    "skipped route config \"broken\": json: cannot unmarshal number into Go struct field .route_config.virtual_hosts of type []parser.rawVirtualHost"
+    {
+      "code": "route-config-skipped",
+      "message": "skipped route config \"broken\": json: cannot unmarshal number into Go struct field .route_config.virtual_hosts of type []parser.rawVirtualHost"
+    }
   ]
 }

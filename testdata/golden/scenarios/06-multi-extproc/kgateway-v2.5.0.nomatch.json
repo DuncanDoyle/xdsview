@@ -1,37 +1,8 @@
 {
-  "schemaVersion": "v1alpha1",
+  "schemaVersion": "v1alpha2",
   "snapshot": {
     "capture": "unverified",
     "listeners": [],
-    "routeConfigs": [
-      {
-        "id": "L1/C0/N0/RCI",
-        "kind": "inline",
-        "name": "main_route",
-        "reported": "RS0"
-      },
-      {
-        "id": "L2/C0/N0/RCI",
-        "kind": "inline",
-        "name": "prometheus_route",
-        "reported": "RS1"
-      },
-      {
-        "id": "RS0",
-        "kind": "static",
-        "name": "main_route"
-      },
-      {
-        "id": "RS1",
-        "kind": "static",
-        "name": "prometheus_route"
-      },
-      {
-        "id": "RD0",
-        "kind": "dynamic",
-        "name": "listener~80"
-      }
-    ],
     "coverage": {
       "sections": [
         {
@@ -60,6 +31,22 @@
         }
       ]
     }
+  },
+  "chains": {},
+  "claims": [],
+  "selection": {
+    "query": {
+      "route": {
+        "group": "gateway.networking.k8s.io",
+        "kind": "HTTPRoute",
+        "namespace": "kgateway-system",
+        "name": "does-not-exist"
+      }
+    },
+    "routes": [],
+    "ambiguous": [],
+    "unresolved": [],
+    "narrowed": []
   },
   "warnings": []
 }

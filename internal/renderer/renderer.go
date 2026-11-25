@@ -26,11 +26,12 @@ var styles = map[render.Class]lipgloss.Style{
 func style(c render.Class, _ render.Row, s string) string { return styles[c].Render(s) }
 
 // View is what krp prints: a snapshot, its chains from chain.Effective, and
-// the labels krp puts on rows (nil for none).
+// the labels and trailer lines krp puts on rows (nil for none).
 type View struct {
 	Snapshot *model.Snapshot
 	Chains   map[model.ID]model.EffectiveChain
 	Labels   func(render.Row) []string
+	Trailer  func(render.Row) []render.Line
 }
 
 // Render returns the view as krp's coloured text tree.
@@ -39,7 +40,7 @@ func Render(v View) string {
 }
 
 func text(v View, opts render.Options) string {
-	opts.Labels = v.Labels
+	opts.Labels, opts.Trailer = v.Labels, v.Trailer
 	var b strings.Builder
 	_ = render.Text(&b, v.Snapshot, v.Chains, opts) // a strings.Builder doesn't fail
 	return strings.TrimSuffix(b.String(), "\n")
