@@ -23,7 +23,8 @@ type Module interface {
 //  1. Each module gets its own deep copy of snap; snap is not changed.
 //  2. Claims keep module order, then emission order, within a subject.
 //  3. A pointer assertion is read as its value, and a nil one is dropped.
-//     A claim is dropped when its subject is not in snap or is the wrong kind
+//     A claim is dropped when its assertion's type is not one of this
+//     package's kinds, its subject is not in snap or is the wrong kind
 //     of occurrence for its assertion, it has no evidence, an object its
 //     assertion names is not the Object of any of its evidence, its certainty
 //     exceeds its kind's cap, or its Ref repeats one of its module's.
@@ -114,8 +115,8 @@ func Compose(snap *model.Snapshot, modules ...Module) (*Index, error) {
 	return ix, nil
 }
 
-// byValue returns a pointer assertion as its value, so every rule sees one
-// form; a nil pointer becomes nil and the claim is dropped.
+// byValue returns a pointer to a known kind as its value, so every rule sees
+// one form. A nil pointer becomes nil; any other pointer is returned as is.
 func byValue(a Assertion) Assertion {
 	v := reflect.ValueOf(a)
 	if v.Kind() != reflect.Pointer {
@@ -124,7 +125,19 @@ func byValue(a Assertion) Assertion {
 	if v.IsNil() {
 		return nil
 	}
-	return v.Elem().Interface().(Assertion)
+	if e, ok := v.Elem().Interface().(Assertion); ok && known(e) {
+		return e
+	}
+	return a
+}
+
+// known reports whether a's type is one of this package's assertion kinds.
+func known(a Assertion) bool {
+	switch a.(type) {
+	case ListenerSource, GatewaySource, HostSource, RouteSource, ExtensionSource, BackendSource, PolicyRecord, FilterLink, Opaque:
+		return true
+	}
+	return false
 }
 
 // drop records a dropped claim; rule-3 drops become gaps (design §5).
@@ -204,6 +217,9 @@ func newStructure(snap *model.Snapshot) *structure {
 func (st *structure) check(c Claim) string {
 	if c.Assertion == nil {
 		return "no assertion"
+	}
+	if !known(c.Assertion) {
+		return "unknown assertion type"
 	}
 	spec := c.Assertion.spec()
 	k, ok := st.kinds[c.Subject]

@@ -239,6 +239,39 @@ func TestCompose_PointerAssertions(t *testing.T) {
 	}
 }
 
+// shadowed embeds a FilterLink and overrides Kind on its pointer, so only
+// *shadowed implements Assertion; its value doesn't.
+type shadowed struct{ provenance.FilterLink }
+
+func (*shadowed) Kind() string { return "shadowed" }
+
+// lookalike embeds a FilterLink and implements Assertion as a value.
+type lookalike struct{ provenance.FilterLink }
+
+// TestCompose_ForeignAssertions (Codex N3): an assertion whose type isn't one
+// of the package's kinds is dropped with a warning, as a pointer or a value,
+// and Compose never panics.
+func TestCompose_ForeignAssertions(t *testing.T) {
+	p := policyA
+	fl := provenance.FilterLink{Record: "missing", Slot: slot0}
+	ix := compose(t, twoListeners(), fixed{"m", []provenance.Claim{
+		{Ref: "r", Subject: route0, Assertion: provenance.PolicyRecord{Policy: p, Field: "f", Level: provenance.LevelRoute}, Certainty: model.Exact, Evidence: ev(route0, &p)},
+		{Subject: route0, Assertion: &shadowed{fl}, Certainty: model.Inferred, Evidence: ev(slot0, nil)},
+		{Subject: route0, Assertion: &lookalike{fl}, Certainty: model.Inferred, Evidence: ev(slot0, nil)},
+		{Subject: route0, Assertion: lookalike{fl}, Certainty: model.Inferred, Evidence: ev(slot0, nil)},
+	}})
+	if got := ids(ix.Claims()); !slices.Equal(got, []string{"m/0"}) {
+		t.Errorf("kept %v, want only the record", got)
+	}
+	var reasons []string
+	for _, w := range ix.Warnings() {
+		reasons = append(reasons, w.Message[strings.Index(w.Message, "): ")+3:])
+	}
+	if want := []string{"unknown assertion type", "unknown assertion type", "unknown assertion type"}; !slices.Equal(reasons, want) {
+		t.Errorf("warnings %v, want %v", reasons, want)
+	}
+}
+
 // TestCompose_Order: claims are ordered by subject (numerically), then module
 // order, then emission order, the same on every run.
 func TestCompose_Order(t *testing.T) {
