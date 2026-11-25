@@ -127,7 +127,7 @@ A weighted-cluster backend can override the route's entry when Envoy picks it. k
 krp dump --file config_dump.json -o json
 ```
 
-The document is `{"schemaVersion": "v1alpha1", "snapshot": {...}, "warnings": [...]}`. `warnings` and `snapshot.listeners` are always arrays, never `null`. Every occurrence in `snapshot` has an `id`, valid only within that document; `snapshot.routeConfigs` lists the route config sources each HCM's `routeConfigUse` points at, and `snapshot.warnings` holds the warnings with a code and subject. `schemaVersion` changes only when a field is removed or renamed. `testdata/golden/` holds the expected output for every test dump. `-o json` can't be combined with `--interactive`.
+The document is `{"schemaVersion": "v1alpha1", "snapshot": {...}, "warnings": [...]}`. `warnings` and `snapshot.listeners` are always arrays, never `null`. Every occurrence in `snapshot` has an `id`, valid only within that document; `snapshot.routeConfigs` lists the route config sources each HCM's `routeConfigUse` points at, and `snapshot.warnings` holds the warnings with a code and subject. Each route's `effectiveChain` entry names its HCM filter `slot`; `runs`, `request` and `response` are `yes`, `no` or `unknown`. `contributions` maps a route ID, then a slot ID, to the objects krp attributes to that entry. `schemaVersion` changes only when a field is removed or renamed. `testdata/golden/` holds the expected output for every test dump. `-o json` can't be combined with `--interactive`.
 
 ### Collecting a config dump manually
 
@@ -245,13 +245,13 @@ opts := filter.Options{HTTPRouteName: "orders", HTTPRouteNamespace: "shop", Rule
 narrowed := filter.Filter(annotated, opts)
 maybe := filter.Ambiguous(annotated, opts)
 
-// Each route's runtime filter chain (EffectiveChain), attributed to extensions and policy fields,
-// then the same text krp prints, without colour.
-withChains := chain.Annotate(narrowed, m)
-err = render.Text(os.Stdout, withChains, render.Options{Header: "Gateway kgateway-system/gw"})
+// Each route's runtime filter chain (EffectiveChain), keyed by route ID, from
+// Envoy data alone; then the tree krp prints, without colour or contributions.
+chains := chain.Effective(narrowed)
+err = render.Text(os.Stdout, narrowed, chains, render.Options{Header: "Gateway kgateway-system/gw"})
 ```
 
-`render.Options` has `AllFilters` (list every HCM filter inline), `ResponseOrder`, and hooks for styled or interactive callers: `Style`, `Extra` (lines under a filter row) and `RouteExtra` (lines under a route line).
+Each chain entry carries its slot ID; `Runs`, `Request` and `Response` are `yes`, `no` or `unknown`. `render.Options` has `AllFilters` (list every HCM filter inline), `ResponseOrder`, and hooks keyed by `render.Row` (route ID and slot ID): `Style`, `Labels` (shown on a row after " · ") and `Notes` (lines under a route or filter row). krp computes extension and policy contributions itself and passes them as `Labels`.
 
 ---
 
