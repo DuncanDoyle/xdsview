@@ -129,3 +129,15 @@ JSON (65 files), all for the `v1alpha2` shape: `snapshot` loses `origin`, `polic
 2. The close benchmark needs `Compose` on the largest dump.
 3. Codex review of 9.3 (parts A and B).
 4. `.agents-tmp/tuicheck` still calls the removed API; it is scratch and outside the build.
+
+## Benchmark
+
+Close benchmark (Codex review #8), in `pkg/adapter/kgateway/bench_test.go`. The dump is synthetic: one listener, 50 vhosts × 100 routes (5,000), each with `route_source` and `merge` metadata and per-route ext_authz config; about 2.5 MB, generated in the benchmark. Apple M5 Max, Go 1.27.4, `go test ./pkg/adapter/kgateway/ -run '^$' -bench . -benchmem`:
+
+| Benchmark | Time/op | Memory/op | Allocs/op |
+|---|---|---|---|
+| `parser.Parse` | 46.9 ms (54 MB/s) | 64.3 MB | 490,094 |
+| `chain.Effective` | 2.5 ms | 7.6 MB | 15,048 |
+| `provenance.Compose` (kgateway module) | 39.1 ms | 85.3 MB | 590,063 |
+
+Not measured: the kind capture for scoped `merge.*`; that is for the owner (R5 tested on hand-built fixtures, design Risks).
