@@ -138,28 +138,22 @@ func TestEffective_KeyedByRoute(t *testing.T) {
 			HTTPFilters: []model.HTTPFilter{{ID: "L1/C0/N0/F0", Name: "router", Type: routerType}}}}}})
 
 	got := chain.Effective(snap)
-	var keys []model.ID
-	for k := range got {
-		keys = append(keys, k)
+	l0 := []model.ID{"L0/C0/N0/F0", "L0/C0/N0/F1"}
+	want := map[model.ID][]model.ID{
+		"L0/C0/N0/RC/V0/R0": l0,
+		"L0/C0/N0/RC/V0/R1": l0,
+		"L0/C0/N0/RC/V1/R0": l0,
+		"L1/C0/N0/RC":       {"L1/C0/N0/F0"},
 	}
-	want := []model.ID{"L0/C0/N0/RC/V0/R0", "L0/C0/N0/RC/V0/R1", "L0/C0/N0/RC/V1/R0", "L1/C0/N0/RC"}
-	if len(keys) != len(want) {
-		t.Fatalf("keys = %v, want %v", keys, want)
+	slots := map[model.ID][]model.ID{}
+	for k, c := range got {
+		slots[k] = []model.ID{}
+		for _, e := range c.Filters {
+			slots[k] = append(slots[k], e.Slot)
+		}
 	}
-	for _, k := range want {
-		c, ok := got[k]
-		if !ok {
-			t.Fatalf("no chain for %s in %v", k, keys)
-		}
-		hcm := snap.Listeners[0].FilterChains[0].HCM
-		if k == "L1/C0/N0/RC" {
-			hcm = snap.Listeners[1].FilterChains[0].HCM
-		}
-		for i, e := range c.Filters {
-			if e.Slot != hcm.HTTPFilters[i].ID || e.Slot == "" {
-				t.Errorf("%s entry %d: Slot = %q, want %q", k, i, e.Slot, hcm.HTTPFilters[i].ID)
-			}
-		}
+	if !reflect.DeepEqual(slots, want) {
+		t.Errorf("slots by key = %v\nwant %v", slots, want)
 	}
 }
 
