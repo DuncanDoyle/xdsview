@@ -11,12 +11,17 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 )
 
 // Source returns a config dump as a stream. The caller must close the returned
 // reader, which also releases anything the source opened to produce it.
+// Capture says whether the dump is known to be complete; pass it to the
+// parser in parser.Options.
 type Source interface {
 	ConfigDump(ctx context.Context) (io.ReadCloser, error)
+	Capture() model.Capture
 }
 
 // File returns a [Source] that reads a config dump from the file at path.
@@ -34,3 +39,6 @@ func (f fileSource) ConfigDump(context.Context) (io.ReadCloser, error) {
 	}
 	return file, nil
 }
+
+// Capture reports [model.CaptureUnverified]: a saved dump may have been filtered.
+func (f fileSource) Capture() model.Capture { return model.CaptureUnverified }

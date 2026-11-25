@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 )
 
 // Admin returns a [Source] that fetches /config_dump from the Envoy admin API at
@@ -33,3 +35,6 @@ func (a adminSource) ConfigDump(ctx context.Context) (io.ReadCloser, error) {
 	}
 	return resp.Body, nil
 }
+
+// Capture reports [model.CaptureComplete]: the request has no filter or mask.
+func (a adminSource) Capture() model.Capture { return model.CaptureComplete }

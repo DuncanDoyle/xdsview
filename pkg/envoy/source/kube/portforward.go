@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/source"
 
 	corev1 "k8s.io/api/core/v1"
@@ -90,6 +91,9 @@ func (k *kubeSource) ConfigDump(ctx context.Context) (io.ReadCloser, error) {
 	}
 	return &tunnelReader{ReadCloser: rc, stop: stop}, nil
 }
+
+// Capture reports [model.CaptureComplete]: the dump is fetched with no filter or mask.
+func (k *kubeSource) Capture() model.Capture { return model.CaptureComplete }
 
 // tunnelReader closes the tunnel, once, when the body is closed.
 type tunnelReader struct {
