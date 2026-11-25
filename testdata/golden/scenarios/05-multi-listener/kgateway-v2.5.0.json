@@ -11,6 +11,13 @@
           {
             "id": "L0/C0",
             "name": "listener~80",
+            "networkFilters": [
+              {
+                "id": "L0/C0/N0",
+                "name": "envoy.filters.network.http_connection_manager",
+                "type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+              }
+            ],
             "hcm": {
               "id": "L0/C0/N0",
               "routeConfigName": "listener~80",
@@ -147,6 +154,13 @@
                 "api.example.com"
               ]
             },
+            "networkFilters": [
+              {
+                "id": "L1/C0/N0",
+                "name": "envoy.filters.network.http_connection_manager",
+                "type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+              }
+            ],
             "hcm": {
               "id": "L1/C0/N0",
               "routeConfigName": "https-api",
@@ -278,6 +292,13 @@
           {
             "id": "L2/C0",
             "name": "",
+            "networkFilters": [
+              {
+                "id": "L2/C0/N0",
+                "name": "envoy.filters.network.http_connection_manager",
+                "type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+              }
+            ],
             "hcm": {
               "id": "L2/C0/N0",
               "routeConfigName": "",
@@ -390,6 +411,13 @@
           {
             "id": "L3/C0",
             "name": "",
+            "networkFilters": [
+              {
+                "id": "L3/C0/N0",
+                "name": "envoy.filters.network.http_connection_manager",
+                "type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+              }
+            ],
             "hcm": {
               "id": "L3/C0/N0",
               "routeConfigName": "",

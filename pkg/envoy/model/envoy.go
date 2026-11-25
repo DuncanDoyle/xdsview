@@ -58,10 +58,19 @@ type ListenerError struct {
 // NetworkFilterChain is a network-level filter chain within a listener.
 // For HTTPS listeners, there is typically one filter chain per SNI host.
 type NetworkFilterChain struct {
-	ID   ID          `json:"id"`
-	Name string      `json:"name"`
-	TLS  *TLSContext `json:"tls,omitempty"` // nil for plaintext
-	HCM  *HCMConfig  `json:"hcm,omitempty"` // extracted from the network filter list
+	ID             ID              `json:"id"`
+	Name           string          `json:"name"`
+	TLS            *TLSContext     `json:"tls,omitempty"`            // nil for plaintext
+	NetworkFilters []NetworkFilter `json:"networkFilters,omitempty"` // every network filter, in chain order
+	HCM            *HCMConfig      `json:"hcm,omitempty"`            // extracted from the network filter list
+}
+
+// NetworkFilter is one entry of a filter chain's network filter list. An HCM
+// has the ID of the network filter it is.
+type NetworkFilter struct {
+	ID   ID     `json:"id"`
+	Name string `json:"name"`
+	Type string `json:"type,omitempty"` // typed_config @type
 }
 
 // TLSContext holds TLS/SNI information for a filter chain.

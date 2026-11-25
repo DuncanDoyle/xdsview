@@ -194,26 +194,51 @@ func (p *printer) listener(l model.Listener) {
 	p.line(strings.Join(parts, " · "))
 
 	// One plain filter chain is the common case: skip its level.
-	if len(l.FilterChains) == 1 && l.FilterChains[0].TLS == nil {
+	if len(l.FilterChains) == 1 && l.FilterChains[0].TLS == nil && !otherNetworkFilters(l.FilterChains[0]) {
 		p.chainBody(l.FilterChains[0], "")
 		return
 	}
 	for i, fc := range l.FilterChains {
 		prefix, indent := node("", i == len(l.FilterChains)-1)
-		label := "chain " + clean(fc.Name)
+		label := strings.TrimSpace("chain " + clean(fc.Name))
 		if fc.TLS != nil && len(fc.TLS.SNIHosts) > 0 {
 			label += " · TLS " + clean(strings.Join(fc.TLS.SNIHosts, ", "))
+		}
+		if otherNetworkFilters(fc) {
+			label += " · " + networkFilters(fc)
 		}
 		p.line(prefix + label)
 		p.chainBody(fc, indent)
 	}
 }
 
+// otherNetworkFilters reports whether fc has an HCM and another network filter.
+func otherNetworkFilters(fc model.NetworkFilterChain) bool {
+	return fc.HCM != nil && len(fc.NetworkFilters) > 1
+}
+
+// networkFilters lists fc's network filters, each with its short type.
+func networkFilters(fc model.NetworkFilterChain) string {
+	var names []string
+	for _, nf := range fc.NetworkFilters {
+		s := nf.Name
+		if nf.Type != "" {
+			s += " (" + nf.Type[strings.LastIndex(nf.Type, ".")+1:] + ")"
+		}
+		names = append(names, s)
+	}
+	return "network filters: " + clean(strings.Join(names, ", "))
+}
+
 func (p *printer) chainBody(fc model.NetworkFilterChain, indent string) {
 	hcm := fc.HCM
 	if hcm == nil {
 		prefix, _ := node(indent, true)
-		p.line(prefix + p.style(ClassWarning, Row{Subject: fc.ID}, "no HTTP connection manager"))
+		line := p.style(ClassWarning, Row{Subject: fc.ID}, "no HTTP connection manager")
+		if len(fc.NetworkFilters) > 0 {
+			line = networkFilters(fc) + " · " + line
+		}
+		p.line(prefix + line)
 		return
 	}
 	if hcm.RouteConfig == nil {

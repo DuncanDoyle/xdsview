@@ -29,10 +29,17 @@ func occurrences(snap *model.Snapshot) []occurrence {
 		for _, fc := range l.FilterChains {
 			add("chain", fc.ID)
 			hcm := fc.HCM
+			// The HCM is its network filter's occurrence, so it shares that ID.
+			for _, nf := range fc.NetworkFilters {
+				if hcm != nil && nf.ID == hcm.ID {
+					add("hcm", nf.ID)
+				} else {
+					add("network", nf.ID)
+				}
+			}
 			if hcm == nil {
 				continue
 			}
-			add("hcm", hcm.ID)
 			add("use", hcm.RouteConfigUse.ID)
 			for _, f := range hcm.HTTPFilters {
 				add("filter", f.ID)
@@ -120,7 +127,7 @@ func TestIDs_UniqueInEveryDump(t *testing.T) {
 			seen[o.id] = o.kind
 		}
 	}
-	for _, k := range []string{"source", "listener", "chain", "hcm", "use", "filter", "upstream", "vhost", "route", "backend"} {
+	for _, k := range []string{"source", "listener", "chain", "network", "hcm", "use", "filter", "upstream", "vhost", "route", "backend"} {
 		if !kinds[k] {
 			t.Errorf("no %s in the corpus; the check doesn't cover it", k)
 		}

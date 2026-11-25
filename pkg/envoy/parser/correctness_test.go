@@ -46,3 +46,38 @@ func TestStaticListeners(t *testing.T) {
 		t.Errorf("listeners = %v, want %v", got, want)
 	}
 }
+
+// TestNetworkFilters: every network filter has an occurrence; a chain
+// without an HCM is kept; the HCM has its network filter's ID.
+func TestNetworkFilters(t *testing.T) {
+	snap := parseFile(t, fixtures+"tcp-proxy/envoy/config_dump.json")
+	tcp := snap.Listeners[0].FilterChains[0]
+	want := []model.NetworkFilter{{ID: "L0/C0/N0", Name: "envoy.filters.network.tcp_proxy", Type: "type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy"}}
+	if !reflect.DeepEqual(tcp.NetworkFilters, want) || tcp.HCM != nil {
+		t.Errorf("tcp chain = %+v, want %+v and no HCM", tcp, want)
+	}
+	http := snap.Listeners[1].FilterChains[0]
+	want = []model.NetworkFilter{
+		{ID: "L1/C0/N0", Name: "envoy.filters.network.rbac", Type: "type.googleapis.com/envoy.extensions.filters.network.rbac.v3.RBAC"},
+		{ID: "L1/C0/N1", Name: "envoy.filters.network.http_connection_manager", Type: "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"},
+	}
+	if !reflect.DeepEqual(http.NetworkFilters, want) || http.HCM == nil || http.HCM.ID != "L1/C0/N1" {
+		t.Errorf("http chain filters = %+v, HCM %+v; want %+v with the HCM at N1", http.NetworkFilters, http.HCM, want)
+	}
+
+	// An HCM is found by its type, whatever its name.
+	snap = parseString(t, `{"configs": [{"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump", "dynamic_listeners": [
+ {"name": "x", "active_state": {"listener": {"name": "x", "filter_chains": [{"filters": [{"name": "http",
+  "typed_config": {"@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+   "rds": {"route_config_name": "rc"}, "http_filters": []}}]}]}}}]}]}`)
+	if hcm := snap.Listeners[0].FilterChains[0].HCM; hcm == nil || hcm.RouteConfigName != "rc" {
+		t.Errorf("HCM named http = %+v, want parsed", hcm)
+	}
+
+	// A skipped HCM still has its network filter occurrence.
+	snap = parseString(t, `{"configs": [{"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump", "dynamic_listeners": [`+
+		hcmListener("x", `"http_filters": 1`)+`]}]}`)
+	if fc := snap.Listeners[0].FilterChains[0]; len(fc.NetworkFilters) != 1 || fc.NetworkFilters[0].ID != "L0/C0/N0" || fc.HCM != nil {
+		t.Errorf("chain = %+v, want the skipped HCM listed as L0/C0/N0", fc)
+	}
+}

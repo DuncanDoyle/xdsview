@@ -42,3 +42,15 @@ func TestDump_StaticBootstrap(t *testing.T) {
 		[]string{"health_listener [::]:9902 · active · static", "route /ready (exact)", "backend: local_service"},
 		[]string{`"static": true`, `"id": "L0/C0/N0/RCI"`, `"reported": "RS0"`})
 }
+
+// TestDump_NetworkFilters: a chain without an HCM lists its network filters;
+// so does an HCM chain with another network filter.
+func TestDump_NetworkFilters(t *testing.T) {
+	wantOutput(t, []string{"--file", fixture("tcp-proxy")},
+		[]string{
+			"└─ network filters: envoy.filters.network.tcp_proxy (TcpProxy) · no HTTP connection manager",
+			"network filters: envoy.filters.network.rbac (RBAC), envoy.filters.network.http_connection_manager (HttpConnectionManager)",
+			"backend: web_backend",
+		},
+		[]string{`"networkFilters"`, `"id": "L0/C0/N0"`, `"id": "L1/C0/N1"`})
+}

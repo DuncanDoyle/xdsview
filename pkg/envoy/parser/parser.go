@@ -300,9 +300,15 @@ func (p *parse) listenerBody(l *model.Listener, body rawListenerBody) {
 			}
 		}
 
-		// Find the HCM in the network filters
+		// List every network filter; the HCM is also parsed in full.
 		for n, nf := range rfc.Filters {
-			if nf.Name != "envoy.filters.network.http_connection_manager" {
+			var typed typedConfig
+			_ = json.Unmarshal(nf.TypedConfig, &typed) // a filter without a readable @type keeps an empty Type
+			nfc.NetworkFilters = append(nfc.NetworkFilters, model.NetworkFilter{
+				ID: model.ID(fmt.Sprintf("%s/N%d", nfc.ID, n)), Name: nf.Name, Type: typed.Type,
+			})
+			// Envoy picks the factory by typed_config type; the name is a label.
+			if nf.Name != "envoy.filters.network.http_connection_manager" && typed.Type != hcmType {
 				continue
 			}
 			label := fmt.Sprintf("listener %q filter chain %s", l.Name, chainLabel(i, rfc.Name))
@@ -442,6 +448,7 @@ func parseHCM(raw json.RawMessage) (*model.HCMConfig, json.RawMessage, error) {
 }
 
 const (
+	hcmType           = "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
 	routerType        = "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
 	matcherType       = "type.googleapis.com/envoy.extensions.common.matching.v3.ExtensionWithMatcher"
 	compositeType     = "type.googleapis.com/envoy.extensions.filters.http.composite.v3.Composite"

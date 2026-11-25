@@ -1,0 +1,9 @@
+tcp_listener 0.0.0.0:9000 · active
+└─ network filters: envoy.filters.network.tcp_proxy (TcpProxy) · no HTTP connection manager
+http_listener 0.0.0.0:9001 · active
+└─ chain · network filters: envoy.filters.network.rbac (RBAC), envoy.filters.network.http_connection_manager (HttpConnectionManager)
+   └─ vhost any [*]
+      └─ route / (prefix)
+         filters (request order):
+           1 envoy.filters.http.router  on
+         backend: web_backend
