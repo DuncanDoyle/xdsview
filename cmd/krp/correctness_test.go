@@ -234,6 +234,35 @@ func TestDump_Coverage(t *testing.T) {
 	}
 }
 
+// TestDump_UnjoinedUseChain: an HCM with no joined route config (here scoped
+// routes) carries its chain in JSON on the use, as text prints it.
+func TestDump_UnjoinedUseChain(t *testing.T) {
+	out, _, err := runKrp(t, "dump", "--file", fixture("coverage"), "-o", "json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Snapshot model.Snapshot `json:"snapshot"`
+	}
+	if err := json.Unmarshal([]byte(out), &doc); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, l := range doc.Snapshot.Listeners {
+		for _, fc := range l.FilterChains {
+			if hcm := fc.HCM; hcm != nil && hcm.RouteConfig == nil {
+				found = true
+				if c := hcm.RouteConfigUse.Chain; c == nil || len(c.Filters) != len(hcm.HTTPFilters) {
+					t.Errorf("%s: use chain = %+v, want one entry per HTTP filter", hcm.RouteConfigUse.ID, c)
+				}
+			}
+		}
+	}
+	if !found {
+		t.Fatal("no HCM without a route config in the fixture")
+	}
+}
+
 // TestDump_DefaultFilterChain: the default chain is shown last, labelled,
 // with its routes and their chains.
 func TestDump_DefaultFilterChain(t *testing.T) {

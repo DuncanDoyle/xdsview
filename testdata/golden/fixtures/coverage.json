@@ -38,7 +38,21 @@
               ],
               "routeConfigUse": {
                 "id": "L0/C0/N0/RC",
-                "state": "unknown"
+                "state": "unknown",
+                "effectiveChain": {
+                  "filters": [
+                    {
+                      "slot": "L0/C0/N0/F0",
+                      "name": "envoy.filters.http.router",
+                      "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                      "runs": "yes",
+                      "state": "on",
+                      "request": "yes",
+                      "response": "no",
+                      "configSource": "inline"
+                    }
+                  ]
+                }
               }
             }
           }

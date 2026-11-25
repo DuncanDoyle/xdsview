@@ -45,8 +45,9 @@ func writeJSON(w io.Writer, snap *model.Snapshot, chains map[model.ID]model.Effe
 	return enc.Encode(jsonEnvelope{SchemaVersion: schemaVersion, Snapshot: out, Contributions: contribs, Warnings: warnings})
 }
 
-// withChains returns a copy of snap with Route.Chain set from chains. snap is
-// not modified; the copy shares the parts it doesn't change.
+// withChains returns a copy of snap with Route.Chain set from chains, and
+// RouteConfigUse.Chain for an HCM with no route config. snap is not modified;
+// the copy shares the parts it doesn't change.
 func withChains(snap *model.Snapshot, chains map[model.ID]model.EffectiveChain) *model.Snapshot {
 	out := *snap
 	if snap.Listeners == nil {
@@ -56,6 +57,13 @@ func withChains(snap *model.Snapshot, chains map[model.ID]model.EffectiveChain) 
 	for i, l := range snap.Listeners {
 		fcs := make([]model.NetworkFilterChain, len(l.FilterChains))
 		for j, fc := range l.FilterChains {
+			if fc.HCM != nil && fc.HCM.RouteConfig == nil {
+				if c, ok := chains[fc.HCM.RouteConfigUse.ID]; ok {
+					hcm := *fc.HCM
+					hcm.RouteConfigUse.Chain = &c
+					fc.HCM = &hcm
+				}
+			}
 			if fc.HCM != nil && fc.HCM.RouteConfig != nil {
 				hcm := *fc.HCM
 				rc := *hcm.RouteConfig
