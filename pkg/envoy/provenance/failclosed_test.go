@@ -28,7 +28,8 @@ func TestDependencies_FailClosed(t *testing.T) {
 		}
 		removals := map[string][]model.ID{} // claim IDs to remove → route blocks to check
 		for _, r := range routeIDs(snap) {
-			for _, ids := range provenance.Covers(ix, r) {
+			for _, c := range provenance.Covers(ix, r) {
+				ids := c.IDs
 				slices.Sort(ids)
 				ids = slices.Compact(ids)
 				kinds := map[string]bool{}

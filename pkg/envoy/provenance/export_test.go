@@ -2,19 +2,35 @@ package provenance
 
 import "github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 
-// Covers returns, per covered input of block, the IDs of the claims that can cover it.
-func Covers(ix *Index, block model.ID) [][]string {
+// Inputs returns the gap each input of block reports when no claim covers it.
+func Inputs(ix *Index, block model.ID) []Gap {
 	_, inputs := ix.inputs(block)
-	var out [][]string
+	var out []Gap
+	for _, in := range inputs {
+		out = append(out, in.gap)
+	}
+	return out
+}
+
+// Cover is one covered input: its gap and the IDs of the claims that can cover it.
+type Cover struct {
+	Gap Gap
+	IDs []string
+}
+
+// Covers returns the covered inputs of block.
+func Covers(ix *Index, block model.ID) []Cover {
+	_, inputs := ix.inputs(block)
+	var out []Cover
 	for _, in := range inputs {
 		if !in.covered {
 			continue
 		}
-		var ids []string
+		c := Cover{Gap: in.gap}
 		for _, i := range in.covers {
-			ids = append(ids, ix.claims[i].ID)
+			c.IDs = append(c.IDs, ix.claims[i].ID)
 		}
-		out = append(out, ids)
+		out = append(out, c)
 	}
 	return out
 }

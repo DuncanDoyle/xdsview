@@ -116,6 +116,7 @@ type Gap struct {
 	Kind    string   // the assertion kind expected, e.g. "routeSource"
 	Slot    model.ID // policyRecord only: the HTTP filter slot, empty when none is installed
 	Level   Level    // policyRecord only: the level the record is missing at, empty for a weighted backend
+	Cluster string   // backendSource only: the mirror cluster, empty for the route's own backend
 }
 
 // Dependencies returns the evidence scope of block (any occurrence ID). It is
@@ -124,7 +125,9 @@ type Gap struct {
 //
 // The inputs are:
 //   - each listener, virtual host, route and weighted backend in or above
-//     the block;
+//     the block, and each mirror cluster of such a route;
+//   - each network filter other than the HCM of every filter chain in or
+//     above the block;
 //   - each HTTP filter slot, downstream and router upstream, of every HCM
 //     serving the block: the HCM in or above it, or for a route config
 //     source, each HCM whose use resolves to it;
@@ -132,11 +135,14 @@ type Gap struct {
 //     above the block (or the source block itself), and on each virtual
 //     host, route and weighted backend in or above it, including entries no
 //     installed slot takes. A source no HCM uses is a block of its entries.
-//     A static source that an inline source reports counts as that source.
+//     A static source that an inline source reports counts as that source,
+//     the inline source's listener lineage included.
 //
 // An input is covered only by claims at inferred or exact:
 //   - listener: GatewaySource; virtual host: HostSource; route: RouteSource;
 //     route or weighted backend with a cluster: BackendSource;
+//   - a mirror cluster, a route whose cluster is picked per request (header
+//     or specifier plugin), or a network filter other than the HCM: nothing;
 //   - a slot other than the router: ExtensionSource. A downstream slot that
 //     runs by default and is no helper also needs, for each route checked, a
 //     kept FilterLink on that route placing a listener-level PolicyRecord on it;
@@ -195,7 +201,10 @@ func (ix *Index) Dependencies(block model.ID) Dependencies {
 		if c := model.CompareID(a.Slot, b.Slot); c != 0 {
 			return c
 		}
-		return strings.Compare(string(a.Level), string(b.Level))
+		if c := strings.Compare(string(a.Level), string(b.Level)); c != 0 {
+			return c
+		}
+		return strings.Compare(a.Cluster, b.Cluster)
 	})
 	return deps
 }
@@ -219,6 +228,7 @@ type depIndex struct {
 	owner    map[model.ID]*hcmInfo   // virtual host, route or weighted backend → its HCM
 	users    map[model.ID][]*hcmInfo // route config source → the HCMs whose use resolves to it
 	reports  map[model.ID][]model.ID // static source → the inline sources that report it
+	chains   map[model.ID]*model.NetworkFilterChain
 	sources  map[model.ID]*model.RouteConfigSource
 	vhosts   map[model.ID]*model.VirtualHost
 	routes   map[model.ID]*model.Route
@@ -243,7 +253,7 @@ func (ix *Index) deps() *depIndex {
 
 func newDepIndex(ix *Index) *depIndex {
 	d := &depIndex{parent: map[model.ID]model.ID{}, children: map[model.ID][]model.ID{}, hcms: map[model.ID]*hcmInfo{},
-		owner: map[model.ID]*hcmInfo{}, users: map[model.ID][]*hcmInfo{}, reports: map[model.ID][]model.ID{},
+		owner: map[model.ID]*hcmInfo{}, users: map[model.ID][]*hcmInfo{}, reports: map[model.ID][]model.ID{}, chains: map[model.ID]*model.NetworkFilterChain{},
 		sources: map[model.ID]*model.RouteConfigSource{}, vhosts: map[model.ID]*model.VirtualHost{}, routes: map[model.ID]*model.Route{},
 		backends: map[model.ID]*model.WeightedCluster{}, placed: map[[3]model.ID][]int{}}
 	tie := func(parent, child model.ID) {
@@ -261,6 +271,7 @@ func newDepIndex(ix *Index) *depIndex {
 		l := &ix.snap.Listeners[li]
 		for fi := range l.FilterChains {
 			fc := &l.FilterChains[fi]
+			d.chains[fc.ID] = fc
 			tie(l.ID, fc.ID)
 			hcm := fc.HCM
 			if hcm == nil {
@@ -348,6 +359,12 @@ func (ix *Index) lineage(block model.ID) map[model.ID]bool {
 func (ix *Index) inputs(block model.ID) (map[model.ID]bool, []input) {
 	d := ix.deps()
 	in := ix.lineage(block)
+	if ix.st.kinds[block] == subjectSource {
+		// A reported static source is its inline source, listener lineage included.
+		for _, t := range d.reports[block] {
+			maps.Copy(in, ix.lineage(t))
+		}
+	}
 	scope := maps.Clone(in)
 	var out []input
 	srcIn := map[*hcmInfo]bool{} // the HCMs serving the block; true when its source is in scope
@@ -356,6 +373,13 @@ func (ix *Index) inputs(block model.ID) (map[model.ID]bool, []input) {
 		switch ix.st.kinds[id] {
 		case subjectListener:
 			out = append(out, ix.alternative(id, KindGatewaySource))
+		case subjectFilterChain:
+			fc := d.chains[id]
+			for _, nf := range fc.NetworkFilters {
+				if fc.HCM == nil || nf.ID != fc.HCM.ID {
+					out = append(out, input{gap: Gap{Subject: nf.ID, Kind: KindExtensionSource}})
+				}
+			}
 		case subjectHCM:
 			h := d.hcms[id]
 			srcIn[h] = srcIn[h] || in[h.hcm.RouteConfigUse.ID]
@@ -367,8 +391,15 @@ func (ix *Index) inputs(block model.ID) (map[model.ID]bool, []input) {
 			out = append(out, ix.alternative(id, KindHostSource))
 		case subjectRoute:
 			out = append(out, ix.alternative(id, KindRouteSource))
-			if d.routes[id].Cluster != "" {
+			r := d.routes[id]
+			if a := r.Action; r.Cluster != "" {
 				out = append(out, ix.alternative(id, KindBackendSource))
+			} else if a.ClusterHeader != "" || a.ClusterSpecifierPlugin != "" || a.InlineClusterSpecifierPlugin != nil {
+				// The cluster is picked per request: no backend claim covers it.
+				out = append(out, input{gap: Gap{Subject: id, Kind: KindBackendSource}})
+			}
+			for _, m := range r.MirrorClusters {
+				out = append(out, input{gap: Gap{Subject: id, Kind: KindBackendSource, Cluster: m}})
 			}
 			inRoutes[d.owner[id].hcm.ID] = append(inRoutes[d.owner[id].hcm.ID], id)
 			inRoutes[d.parent[id]] = append(inRoutes[d.parent[id]], id)
