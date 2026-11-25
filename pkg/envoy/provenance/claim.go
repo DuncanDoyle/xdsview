@@ -58,8 +58,7 @@ type Assertion interface {
 type subjectKind int
 
 const (
-	subjectNone subjectKind = iota
-	subjectListener
+	subjectListener subjectKind = iota + 1 // zero is no kind
 	subjectFilterChain
 	subjectHCM
 	subjectUse
