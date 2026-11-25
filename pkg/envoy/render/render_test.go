@@ -224,6 +224,71 @@ func TestText_UnknownRunState(t *testing.T) {
 	hasLine(t, out, "      not run: ext_auth/shop/auth (off), envoy.filters.http.cors (off)")
 }
 
+// TestText_SubjectWarnings (Codex #7): each subject's warnings print under
+// its row as ClassWarning; a dump-wide warning doesn't print. A filter
+// chain heading passes the chain's ID to Style.
+func TestText_SubjectWarnings(t *testing.T) {
+	snap := sample()
+	snap.Listeners = append(snap.Listeners, model.Listener{Name: "two", FilterChains: []model.NetworkFilterChain{
+		{Name: "a", HCM: &model.HCMConfig{RouteConfigName: "x", RouteConfigUse: model.RouteConfigUse{State: model.RouteConfigMissing}}},
+		{Name: "b"},
+	}})
+	snaptest.IDs(snap)
+	snap.Warnings = []model.Warning{
+		{Code: model.WarnSectionSkipped, Message: "dump-wide"},
+		{Subject: "L0", Code: "c", Message: "on listener"},
+		{Subject: "L0/C0/N0/RC/V0", Code: "c", Message: "on vhost"},
+		{Subject: "L0/C0/N0/RC/V0/R0", Code: "c", Message: "on route"},
+		{Subject: "L0/C0/N0/F1", Code: model.WarnECDSAmbiguous, Message: "on ext_auth"},
+		{Subject: "L0/C0/N0/F2", Code: model.WarnECDSAmbiguous, Message: "on ratelimit"},
+		{Subject: "L0/C0/N0/U0", Code: model.WarnECDSAmbiguous, Message: "on upstream"},
+		{Subject: "L2/C0/N0/RC", Code: model.WarnRDSMissing, Message: "on use"},
+		{Subject: "L2/C1", Code: model.WarnHCMSkipped, Message: "on chain"},
+	}
+	var chains []render.Row
+	opts := render.Options{Style: func(c render.Class, r render.Row, s string) string {
+		if c == render.ClassFilterChain {
+			chains = append(chains, r)
+		}
+		if c == render.ClassWarning {
+			return "!" + s
+		}
+		return s
+	}}
+	want := `listener~80 [::]:80 · active
+   !warning: on listener
+└─ vhost listener~80~orders_example [orders.example]
+   !warning: on vhost
+   └─ route /orders (prefix)
+      !warning: on route
+      filters (request order):
+        1 example.transformation     on
+        2 ext_auth/shop/auth         enabled by route
+            !warning: on ext_auth
+        3 envoy.filters.http.router  on
+      not run: ratelimit/shop/rl (off), envoy.filters.http.cors (off)
+      !warning: on ratelimit
+      router upstream filters (as configured): envoy.filters.http.upstream_codec
+      !warning: on upstream
+      request headers: + x-a: 1
+      backend: kube_shop_orders_8080
+listener~8443 [::]:8443 · !warming · !error: bad cert (2026-11-20T19:39:58Z)
+two
+├─ chain a
+│  └─ !route config x missing: no route config has this name in a complete dump
+│     !warning: on use
+└─ chain b
+   └─ !no HTTP connection manager
+      !warning: on chain
+`
+	if got := text(t, snap, opts); got != want {
+		t.Errorf("Text =\n%s\nwant\n%s", got, want)
+	}
+	if len(chains) != 2 || chains[0].Subject != "L2/C0" || chains[1].Subject != "L2/C1" {
+		t.Errorf("chain rows = %+v, want L2/C0 and L2/C1", chains)
+	}
+}
+
 func TestText_NoListeners(t *testing.T) {
 	if got := text(t, &model.Snapshot{}, render.Options{}); got != "no listeners\n" {
 		t.Errorf("Text = %q", got)

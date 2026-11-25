@@ -53,7 +53,8 @@ const (
 	ClassFilterOff // a filter that doesn't run, or whose state is unknown
 	ClassOrigin    // where something came from: origins, contributions, domains
 	ClassBackend
-	ClassWarning // listener states other than active, errors, missing config
+	ClassWarning     // listener states other than active, errors, missing config, subject warnings
+	ClassFilterChain // a filter chain heading
 )
 
 const (
@@ -66,9 +67,15 @@ const (
 // Text writes snap to w with each route's chain from chains, keyed by route
 // ID as chain.Effective returns them. A route with no chain prints no filters.
 // Output is LF-terminated with no trailing spaces, and follows the snapshot's
-// order everywhere.
+// order everywhere. A warning with a subject prints under that subject's row
+// as "warning: …" (ClassWarning); dump-wide warnings are the caller's.
 func Text(w io.Writer, snap *model.Snapshot, chains map[model.ID]model.EffectiveChain, opts Options) error {
-	p := printer{opts: opts, chains: chains}
+	p := printer{opts: opts, chains: chains, warnings: map[model.ID][]string{}}
+	for _, w := range snap.Warnings {
+		if w.Subject != "" {
+			p.warnings[w.Subject] = append(p.warnings[w.Subject], w.Message)
+		}
+	}
 	if opts.Header != "" {
 		p.line(clean(opts.Header))
 	}
@@ -96,9 +103,31 @@ func Text(w io.Writer, snap *model.Snapshot, chains map[model.ID]model.Effective
 }
 
 type printer struct {
-	b      strings.Builder
-	opts   Options
-	chains map[model.ID]model.EffectiveChain
+	b        strings.Builder
+	opts     Options
+	chains   map[model.ID]model.EffectiveChain
+	warnings map[model.ID][]string // subject warnings' messages by subject
+	warned   map[model.ID]bool     // slots whose warnings the current chain printed
+}
+
+// warnSlots is warn for filter slots: once per chain, though a slot can be
+// in both the request and response order.
+func (p *printer) warnSlots(row Row, indent string, ids ...model.ID) {
+	for _, id := range ids {
+		if !p.warned[id] {
+			p.warned[id] = true
+			p.warn(row, indent, id)
+		}
+	}
+}
+
+// warn prints the warnings of each subject in ids under row, at indent.
+func (p *printer) warn(row Row, indent string, ids ...model.ID) {
+	for _, id := range ids {
+		for _, m := range p.warnings[id] {
+			p.line(indent + p.style(ClassWarning, row, "warning: "+m))
+		}
+	}
 }
 
 func (p *printer) line(s string) {
@@ -209,9 +238,13 @@ func (p *printer) listener(l model.Listener) {
 		parts = append(parts, p.style(ClassWarning, row, msg))
 	}
 	p.line(strings.Join(parts, " · "))
+	p.warn(row, space, l.ID)
 
 	// One plain filter chain is the common case: skip its level.
 	if len(l.FilterChains) == 1 && l.FilterChains[0].TLS == nil && !l.FilterChains[0].Default && !otherNetworkFilters(l.FilterChains[0]) {
+		if fc := l.FilterChains[0]; fc.HCM != nil {
+			p.warn(row, space, fc.ID) // without an HCM, its own line shows them
+		}
 		p.chainBody(l.FilterChains[0], "")
 		return
 	}
@@ -221,7 +254,8 @@ func (p *printer) listener(l model.Listener) {
 		if fc.Default {
 			label = "default chain"
 		}
-		label = strings.TrimSpace(label + " " + clean(fc.Name))
+		fcRow := Row{Subject: fc.ID}
+		label = p.style(ClassFilterChain, fcRow, strings.TrimSpace(label+" "+fc.Name))
 		if fc.TLS != nil && len(fc.TLS.SNIHosts) > 0 {
 			label += " · TLS " + clean(strings.Join(fc.TLS.SNIHosts, ", "))
 		}
@@ -229,6 +263,9 @@ func (p *printer) listener(l model.Listener) {
 			label += " · " + networkFilters(fc)
 		}
 		p.line(prefix + label)
+		if fc.HCM != nil {
+			p.warn(fcRow, indent, fc.ID)
+		}
 		p.chainBody(fc, indent)
 	}
 }
@@ -268,16 +305,22 @@ func shortType(typeURL string) string {
 func (p *printer) chainBody(fc model.NetworkFilterChain, indent string) {
 	hcm := fc.HCM
 	if hcm == nil {
-		prefix, _ := node(indent, true)
+		prefix, body := node(indent, true)
 		text := "no HTTP connection manager"
 		if slices.ContainsFunc(fc.NetworkFilters, unresolvedNetwork) {
 			text = "HTTP filters unknown: a network filter's ECDS config isn't resolved"
 		}
-		line := p.style(ClassWarning, Row{Subject: fc.ID}, text)
+		row := Row{Subject: fc.ID}
+		line := p.style(ClassWarning, row, text)
 		if len(fc.NetworkFilters) > 0 {
 			line = networkFilters(fc) + " · " + line
 		}
 		p.line(prefix + line)
+		ids := []model.ID{fc.ID}
+		for _, nf := range fc.NetworkFilters {
+			ids = append(ids, nf.ID)
+		}
+		p.warn(row, body, ids...)
 		return
 	}
 	if hcm.RouteConfig == nil {
@@ -293,7 +336,9 @@ func (p *printer) chainBody(fc model.NetworkFilterChain, indent string) {
 		if hcm.ScopedRoutes {
 			text = "route config: scoped routes, not parsed"
 		}
-		p.line(prefix + p.style(ClassWarning, Row{Subject: hcm.RouteConfigUse.ID}, text))
+		useRow := Row{Subject: hcm.RouteConfigUse.ID}
+		p.line(prefix + p.style(ClassWarning, useRow, text))
+		p.warn(useRow, body, hcm.RouteConfigUse.ID)
 		p.filters(p.chains[hcm.RouteConfigUse.ID], "", body)
 		return
 	}
@@ -306,6 +351,7 @@ func (p *printer) chainBody(fc model.NetworkFilterChain, indent string) {
 			line += " " + p.style(ClassOrigin, row, "["+strings.Join(vh.Domains, ", ")+"]")
 		}
 		p.line(prefix + line + p.labels(row))
+		p.warn(row, vhIndent, vh.ID)
 		for j, r := range vh.Routes {
 			rPrefix, rIndent := node(vhIndent, j == len(vh.Routes)-1)
 			p.route(*hcm, r, rPrefix, rIndent)
@@ -318,6 +364,7 @@ func (p *printer) route(hcm model.HCMConfig, r model.Route, prefix, body string)
 	line := "route " + p.style(ClassRoute, row, formatMatch(r.Match))
 	p.line(prefix + line + p.labels(row))
 	p.notes(row, body)
+	p.warn(row, body, r.ID)
 
 	c := p.chains[r.ID]
 	p.filters(c, r.ID, body)
@@ -336,10 +383,12 @@ func (p *printer) route(hcm model.HCMConfig, r model.Route, prefix, body string)
 	}
 	if len(hcm.UpstreamFilters) > 0 {
 		var names []string
+		var ids []model.ID
 		for _, f := range hcm.UpstreamFilters {
-			names = append(names, f.Name)
+			names, ids = append(names, f.Name), append(ids, f.ID)
 		}
 		p.line(body + "router upstream filters (as configured): " + clean(strings.Join(names, ", ")))
+		p.warn(row, body, ids...)
 	}
 	if p.opts.Trailer != nil {
 		for _, t := range p.opts.Trailer(row) {
@@ -380,6 +429,7 @@ func filterRow(route model.ID, e model.ChainEntry) Row {
 // filters prints the request order and, by default, a "not run:" line. An
 // entry whose run state is unknown stays in position, never in "not run:".
 func (p *printer) filters(c model.EffectiveChain, route model.ID, body string) {
+	p.warned = map[model.ID]bool{}
 	title := heading("request", c)
 	request := func(e model.ChainEntry) model.Tri { return e.Request }
 	if p.opts.AllFilters {
@@ -389,20 +439,26 @@ func (p *printer) filters(c model.EffectiveChain, route model.ID, body string) {
 	p.rows(body, title, c, route, pick(c, func(e model.ChainEntry) bool { return e.Runs != model.TriNo && e.Request != model.TriNo }, false), request)
 
 	var off, responseOnly []string
+	var offIDs, responseIDs []model.ID
 	for _, e := range c.Filters {
 		row := filterRow(route, e)
 		switch {
 		case e.Runs == model.TriNo:
 			off = append(off, p.style(ClassFilterOff, row, e.Name)+" ("+describeState(e)+")")
+			offIDs = append(offIDs, e.Slot)
 		case e.Request == model.TriNo && e.Response != model.TriNo:
 			responseOnly = append(responseOnly, p.style(ClassFilter, row, e.Name))
+			responseIDs = append(responseIDs, e.Slot)
 		}
 	}
+	routeRow := Row{Subject: route, Route: route}
 	if len(off) > 0 {
 		p.line(body + "not run: " + strings.Join(off, ", "))
+		p.warnSlots(routeRow, body, offIDs...)
 	}
 	if len(responseOnly) > 0 && !p.opts.ResponseOrder {
 		p.line(body + "response only: " + strings.Join(responseOnly, ", "))
+		p.warnSlots(routeRow, body, responseIDs...)
 	}
 }
 
@@ -437,6 +493,7 @@ func (p *printer) rows(body, title string, c model.EffectiveChain, route model.I
 		pad := strings.Repeat(" ", nameWidth-utf8.RuneCountInString(clean(e.Name))+2)
 		p.line(indent + num + " " + p.style(class, row, e.Name) + pad + describeState(e) + p.labels(row))
 		p.notes(row, indent+"    ")
+		p.warnSlots(row, indent+"    ", e.Slot)
 	}
 }
 
