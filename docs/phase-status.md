@@ -16,7 +16,7 @@ Status: design; owner said start (2026-11-24).
 - [ ] Q5 owner approval
 - [x] 9.1 snapshot and occurrence IDs (`d944818`, local branch)
 - [x] 9.2 pure execution (`3591396`, local branch)
-- [ ] 9.3 provenance contract and kgateway module ← CURRENT. API lockable: kgwctl OK after `d74ce59`; Snellius findings accepted. Carries review 9.1–9.2 #3, #4.
+- [x] 9.3 provenance contract and kgateway module (`07e612e`–`a4ab9b3`, local branch). Carries review 9.1–9.2 #3, #4 and the Phase 8 P1s #2, #4, #5. krp JSON `v1alpha2`; `origin` and `filter` deleted.
 - [x] 9.4 core correctness (`93128af`, local branch). Includes review 9.1–9.2 #5. Ran before 9.3 (D-021) Codex review `reviews/9.4-codex.md`: 9 fixes `c55dd05`–`59ce072`.
 
 ### Exit gates
@@ -33,7 +33,7 @@ Kind: planned
 Base: 029ade1
 Brief: docs/phases/phase-9/phase-9.3-brief.md
 Branch: duncandoyle/phase9 (local; nothing merges to main before the consumer review)
-Status: done (2026-11-25), `93128af`; record in phase-9.4-complete.md. Next: 9.3 (waits on Q4).
+Status: done (2026-11-25), `a4ab9b3`; record in phase-9.3-complete.md (parts A and B). Next: phase review (Codex), close benchmark with `Compose`, Q5.
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `70fda55`)
@@ -50,6 +50,7 @@ Consumers: E6 (kgwctl move into kgateway): `v0.6.0` released. E13 available (`v0
 - Phase 9 (P-010, E15), after P-009: one contract break, design reviewed by kgwctl and Snellius before approval. File `cross-repo` review requests in both when the design is ready (ask first).
 
 ## Notes
+- 2026-11-25 (night): 9.3 done. Part B ported krp to `Compose`/`Select`/`Narrow`/`Prune` with D-022, moved `-o json` to `v1alpha2`, and deleted `origin`, `filter` and the model provenance fields. Parity with the old path held on 671 outputs before the oracle was deleted. Text goldens unchanged; JSON goldens are the new shape. Open for the phase review: part A item 6 (regex matchers, `Route.Cluster`), the `Compose` benchmark. Carry-over items on Phase 8 P1s, `origin.ObjectForName` and `origin` ownership are now handled by the kgateway module and `NameMapper`.
 - 2026-11-25 (late): 9.4 done and reviewed (Codex, 9 fixes). Consumer reviews done; API lockable. Next: 9.3. 9.3 must know: `Prune` keeps reported static sources; `RouteConfigUse.Chain` moves with `Route.Chain`; a static listener's Status still says active; cluster upstream ECDS not read (recorded risk); Snellius gaps (policyRecord, dropped, gatewaySource) and kgwctl selection rules are in design §5–§7. All on local branch `duncandoyle/phase9`; nothing pushed beyond `8d381f6`.
 - 2026-11-25: 9.4 done on the local branch: static listeners, network filter IDs, default chain, missing RDS, ECDS, matchers, route actions, coverage. Every corpus text and JSON golden changed (bootstrap listeners, coverage line); nine deviations in phase-9.4-complete.md. Not yet cross-model reviewed.
 - 2026-11-25: 9.1 and 9.2 done on local branch `duncandoyle/phase9` (not pushed); Codex review of both triaged, four fixes in. Owner, pending: file the kgwctl and Snellius design-review requests (`.agents-tmp/p9/issue-*.md`; link needs `main` pushed); run 9.4 before 9.3?

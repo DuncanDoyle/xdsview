@@ -75,3 +75,57 @@ JSON goldens (63 files) gain `sourcePath` on every vhost and route. Nothing else
 5. Delete `origin`, `filter`, `cmd/krp/attribution.go`, `cmd/krp/parity_test.go`, the model fields `Listener.Origin`, `VirtualHost.Origin`, `HTTPFilter.Origin`, `Route.Origin`, `Route.Policies`, `Route.Chain`, `RouteConfigUse.Chain`, the `*Origin`, `PolicyRef`, `Contribution` types, and render's code that prints them.
 6. Decide on `HeaderMatch.Regex`, `QueryParamMatch.Regex` and `Route.Cluster` (9.4 note).
 7. Update phase-status.md; the close benchmark includes `Compose`.
+
+## Part B
+
+**Commits:** [`207ceab`](https://github.com/DuncanDoyle/xdsview/commit/207ceab), [`442b7fa`](https://github.com/DuncanDoyle/xdsview/commit/442b7fa), [`a4ab9b3`](https://github.com/DuncanDoyle/xdsview/commit/a4ab9b3)
+
+### Changes
+
+| Area | Change |
+|---|---|
+| krp | `build`: parse → `chain.Effective` → `Compose(snap, kgateway.New(), extraModules...)` → `Select` under `--route` (Known = the `--route` HTTPRoute) or `Narrow` in live mode → `model.Prune` → render with `Labels` and `Notes` as `Trailer`. D-022: also selects a narrowed route whose one kept reading matches the query; `--gateway` prints on non-static listener lines as `Gateway ns/gw (from --gateway)`. Index warnings go to stderr. |
+| krp `-o json` | `v1alpha2`: `snapshot`, `chains`, `claims`, `selection` (`query`, `routes`, `ambiguous`, `unresolved`, `narrowed`; entries carry `name` and `virtualHost`; D-022 routes `"selected": true`), typed `warnings`. Everything but `selection` is projected onto the retained subjects. |
+| `internal/renderer`, TUI | `View.Trailer`; the TUI reads the same `View`. |
+| `render` | No longer prints model origins or `Route.Policies`. |
+| `model` | Removed `Listener.Origin`, `HTTPFilter.Origin`, `VirtualHost.Origin`, `Route.Origin`, `Route.Policies`, `Route.Chain`, `RouteConfigUse.Chain`, the `*Origin`, `RouteAnnotation`, `PolicyRef` and `Contribution` types. `origin.go` is now `ref.go` (`Ref`, `Certainty`). |
+| Deleted | `pkg/envoy/origin`, `pkg/envoy/filter`, `cmd/krp/attribution.go`, `cmd/krp/parity_test.go`. |
+| Docs | README: JSON field table (the schema doc), D-022 behaviour, library example on `provenance` and `kgateway`, project structure. |
+
+### Tests
+
+Before deleting the oracle, `TestParity_Krp` ran krp's old path (`filter.Filter`, `origin.Annotate`, `attribute`) and `build` on every dump and fixture in file mode, live mode with the corpus HTTPRoutes, and nine `--route`/`--rule` queries: 671 outputs, text identical. It went with `parity_test.go`.
+
+| Plan §9.3 | Test |
+|---|---|
+| 3 Claims parity | `TestParity_Krp` (above); `TestText_Golden` now runs `build`, goldens unchanged |
+| 8 Selection | `TestDumpText_Origins`, `TestDumpLive_*`; `TestDumpJSON_Projection` checks a D-022 route is `selected` exactly when it is in `routes`, and that some are |
+| 11 krp `v1alpha2` | `TestDumpJSON_Projection`: every dump × five `--route` queries; no ID outside `selection` (chain keys and slots, claim and evidence subjects, link slots, warning subjects, `reported`, use sources) is absent from `snapshot`; selection entries carry names. Without projection it reports 6,440 violations. `checkEnvelope`, `TestDumpJSON_Warnings` on the new shape. |
+
+Also: `claims_test.go` ports the attribution tests to `build`, reading the filter-row labels; vendor plugins are test modules (`linker`, `extension`). `TestDumpJSON_PluginOrigin` uses a test `Module` whose exact `extensionSource` wins over kgateway's. `provenance` `TestText_Formats` takes the label formats `render` tested. `TestNothingImportsRemovedPackages` and a third-party check in `TestPureCoreImportsNoProvenance`.
+
+`go test ./...` and `go vet ./...` pass. `go list -deps` of `model`, `parser`, `chain` and `render` lists only those four besides the standard library.
+
+### Golden changes
+
+Text (61 files): none.
+
+JSON (65 files), all for the `v1alpha2` shape: `snapshot` loses `origin`, `policies`, `effectiveChain` and `warnings`; `chains`, `claims` and `warnings` (typed) are new, and `selection` under `--route`. Under `--route` (`.route`, `.rule0`, `.nomatch`), `snapshot.routeConfigs` drops the inline sources of the static listeners, which `model.Prune` removes with their listeners and `filter.Filter` kept. The selected routes are the same. `.plugin` shows the test module's claims beside kgateway's.
+
+### Deviations
+
+1. **Warnings move.** `snapshot.warnings` is empty in JSON; the envelope's `warnings` holds the parse warnings and the index's. An index warning whose subject the dump lacks keeps its message without a subject.
+2. **`selection` presence.** Absent in file mode without `--route`; live mode without `--route` has `narrowed` only. `query` is added.
+3. **`selection.ambiguous`** leaves out the routes krp selects by D-022; `Select.Ambiguous` includes them. They are in `routes` and in `narrowed` with `selected`.
+4. **`narrowed` embeds the kept and dropped claims**, not claim IDs: `claims` is projected, so IDs could dangle.
+5. **D-022 Gateway text** follows the listener's own label: `port 80 (inferred) · Gateway ns/gw (from --gateway)`, where krp printed `Gateway ns/gw port 80 (inferred)`. No golden uses `--gateway`.
+6. **No separate schema doc.** The README JSON section is the schema doc; it lists each assertion kind.
+7. **Dropped tests.** The attribution cases for a mapper without `PolicyFilters` and for no mapper (the interface is gone; krp always composes kgateway); `TestAttribute_RowsPerRoute` and render's `TestText_KnownWording` (covered by provenance `TestText_RowsPerRoute`).
+8. **Process.** One edit to `main_test.go` used `perl -pi` instead of the Edit tool.
+
+### For the phase review
+
+1. Part A item 6 (`HeaderMatch.Regex`, `QueryParamMatch.Regex`, `Route.Cluster`) is not decided.
+2. The close benchmark needs `Compose` on the largest dump.
+3. Codex review of 9.3 (parts A and B).
+4. `.agents-tmp/tuicheck` still calls the removed API; it is scratch and outside the build.
