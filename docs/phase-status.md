@@ -12,12 +12,12 @@ Status: design; owner said start (2026-11-24).
 - [x] Q1 design → `design.md` (owner approved 2026-11-25)
 - [x] Q2 implementation plan → `implementation-plan.md`: sub-phases 9.1–9.4
 - [x] Q3 Codex review of design + plan, triage: 11 findings accepted, design and plan amended
-- [ ] Q4 design reviews: kgwctl#14, snellius#70 filed 2026-11-25; waiting
+- [x] Q4 design reviews: kgwctl#14 (OK to lock after `d74ce59`), snellius#70 (6 findings accepted); `reviews/consumer-*.md`
 - [ ] Q5 owner approval
 - [x] 9.1 snapshot and occurrence IDs (`d944818`, local branch)
 - [x] 9.2 pure execution (`3591396`, local branch)
-- [ ] 9.3 provenance contract and kgateway module (waits on Q4) ← NEXT
-- [x] 9.4 core correctness (`93128af`, local branch). Includes review 9.1–9.2 #5. Ran before 9.3 (D-021)
+- [ ] 9.3 provenance contract and kgateway module ← NEXT. API lockable: kgwctl OK after `d74ce59`; Snellius findings accepted. Carries review 9.1–9.2 #3, #4.
+- [x] 9.4 core correctness (`93128af`, local branch). Includes review 9.1–9.2 #5. Ran before 9.3 (D-021) Codex review `reviews/9.4-codex.md`: 9 fixes `c55dd05`–`59ce072`.
 
 ### Exit gates
 - [ ] tests/vet pass (observed)
@@ -50,6 +50,7 @@ Consumers: E6 (kgwctl move into kgateway): `v0.6.0` released. E13 available (`v0
 - Phase 9 (P-010, E15), after P-009: one contract break, design reviewed by kgwctl and Snellius before approval. File `cross-repo` review requests in both when the design is ready (ask first).
 
 ## Notes
+- 2026-11-25 (late): 9.4 done and reviewed (Codex, 9 fixes). Consumer reviews done; API lockable. Next: 9.3. 9.3 must know: `Prune` keeps reported static sources; `RouteConfigUse.Chain` moves with `Route.Chain`; a static listener's Status still says active; cluster upstream ECDS not read (recorded risk); Snellius gaps (policyRecord, dropped, gatewaySource) and kgwctl selection rules are in design §5–§7. All on local branch `duncandoyle/phase9`; nothing pushed beyond `8d381f6`.
 - 2026-11-25: 9.4 done on the local branch: static listeners, network filter IDs, default chain, missing RDS, ECDS, matchers, route actions, coverage. Every corpus text and JSON golden changed (bootstrap listeners, coverage line); nine deviations in phase-9.4-complete.md. Not yet cross-model reviewed.
 - 2026-11-25: 9.1 and 9.2 done on local branch `duncandoyle/phase9` (not pushed); Codex review of both triaged, four fixes in. Owner, pending: file the kgwctl and Snellius design-review requests (`.agents-tmp/p9/issue-*.md`; link needs `main` pushed); run 9.4 before 9.3?
 - 2026-11-25: 9.2 done: `chain.Effective` keyed by route ID, `Tri`, slot IDs, wrappers; `render` hooks keyed by `Row`; contributions computed in krp. `chain` and `render` no longer import `origin`. Text goldens unchanged; JSON chain shape changed, contributions moved top-level. Four deviations in phase-9.2-complete.md.
