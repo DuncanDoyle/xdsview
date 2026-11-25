@@ -145,10 +145,11 @@ func (p *parse) warn(subject model.ID, code, format string, args ...any) {
 }
 
 // routeSection adds the static and dynamic entries of one RoutesConfigDump
-// section. Each entry is decoded on its own, so a bad one costs only itself.
+// section. Each field and entry is decoded on its own, so a bad one costs only
+// itself.
 func (p *parse) routeSection(pos int, rd routesConfigDump) {
 	b := batch{pos: pos}
-	for _, raw := range rd.StaticRouteConfigs {
+	for _, raw := range p.routeEntries("static_route_configs", rd.StaticRouteConfigs) {
 		id := model.ID(fmt.Sprintf("RS%d", p.nStatic))
 		p.nStatic++
 		if e := p.routeEntry(id, model.SourceStatic, raw); e != nil {
@@ -156,7 +157,7 @@ func (p *parse) routeSection(pos int, rd routesConfigDump) {
 			b.entries = append(b.entries, e)
 		}
 	}
-	for _, raw := range rd.DynamicRouteConfigs {
+	for _, raw := range p.routeEntries("dynamic_route_configs", rd.DynamicRouteConfigs) {
 		id := model.ID(fmt.Sprintf("RD%d", p.nDynamic))
 		p.nDynamic++
 		if e := p.routeEntry(id, model.SourceDynamic, raw); e != nil {
@@ -165,6 +166,20 @@ func (p *parse) routeSection(pos int, rd routesConfigDump) {
 		}
 	}
 	p.batches = append(p.batches, b)
+}
+
+// routeEntries splits a RoutesConfigDump field into its entries, or warns and
+// returns none.
+func (p *parse) routeEntries(field string, raw json.RawMessage) []json.RawMessage {
+	if len(raw) == 0 {
+		return nil
+	}
+	var entries []json.RawMessage
+	if err := json.Unmarshal(raw, &entries); err != nil {
+		p.warn("", model.WarnSectionSkipped, "skipped RoutesConfigDump %s: %v", field, err)
+		return nil
+	}
+	return entries
 }
 
 // routeEntry decodes a static or dynamic route config entry, or warns and
@@ -709,10 +724,10 @@ type rawRouter struct {
 // Routes
 
 // routesConfigDump corresponds to type.googleapis.com/envoy.admin.v3.RoutesConfigDump.
-// Entries stay raw so each one is decoded on its own.
+// Fields and entries stay raw so each one is decoded on its own.
 type routesConfigDump struct {
-	StaticRouteConfigs  []json.RawMessage `json:"static_route_configs"`
-	DynamicRouteConfigs []json.RawMessage `json:"dynamic_route_configs"`
+	StaticRouteConfigs  json.RawMessage `json:"static_route_configs"`
+	DynamicRouteConfigs json.RawMessage `json:"dynamic_route_configs"`
 }
 
 // rawRouteConfig is the `route_config` object within a dynamic route config entry.

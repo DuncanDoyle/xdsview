@@ -279,6 +279,24 @@ func TestRouteConfigs_Scenario00(t *testing.T) {
 	}
 }
 
+// TestRouteConfigs_MalformedStaticField: a bad static_route_configs field
+// costs only the static entries; dynamic configs still join their HCMs.
+func TestRouteConfigs_MalformedStaticField(t *testing.T) {
+	snap := parseString(t, `{"configs": [
+ {"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump", "dynamic_listeners": [`+hcmListener("a", `"rds": {"route_config_name": "rc"}`)+`]},
+ {"@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump", "static_route_configs": 1, "dynamic_route_configs": [
+  {"route_config": {"name": "rc", "virtual_hosts": [{"name": "vh", "domains": ["*"], "routes": []}]}}]}]}`)
+
+	use := snap.Listeners[0].FilterChains[0].HCM.RouteConfigUse
+	if use.State != model.RouteConfigFound || use.Source != "RD0" {
+		t.Errorf("use = %+v, want found on RD0", use)
+	}
+	want := "skipped RoutesConfigDump static_route_configs: json: "
+	if len(snap.Warnings) != 1 || snap.Warnings[0].Code != model.WarnSectionSkipped || !strings.HasPrefix(snap.Warnings[0].Message, want) {
+		t.Errorf("warnings = %+v, want one %s %q…", snap.Warnings, model.WarnSectionSkipped, want)
+	}
+}
+
 // TestWarnings_Typed: each warning keeps its text and gains a code and, where
 // it has one, a subject.
 func TestWarnings_Typed(t *testing.T) {
@@ -291,7 +309,7 @@ func TestWarnings_Typed(t *testing.T) {
 		{"listeners section", `{"configs": [{"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump", "dynamic_listeners": 1}]}`,
 			model.Warning{Code: model.WarnSectionSkipped, Message: "skipped ListenersConfigDump: json: "}},
 		{"routes section", `{"configs": [{"@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump", "dynamic_route_configs": 1}]}`,
-			model.Warning{Code: model.WarnSectionSkipped, Message: "skipped RoutesConfigDump: json: "}},
+			model.Warning{Code: model.WarnSectionSkipped, Message: "skipped RoutesConfigDump dynamic_route_configs: json: "}},
 		{"route config", `{"configs": [{"@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump", "dynamic_route_configs": [{"route_config": {"name": "bad", "virtual_hosts": 1}}]}]}`,
 			model.Warning{Code: model.WarnRouteConfigSkipped, Message: `skipped route config "bad": json: `}},
 		{"nameless route config", `{"configs": [{"@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump", "dynamic_route_configs": [{"route_config": {}}]}]}`,
