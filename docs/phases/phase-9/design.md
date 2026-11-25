@@ -1,7 +1,7 @@
 # Phase 9 — Control-Plane-Agnostic Contract: design
 
 **Status:** draft (2026-11-25), for owner review, then Codex review, then kgwctl and Snellius review
-**Edge:** E15 | **Program:** P-010 (contract), P-011 rule 6 (snapshot-local IDs), P-012 rule 4 (version-keyed tables) | **Decisions:** D-019, D-020
+**Edge:** E15 | **Program:** P-010 (contract), P-011 rule 6 (snapshot-local IDs), P-012 rule 4 (version-keyed tables); the last two in program.md "Architecture guidelines" (`dbf7140`) | **Decisions:** D-019, D-020
 **Release:** one tag at phase close, `v0.7.0`: the break plus core correctness (D-020)
 **Inputs:** [approach consult](reviews/approach-codex.md), Phase 8 deferrals ([phase-8-complete.md](../phase-8/phase-8-complete.md)), E14 missing RDS ([xds-convergence.md §4.1](../../investigations/xds-convergence.md))
 
