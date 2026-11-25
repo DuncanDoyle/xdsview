@@ -18,3 +18,4 @@
 | 8 | `ix.Claims()`; records at every level | architecture | accept: additions 6 |
 | 9 | `Conditional` drops the weighted-backend meaning | correctness | accept: additions 7, both meanings kept |
 | n1–n4 | warning code constants; `NameAnswer.Kind`; `Names(opts)`; route kinds | correctness | accept: additions 8, §6 Names, selection rule 1 |
+| r1 | Re-check at `2e09ea3`: `Unresolved` dropped "and rule"; `SourcePath` on every route and vhost | correctness | accept: both fixed |

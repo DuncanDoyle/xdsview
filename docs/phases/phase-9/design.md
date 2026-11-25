@@ -259,7 +259,7 @@ type Query struct {
 type Selection struct {
 	Routes     []model.ID  // one reading, matching the query, not narrowed by Known
 	Ambiguous  []model.ID  // several readings, or one left only by Known; at least one matches
-	Unresolved []model.ID  // a route-name marker whose text could name the queried HTTPRoute, but no valid reading
+	Unresolved []model.ID  // a route-name marker whose text could name the queried HTTPRoute and rule index (where set), but no valid reading
 	Narrowed   []Narrowing // every route Known narrowed, whatever its bucket
 }
 
@@ -324,7 +324,7 @@ krp flow: parse → `chain.Effective` → `provenance.Compose(snap, kgateway.New
 **kgwctl review additions** (kgwctl#14):
 1. `provenance.Labels(ix, narrowings)` returns the on-row origin text, including a narrowed reading inline; `Notes(ix)` keeps the lines below rows.
 2. `Assertion` has `Kind() string`. In JSON a claim's assertion is an object with `kind` plus its fields; the schema doc lists each kind.
-3. `Snapshot` has typed lookups by ID (`Listener`, `VirtualHost`, `Route`, `Slot`, each returning the item and a bool). A route in a shared route config also has `SourcePath` (`RD3/V2/R5`), equal across its uses, so a consumer can list it once.
+3. `Snapshot` has typed lookups by ID (`Listener`, `VirtualHost`, `Route`, `Slot`, each returning the item and a bool). Every virtual host and route that comes from a route config source has `SourcePath` (`RD3/V2/R5`), equal across the uses of a shared source, so a consumer can list it once.
 4. Order: claims are sorted by subject with `model.CompareID`, which compares index segments numerically (`L2` before `L10`), then module order, then emission order. Candidates keep the module's reading order.
 5. `Row.Subject` is the listener, filter chain, vhost, route or slot ID of the printed row. `render.Text` prints a subject's warnings under its row and one coverage line for ignored sections; dump-wide warnings stay with the caller.
 6. `ix.Claims()` returns all claims. `provenance.Records(ix, snap, routeID)` returns the `PolicyRecord`s at every level that applies to the route, each with its level.
