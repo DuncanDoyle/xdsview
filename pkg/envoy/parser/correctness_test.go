@@ -298,6 +298,13 @@ func ecdsSection(names ...string) string {
 	return `{"@type": "type.googleapis.com/envoy.admin.v3.EcdsConfigDump", "ecds_filters": [` + strings.Join(entries, ",") + `]}`
 }
 
+// ecdsCluster is a ClustersConfigDump whose cluster has an upstream ECDS filter.
+func ecdsCluster(name, source string) string {
+	return `{"@type": "type.googleapis.com/envoy.admin.v3.ClustersConfigDump", "dynamic_active_clusters": [{"cluster": {"name": "c",
+ "typed_extension_protocol_options": {"envoy.extensions.upstreams.http.v3.HttpProtocolOptions": {"@type": "type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions",
+  "http_filters": [` + ecdsDiscovery(name, source) + `]}}}}]}`
+}
+
 const (
 	ads   = `{"ads": {}}`
 	other = `{"api_config_source": {"api_type": "GRPC", "grpc_services": [{"envoy_grpc": {"cluster_name": "other"}}]}}`
@@ -323,8 +330,11 @@ func TestECDS_SubscriptionKey(t *testing.T) {
 			[]string{ecdsSection("x")}, map[slot]string{{0, -1}: model.ConfigECDS, {1, -1}: model.ConfigECDS}, 0},
 		{"two config sources", []string{ecdsListener("a", "", ecdsDiscovery("x", ads)+",", ""), ecdsListener("b", "", ecdsDiscovery("x", other)+",", "")},
 			[]string{ecdsSection("x")}, map[slot]string{{0, -1}: "", {1, -1}: ""}, 2},
+		// Clusters share the upstream subscriptions and aren't read, so an upstream entry may be a cluster's (Codex #3).
 		{"upstream entry only", []string{ecdsListener("a", "", ecdsDiscovery("x", ads)+",", ""), ecdsListener("b", "", "", ecdsDiscovery("x", ads))},
-			[]string{ecdsSection(), ecdsSection("x")}, map[slot]string{{0, -1}: "", {1, 0}: model.ConfigECDS}, 0},
+			[]string{ecdsSection(), ecdsSection("x")}, map[slot]string{{0, -1}: "", {1, 0}: ""}, 1},
+		{"a cluster subscribes from another source", []string{ecdsListener("a", "", ecdsDiscovery("x", ads)+",", ""), ecdsListener("b", "", "", ecdsDiscovery("x", ads))},
+			[]string{ecdsSection(), ecdsSection("x"), ecdsCluster("x", other)}, map[slot]string{{0, -1}: "", {1, 0}: ""}, 1},
 		{"downstream entry only", []string{ecdsListener("a", "", ecdsDiscovery("x", ads)+",", ""), ecdsListener("b", "", "", ecdsDiscovery("x", ads))},
 			[]string{ecdsSection("x"), ecdsSection()}, map[slot]string{{0, -1}: model.ConfigECDS, {1, 0}: ""}, 0},
 		{"a section no listener explains", []string{ecdsListener("a", "", ecdsDiscovery("x", ads)+",", "")},

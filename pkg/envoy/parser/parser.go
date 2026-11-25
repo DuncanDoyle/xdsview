@@ -707,7 +707,8 @@ func (p *parse) parseHCM(id model.ID, raw json.RawMessage, active bool) (*model.
 // filter with config_discovery takes the ECDS config of its category whose
 // name is the filter's name (http_connection_manager.proto, HttpFilter.name)
 // and whose type is in type_urls, when the dump shows that entry is its
-// subscription's. With none, an active listener in a complete capture with no
+// subscription's. An upstream entry never does: a cluster may own it, and
+// clusters aren't read (P-010 rule 3). With none, an active listener in a complete capture with no
 // skipped ECDS entry runs default_config (config_source.proto,
 // ExtensionConfigSource). Otherwise it has no config. It also returns the
 // raw config the filter runs, nil when unresolved.
@@ -734,6 +735,9 @@ func (p *parse) httpFilter(id model.ID, hf rawHTTPFilter, active bool, category 
 		p.warn(id, model.WarnECDSAmbiguous, "filter %q: an ECDS config has its name, but the dump doesn't say which filter category it belongs to", hf.Name)
 	case len(found) > 0 && sources > 1:
 		p.warn(id, model.WarnECDSAmbiguous, "filter %q: %d config sources subscribe to its name, and the dump doesn't say which ECDS config is whose", hf.Name, sources)
+	case len(found) > 0 && category == ecdsUpstreamHTTP:
+		// Cluster upstream filters share these subscriptions, and clusters aren't read.
+		p.warn(id, model.WarnECDSAmbiguous, "filter %q: an upstream ECDS config has its name, and a cluster may subscribe to it from another config source", hf.Name)
 	case len(found) == 1:
 		hf.TypedConfig, disc.Source = found[0], model.ConfigECDS
 	case len(found) > 1:
