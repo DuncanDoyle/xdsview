@@ -29,8 +29,8 @@ type Module interface {
 //     survived rule 3, on the route, one of its ancestors, or the route config
 //     source its use resolves to. Its slot must be an HTTP filter of the HCM
 //     serving the route, and the route's chain must have per-filter config
-//     for that slot at some level or on a weighted backend. Two links from
-//     one record on one route are both dropped.
+//     for that slot at some level or on a weighted backend. When two links
+//     from one record on one route pass these checks, both are dropped.
 //
 // The index keeps snap to answer [Index.Dependencies]; treat snap as read-only.
 func Compose(snap *model.Snapshot, modules ...Module) (*Index, error) {
@@ -70,18 +70,21 @@ func Compose(snap *model.Snapshot, modules ...Module) (*Index, error) {
 			}
 			kept = append(kept, ordered{c, mi, n})
 		}
+		// Only links that pass the other checks compete for a record on a route.
+		reasons := make([]string, len(links))
 		count := map[[2]string]int{}
-		for _, l := range links {
-			count[[2]string{l.c.Assertion.(FilterLink).Record, string(l.c.Subject)}]++
-		}
-		for _, l := range links {
+		for i, l := range links {
 			link := l.c.Assertion.(FilterLink)
-			reason := ix.st.checkLink(l.c, link, refs)
-			if reason == "" && count[[2]string{link.Record, string(l.c.Subject)}] > 1 {
-				reason = "another link from the same record on this route"
+			if reasons[i] = ix.st.checkLink(l.c, link, refs); reasons[i] == "" {
+				count[[2]string{link.Record, string(l.c.Subject)}]++
 			}
-			if reason != "" {
-				ix.drop(l.c, model.WarnLinkDropped, reason, false)
+		}
+		for i, l := range links {
+			if reasons[i] == "" && count[[2]string{l.c.Assertion.(FilterLink).Record, string(l.c.Subject)}] > 1 {
+				reasons[i] = "another link from the same record on this route"
+			}
+			if reasons[i] != "" {
+				ix.drop(l.c, model.WarnLinkDropped, reasons[i], false)
 				continue
 			}
 			kept = append(kept, l)
