@@ -212,16 +212,18 @@ type Gap struct {
 	Kind    string   // the assertion kind expected, e.g. "routeSource"
 	Slot    model.ID // policyRecord only: the HTTP filter slot, empty when none is installed
 	Level   Level    // policyRecord only: the level the record is missing at, empty for a weighted backend
+	Cluster string   // backendSource only: the mirror cluster, empty for the route's own backend
 }
 ```
 
 `Dependencies(block)` is fail-closed (design review #1, Codex phase re-reviews 1–4). It first enumerates every input the block shows or relies on, then checks each input against the claim kinds that can cover it. Every uncovered input is a gap; there is no per-case gap rule.
 
 **1. Inputs.**
-- Every listener, filter chain, virtual host, route and weighted backend in or above the block.
+- Every listener, filter chain, virtual host, route and weighted backend in or above the block, and every mirror cluster of such a route.
+- Every network filter other than the HCM in a filter chain in or above the block.
 - Every HTTP filter slot, downstream and router upstream, of every HCM serving the block: the HCM in or above it, or for a route config source block, every HCM whose use resolves to it.
 - Every per-filter config entry at route config level (the source a use in or above the block resolves to, inline or RDS, or the source block itself), and at virtual host, route and weighted backend level in or above the block. An entry with no matching installed slot is an input too.
-- A static source that an inline source records as `Reported` is the same source as that inline config: its block has the inline source's inputs, not those of an unused source. A source with no use is its own block of inputs: its per-filter config entries.
+- A static source that an inline source records as `Reported` is the same source as that inline config: its block has the inline source's inputs, the inline source's listener lineage included, not those of an unused source. A source with no use is its own block of inputs: its per-filter config entries.
 
 **2. Cover.** An input is covered only by claims at inferred or exact. A filter link covers only on the route being checked; the routes checked are the block's routes beneath the input, or all of them when the block holds none.
 
@@ -232,12 +234,14 @@ type Gap struct {
 | virtual host | `HostSource` |
 | route | `RouteSource` |
 | route or weighted backend with a cluster | `BackendSource` |
+| mirror cluster; route whose cluster is picked per request (header, specifier plugin) | nothing: always a gap |
+| network filter other than the HCM | nothing: always a gap |
 | HTTP filter slot, downstream or upstream, other than the router | `ExtensionSource` |
 | downstream slot that runs by default, not the router, not marked a helper | also: for each route checked, a kept `FilterLink` on that route placing a listener-level `PolicyRecord` on the slot |
 | per-filter config entry for slot S at level X (route, virtual host, route config) | for each route checked, a kept `FilterLink` on that route placing a level-X `PolicyRecord` on S |
 | per-filter config entry on a weighted backend, or with no installed downstream slot | nothing: always a gap |
 
-Alternatives kinds cover when they resolve at inferred or exact (`Resolve`), so ambiguous readings are gaps. A policy gap names the slot and level (`Gap.Slot`, `Gap.Level`). A readable record for one filter never covers another filter's entry. A default-on slot whose routes have no per-filter config keeps its listener-level gap in Phase 9; a listener-scoped link is the additive fix later (rule 7). Without `merge.*` at a level (U1), a hidden policy could add config there; the gap makes that visible. Router upstream slots need only `ExtensionSource`: rule 4 admits no link to them.
+Alternatives kinds cover when they resolve at inferred or exact (`Resolve`), so ambiguous readings are gaps. A policy gap names the slot and level (`Gap.Slot`, `Gap.Level`). A readable record for one filter never covers another filter's entry. A default-on slot whose routes have no per-filter config keeps its listener-level gap in Phase 9; a listener-scoped link is the additive fix later (rule 7). Without `merge.*` at a level (U1), a hidden policy could add config there; the gap makes that visible. Router upstream slots need only `ExtensionSource`: rule 4 admits no link to them. A route's `BackendSource` is its primary cluster, so a mirror has no subject a claim could cover without making it ambiguous; its gap names it (`Gap.Cluster`). No Phase 9 kind has a network filter as subject, and a filter such as RBAC or `tcp_proxy` changes what the route serves, so it is a gap rather than Envoy-only infrastructure. Each can gain a claim kind later (rule 7).
 
 **3. Objects.** `Objects` holds the evidence objects of every claim on an input's subject, on the route config sources in scope and on the serving HCMs' slots, inherited policy records included. Every claim that covers an input adds its evidence objects too, wherever its subject lives.
 
@@ -256,7 +260,7 @@ type Dependent struct {
 1. `dropped`: a claim in scope that Compose rule 3 dropped also gives its subject a gap of the dropped claim's kind.
 2. `gatewaySource`: a consumer that knows the Gateway it captured may close a listener's gap itself, as its own context. Listeners from a ListenerSet are not attributed in Phase 9: they show this gap.
 
-A test checks the rule on the corpus: for every dump and fixture and every route block, removing any single claim that covers an input from the kgateway module's output adds a gap.
+Two tests check the rule on the corpus, for every dump and fixture and every listener, virtual host, route and route config source block. An oracle walks krp's JSON output, independently of the index, and requires an input for every item the block shows: each cluster (primary, weighted, mirror, per-request selector), network filter, HTTP slot, per-filter config entry, listener, virtual host and route. And removing any single claim that covers an input from the kgateway module's output adds that input's own gap.
 
 ### 6. kgateway module (R5, R8, R9, R13)
 
