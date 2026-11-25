@@ -15,8 +15,8 @@ Status: design; owner said start (2026-11-24).
 - [ ] Q4 `cross-repo` design-review requests to kgwctl and Snellius (drafted; ask before filing) ← CURRENT (owner)
 - [ ] Q5 owner approval
 - [x] 9.1 snapshot and occurrence IDs (`d944818`, local branch)
-- [ ] 9.2 pure execution ← CURRENT
-- [ ] 9.3 provenance contract and kgateway module (waits on Q4)
+- [x] 9.2 pure execution (`3591396`, local branch)
+- [ ] 9.3 provenance contract and kgateway module (waits on Q4) ← NEXT
 - [ ] 9.4 core correctness
 
 ### Exit gates
@@ -33,7 +33,7 @@ Kind: planned
 Base: d944818
 Brief: docs/phases/phase-9/phase-9.2-brief.md
 Branch: duncandoyle/phase9 (local; nothing merges to main before the consumer review)
-Status: done (2026-11-25), `4c1f12e`; record in phase-9.1-complete.md. Next: 9.2.
+Status: done (2026-11-25), `3591396`; record in phase-9.2-complete.md. Next: 9.3 (waits on Q4).
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `70fda55`)
@@ -50,6 +50,7 @@ Consumers: E6 (kgwctl move into kgateway): `v0.6.0` released. E13 available (`v0
 - Phase 9 (P-010, E15), after P-009: one contract break, design reviewed by kgwctl and Snellius before approval. File `cross-repo` review requests in both when the design is ready (ask first).
 
 ## Notes
+- 2026-11-25: 9.2 done: `chain.Effective` keyed by route ID, `Tri`, slot IDs, wrappers; `render` hooks keyed by `Row`; contributions computed in krp. `chain` and `render` no longer import `origin`. Text goldens unchanged; JSON chain shape changed, contributions moved top-level. Four deviations in phase-9.2-complete.md.
 - 2026-11-25: 9.1 done: IDs, sources and uses, typed warnings, `Capture`, `model.Prune`. Text goldens unchanged; JSON goldens additive. Six deviations listed in phase-9.1-complete.md (scenario 00 `main_route` waits for 9.4 static listeners).
 - 2026-11-25: program adopted P-011 and P-012 ("Architecture guidelines", kgateway-tooling `dbf7140`). Review prompts link that section from now on (protocol step 7).
 - 2026-11-25: owner chose API option 1 (D-020). Design draft `phases/phase-9/design.md` written; waiting on owner review before the plan.
