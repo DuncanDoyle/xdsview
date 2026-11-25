@@ -62,7 +62,8 @@
             {"name": "x-absent", "present_match": false},
             {"name": "x-range", "range_match": {"start": "1", "end": "5"}},
             {"name": "x-bare"},
-            {"name": "x-not", "exact_match": "f", "invert_match": true}
+            {"name": "x-not", "exact_match": "f", "invert_match": true},
+            {"name": "x-any", "exact_match": ""}
            ]
           },
           "route": {"cluster": "web_backend"}

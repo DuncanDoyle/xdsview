@@ -237,6 +237,8 @@ func TestMatchers(t *testing.T) {
 		h("x-exact", "a", model.MatchExact), h("x-prefix", "b", model.MatchPrefix), h("x-suffix", "c", model.MatchSuffix),
 		h("x-contains", "d", model.MatchContains), h("x-regex", "e+", model.MatchRegex), h("x-present", "", model.MatchPresent),
 		h("x-absent", "", model.MatchAbsent), h("x-range", "[1,5)", model.MatchRange), h("x-bare", "", model.MatchPresent), not,
+		// A legacy empty exact_match matches any value (header_utility.h, HeaderDataExactMatch).
+		h("x-any", "", model.MatchAnyValue),
 	}}
 	if !reflect.DeepEqual(routes[0].Match, want) {
 		t.Errorf("top-level =\n%+v\nwant\n%+v", routes[0].Match, want)

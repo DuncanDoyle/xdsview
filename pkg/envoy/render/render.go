@@ -702,6 +702,8 @@ func condition(name, value string, kind model.MatchKind, regex bool, mods []stri
 		s = name + " " + string(kind)
 	case kind == model.MatchRange:
 		s = name + " in " + value
+	case kind == model.MatchAnyValue:
+		s = name + " any value"
 	default:
 		s = name + " " + string(kind) + " " + value
 	}

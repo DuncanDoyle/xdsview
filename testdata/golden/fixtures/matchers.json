@@ -108,6 +108,11 @@
                               "value": "f",
                               "kind": "exact",
                               "invert": true
+                            },
+                            {
+                              "name": "x-any",
+                              "value": "",
+                              "kind": "anyValue"
                             }
                           ]
                         },

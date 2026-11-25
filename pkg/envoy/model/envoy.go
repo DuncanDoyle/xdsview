@@ -288,6 +288,9 @@ const (
 	MatchAbsent   MatchKind = "absent"  // present_match: false
 	MatchRange    MatchKind = "range"   // Value is "[start,end)"
 	MatchCustom   MatchKind = "custom"  // a custom StringMatcher extension; Value is its type
+	// MatchAnyValue is a legacy top-level exact_match of "": a present header
+	// matches whatever its value (header_utility.h, HeaderDataExactMatch).
+	MatchAnyValue MatchKind = "anyValue"
 )
 
 // HeaderMatch is a header-based match condition on a route.

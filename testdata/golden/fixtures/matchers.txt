@@ -1,6 +1,6 @@
 web 0.0.0.0:8080 · active
 └─ vhost any [*]
-   ├─ route /top (prefix) + case-insensitive + header(x-exact=a) + header(x-prefix prefix b) + header(x-suffix suffix c) + header(x-contains contains d) + header(x-regex~e+) + header(x-present present) + header(x-absent absent) + header(x-range in [1,5)) + header(x-bare present) + not header(x-not=f)
+   ├─ route /top (prefix) + case-insensitive + header(x-exact=a) + header(x-prefix prefix b) + header(x-suffix suffix c) + header(x-contains contains d) + header(x-regex~e+) + header(x-present present) + header(x-absent absent) + header(x-range in [1,5)) + header(x-bare present) + not header(x-not=f) + header(x-any any value)
    │  filters (request order):
    │    1 envoy.filters.http.router  on
    │  backend: web_backend

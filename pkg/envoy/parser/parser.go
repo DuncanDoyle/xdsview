@@ -1201,6 +1201,8 @@ func headerMatch(h rawHeaderMatcher) model.HeaderMatch {
 	switch {
 	case h.StringMatch != nil:
 		out.Kind, out.Value, out.IgnoreCase = stringMatch(*h.StringMatch)
+	case h.ExactMatch != nil && *h.ExactMatch == "":
+		out.Kind = model.MatchAnyValue // header_utility.h: an empty expected value matches any value
 	case h.ExactMatch != nil:
 		str(model.MatchExact, h.ExactMatch)
 	case h.PrefixMatch != nil:
