@@ -20,10 +20,10 @@ Status: design; owner said start (2026-11-24).
 - [x] 9.4 core correctness (`93128af`, local branch). Includes review 9.1–9.2 #5. Ran before 9.3 (D-021) Codex review `reviews/9.4-codex.md`: 9 fixes `c55dd05`–`59ce072`.
 
 ### Exit gates
-- [ ] tests/vet pass (observed)
+- [x] tests/vet pass (observed 2026-11-25 on `c73e4d3`)
 - [ ] all queue items done or deferred
 - [x] design+plan cross-model review + triage: reviews/design-codex.md
-- [ ] phase cross-model review + triage: reviews/phase-codex.md
+- [x] phase cross-model review + triage: reviews/phase-codex.md, re-reviews r2–r5 (all triaged; r8 kind capture deferred to the owner)
 - [ ] decisions.md / design / plan in sync with code
 - [ ] phase-9-complete.md written, roadmap updated, tracked items closed
 
@@ -50,6 +50,7 @@ Consumers: E6 (kgwctl move into kgateway): `v0.6.0` released. E13 available (`v0
 - Phase 9 (P-010, E15), after P-009: one contract break, design reviewed by kgwctl and Snellius before approval. File `cross-repo` review requests in both when the design is ready (ask first).
 
 ## Notes
+- 2026-11-25 (night): 9.3 done; phase review plus five fix rounds. `Dependencies` is now a fail-closed enumeration with an independent oracle test (`oracle_test.go`). Corpus: no route block is gap-free (kgateway listeners: `gatewaySource` closed by consumer context, `routeSource` ambiguous without `route_source` metadata; static bootstrap blocks always gapped). Owner, pending: (1) kind capture for listener/vhost `merge.*` (R5) or accept fixtures; (2) accept that static bootstrap blocks and non-HCM network filters always gap; (3) a last Codex pass or stop; (4) merge to main, push, tag `v0.7.0`; (5) program file update (E15) and notices to kgwctl and Snellius. Close: `phase-9-complete.md` still to write.
 - 2026-11-25 (night): 9.3 done. Part B ported krp to `Compose`/`Select`/`Narrow`/`Prune` with D-022, moved `-o json` to `v1alpha2`, and deleted `origin`, `filter` and the model provenance fields. Parity with the old path held on 671 outputs before the oracle was deleted. Text goldens unchanged; JSON goldens are the new shape. Open for the phase review: part A item 6 (regex matchers, `Route.Cluster`), the `Compose` benchmark. Carry-over items on Phase 8 P1s, `origin.ObjectForName` and `origin` ownership are now handled by the kgateway module and `NameMapper`.
 - 2026-11-25 (late): 9.4 done and reviewed (Codex, 9 fixes). Consumer reviews done; API lockable. Next: 9.3. 9.3 must know: `Prune` keeps reported static sources; `RouteConfigUse.Chain` moves with `Route.Chain`; a static listener's Status still says active; cluster upstream ECDS not read (recorded risk); Snellius gaps (policyRecord, dropped, gatewaySource) and kgwctl selection rules are in design §5–§7. All on local branch `duncandoyle/phase9`; nothing pushed beyond `8d381f6`.
 - 2026-11-25: 9.4 done on the local branch: static listeners, network filter IDs, default chain, missing RDS, ECDS, matchers, route actions, coverage. Every corpus text and JSON golden changed (bootstrap listeners, coverage line); nine deviations in phase-9.4-complete.md. Not yet cross-model reviewed.
