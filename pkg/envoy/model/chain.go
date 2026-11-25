@@ -71,28 +71,6 @@ const (
 	LevelRouteConfig ConfigLevel = "routeConfig"
 )
 
-// ContributionKind is the kind of object behind a chain entry.
-type ContributionKind string
-
-// Contribution kinds.
-const (
-	ContributionExtension ContributionKind = "extension" // defines the filter instance, e.g. a GatewayExtension
-	ContributionPolicy    ContributionKind = "policy"    // configures the filter on this route
-)
-
-// Contribution is one object attributed to a chain entry: the extension that
-// defines the filter instance, or a policy field attributed to it on one route.
-//
-// Certainty is the mapper's [FilterOrigin] certainty for an extension. A policy
-// contribution is at most [Inferred]: the route metadata records the field, and
-// the link to this one entry comes from the mapper's field-to-filter table.
-type Contribution struct {
-	Kind      ContributionKind `json:"kind"`
-	Ref       Ref              `json:"ref"`
-	Field     string           `json:"field,omitempty"` // policy field, e.g. "extAuth"
-	Certainty Certainty        `json:"certainty"`
-}
-
 // RequestOrder returns the entries that may run and handle requests, in HCM
 // order. Entries whose run state or request side is unknown are kept.
 func (c EffectiveChain) RequestOrder() []ChainEntry {

@@ -91,7 +91,4 @@ type RouteConfigUse struct {
 	ID     ID               `json:"id"`
 	Source ID               `json:"source,omitempty"`
 	State  RouteConfigState `json:"state"`
-	// Chain is the HCM's chain when no route config joined: a copy of
-	// chain.Effective's result under this use's ID, set by callers that embed it.
-	Chain *EffectiveChain `json:"effectiveChain,omitempty"`
 }

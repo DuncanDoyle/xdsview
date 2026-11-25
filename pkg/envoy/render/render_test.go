@@ -8,7 +8,6 @@ import (
 	"github.com/DuncanDoyle/xdsview/internal/snaptest"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/chain"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
-	"github.com/DuncanDoyle/xdsview/pkg/envoy/origin"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/render"
 )
 
@@ -20,8 +19,8 @@ const (
 )
 
 // sample is one Gateway with an active listener whose route enables ext_auth
-// per route, and a warming listener with an error. Origins come from the
-// kgateway mapper; [sampleLabels] stands in for krp's contribution labels.
+// per route, and a warming listener with an error. [sampleLabels] and
+// [sampleTrailer] stand in for krp's provenance hooks.
 func sample() *model.Snapshot {
 	hcm := &model.HCMConfig{
 		RouteConfigName: "listener~80",
@@ -52,20 +51,34 @@ func sample() *model.Snapshot {
 		{Name: "listener~8443", Address: "[::]:8443", State: model.ListenerState{Status: model.ListenerWarming,
 			Error: &model.ListenerError{Details: "bad cert", LastAttempt: "2026-11-20T19:39:58Z"}}},
 	}}
-	gw := &model.Ref{Group: "gateway.networking.k8s.io", Kind: "Gateway", Namespace: "shop", Name: "gw"}
-	m := origin.Kgateway(origin.KgatewayOptions{Gateway: gw})
-	return origin.Annotate(snaptest.IDs(snap), m)
+	return snaptest.IDs(snap)
 }
 
-// sampleLabels are the labels krp gives sample's ext_auth and ratelimit rows.
+// sampleLabels are labels like krp's on sample's listeners, vhost, route,
+// and ext_auth and ratelimit rows.
 func sampleLabels(r render.Row) []string {
-	switch r.Slot {
-	case "L0/C0/N0/F1":
+	switch {
+	case r.Slot == "L0/C0/N0/F1":
 		return []string{"GatewayExtension shop/auth (inferred)", "TrafficPolicy shop/auth (extAuth, inferred)"}
-	case "L0/C0/N0/F2":
+	case r.Slot == "L0/C0/N0/F2":
 		return []string{"GatewayExtension shop/rl (inferred)"}
+	case r.Slot != "":
+		return nil
 	}
-	return nil
+	return map[model.ID][]string{
+		"L0":                {"Gateway shop/gw port 80 (inferred)"},
+		"L1":                {"Gateway shop/gw port 8443 (inferred)"},
+		"L0/C0/N0/RC/V0":    {"port 80 (inferred)"},
+		"L0/C0/N0/RC/V0/R0": {"HTTPRoute shop/orders · rule 0 · match 0 (inferred)"},
+	}[r.Subject]
+}
+
+// sampleTrailer is a policies line like krp's under sample's route.
+func sampleTrailer(r render.Row) []render.Line {
+	if r.Route == "" || r.Slot != "" {
+		return nil
+	}
+	return []render.Line{{Label: "policies", Text: "TrafficPolicy shop/auth (extAuth)"}}
 }
 
 // text renders snap with the chains chain.Effective gives it. Without IDs, it adds them.
@@ -96,7 +109,7 @@ listener~80 [::]:80 · active · Gateway shop/gw port 80 (inferred)
       backend: kube_shop_orders_8080
 listener~8443 [::]:8443 · warming · Gateway shop/gw port 8443 (inferred) · error: bad cert (2026-11-20T19:39:58Z)
 `
-	if got := text(t, sample(), render.Options{Header: "Gateway shop/gw · file dump.json", Labels: sampleLabels}); got != want {
+	if got := text(t, sample(), render.Options{Header: "Gateway shop/gw · file dump.json", Labels: sampleLabels, Trailer: sampleTrailer}); got != want {
 		t.Errorf("Text =\n%s\nwant\n%s", got, want)
 	}
 }
@@ -183,54 +196,10 @@ func TestText_ListenerStates(t *testing.T) {
 	}
 }
 
-func TestText_RouteOrigins(t *testing.T) {
-	snap := sample()
-	r := &snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes[0]
-	r.Origin.NarrowedByKnown = true
-	hasLine(t, text(t, snap, render.Options{}), "   └─ route /orders (prefix) · HTTPRoute shop/orders · rule 0 · match 0 (chosen from known HTTPRoutes)")
-
-	r.Origin = &model.RouteAnnotation{Certainty: model.Ambiguous, Candidates: []model.RouteOrigin{
-		{Route: model.Ref{Kind: "HTTPRoute", Namespace: "a", Name: "b"}, RuleIndex: 0, MatchIndex: 0},
-		{Route: model.Ref{Kind: "HTTPRoute", Namespace: "c", Name: "d"}, RuleIndex: 1, MatchIndex: 0},
-	}}
-	hasLine(t, text(t, snap, render.Options{}), "   └─ route /orders (prefix) · ambiguous: HTTPRoute a/b, HTTPRoute c/d")
-}
-
-// TestText_Certainty: exact origins print bare, inferred ones say so, and
-// route indices parsed from the name say where they came from.
-func TestText_Certainty(t *testing.T) {
-	snap := sample()
-	r := &snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes[0]
-	web := model.Ref{Kind: "HTTPRoute", Namespace: "shop", Name: "web"}
-	cases := []struct {
-		label string
-		o     model.RouteOrigin
-		want  string
-	}{
-		{"metadata indices", model.RouteOrigin{Route: web, RuleIndex: 1, MatchIndex: 0},
-			"   └─ route /orders (prefix) · HTTPRoute shop/web · rule 1 · match 0"},
-		{"indices from the name", model.RouteOrigin{Route: web, RuleIndex: 1, RuleName: "api", MatchIndex: 0, IndexCertainty: model.Inferred},
-			"   └─ route /orders (prefix) · HTTPRoute shop/web · rule 1 (api) · match 0 (partly from name)"},
-	}
-	for _, c := range cases {
-		r.Origin = &model.RouteAnnotation{Certainty: model.Exact, Candidates: []model.RouteOrigin{c.o}}
-		hasLine(t, text(t, snap, render.Options{}), c.want)
-	}
-
-	r.Policies = []model.PolicyRef{{Policy: model.Ref{Kind: "AcmePolicy", Namespace: "shop", Name: "p"}, Field: "x", Certainty: model.Inferred}}
-	hasLine(t, text(t, snap, render.Options{}), "      policies: AcmePolicy shop/p (x, inferred)")
-	for _, c := range []model.Certainty{model.Unknown, model.Ambiguous} {
-		r.Policies[0].Certainty = c
-		hasLine(t, text(t, snap, render.Options{}), "      policies: AcmePolicy shop/p (x, "+c.String()+")")
-	}
-}
-
-// TestText_Unannotated prints no origins or labels when the snapshot and
-// hooks have none, and no filters for a route without a chain.
+// TestText_Unannotated prints no origins or labels without hooks, and no
+// filters for a route without a chain.
 func TestText_Unannotated(t *testing.T) {
 	snap := sample()
-	r := &snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes[0]
-	r.Origin, r.Policies = nil, nil
 	out := text(t, snap, render.Options{})
 	hasLine(t, out, "   └─ route /orders (prefix)")
 	hasLine(t, out, "        2 ext_auth/shop/auth         enabled by route")
@@ -326,13 +295,11 @@ func TestText_RowsPerRoute(t *testing.T) {
 }
 
 // TestText_Trailer: trailer lines go after the filters and the upstream
-// filters line, before the actions and backend, where the policies line is
-// today (review 9.1-9.2 #4). Styling sees the route row.
+// filters line, before the actions and backend (review 9.1-9.2 #4). Styling
+// sees the route row.
 func TestText_Trailer(t *testing.T) {
 	snap := sample()
 	route := snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes[0]
-	route.Policies = nil
-	snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes[0] = route
 	var styled []render.Row
 	out := text(t, snap, render.Options{
 		Trailer: func(r render.Row) []render.Line {

@@ -51,6 +51,52 @@ func TestText_RowsPerRoute(t *testing.T) {
 	}
 }
 
+// TestText_Formats: an exact reading prints bare, an inferred one says so,
+// indices read from a name say where they came from, several readings print
+// as ambiguous, and a record's certainty shows unless exact.
+func TestText_Formats(t *testing.T) {
+	read := func(o provenance.RouteSource, c model.Certainty) provenance.Claim {
+		return provenance.Claim{Subject: route1, Assertion: o, Certainty: c, Evidence: ev(route1, &o.Route)}
+	}
+	cases := []struct {
+		claims []provenance.Claim
+		want   string
+	}{
+		{[]provenance.Claim{read(provenance.RouteSource{Route: routeA, RuleIndex: 1, MatchIndex: 0}, model.Exact)},
+			"route / · HTTPRoute ns/a · rule 1 · match 0\n"},
+		{[]provenance.Claim{read(provenance.RouteSource{Route: routeA, RuleIndex: 1, MatchIndex: 0}, model.Inferred)},
+			"route / · HTTPRoute ns/a · rule 1 · match 0 (inferred)\n"},
+		{[]provenance.Claim{read(provenance.RouteSource{Route: routeA, RuleIndex: 1, RuleName: "api", MatchIndex: 0, IndexCertainty: model.Inferred}, model.Exact)},
+			"route / · HTTPRoute ns/a · rule 1 (api) · match 0 (partly from name)\n"},
+		{[]provenance.Claim{read(provenance.RouteSource{Route: routeA, RuleIndex: 0, MatchIndex: 0}, model.Inferred), read(provenance.RouteSource{Route: routeB, RuleIndex: 1, MatchIndex: 0}, model.Inferred)},
+			"route / · ambiguous: HTTPRoute ns/a, HTTPRoute ns/b\n"},
+	}
+	for _, c := range cases {
+		snap := twoListeners()
+		ix := compose(t, snap, fixed{"m", c.claims})
+		var b bytes.Buffer
+		if err := render.Text(&b, snap, chain.Effective(snap), render.Options{Labels: provenance.Labels(ix, nil)}); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(b.String(), c.want) {
+			t.Errorf("no %q in\n%s", c.want, b.String())
+		}
+	}
+	for _, c := range []model.Certainty{model.Unknown, model.Ambiguous, model.Inferred} {
+		rec := record("a", route1, provenance.LevelRoute, policyA)
+		rec.Certainty = c
+		snap := twoListeners()
+		ix := compose(t, snap, fixed{"m", []provenance.Claim{rec}})
+		var b bytes.Buffer
+		if err := render.Text(&b, snap, chain.Effective(snap), render.Options{Trailer: provenance.Notes(ix)}); err != nil {
+			t.Fatal(err)
+		}
+		if want := "policies: Policy ns/a (f, " + c.String() + ")\n"; !strings.Contains(b.String(), want) {
+			t.Errorf("no %q in\n%s", want, b.String())
+		}
+	}
+}
+
 // names is a NameMapper that answers from a table.
 type names map[provenance.NameKind]map[string]provenance.NameAnswer
 

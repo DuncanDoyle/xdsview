@@ -24,10 +24,8 @@
 // # Ownership
 //
 // The returned snapshot belongs to the caller. Treat it as read-only once
-// it is shared: [filter.Filter] returns views that share nested slices, maps and
+// it is shared: [model.Prune] returns views that share nested slices, maps and
 // pointers with it. Store derived data alongside a snapshot, not inside it.
-//
-// [filter.Filter]: https://pkg.go.dev/github.com/DuncanDoyle/xdsview/pkg/envoy/filter#Filter
 package parser
 
 import (

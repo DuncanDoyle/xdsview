@@ -175,13 +175,6 @@ func TestText_RouteNoteRows(t *testing.T) {
 	}
 }
 
-func TestText_KnownWording(t *testing.T) {
-	snap := oneHCM([]model.HTTPFilter{{Name: "router"}}, model.Route{Origin: &model.RouteAnnotation{
-		Certainty: model.Inferred, NarrowedByKnown: true,
-		Candidates: []model.RouteOrigin{{Route: model.Ref{Kind: "HTTPRoute", Namespace: "a", Name: "b"}, RuleIndex: 0, MatchIndex: 0}}}})
-	hasLine(t, text(t, snap, render.Options{}), "   └─ route / · HTTPRoute a/b · rule 0 · match 0 (chosen from known HTTPRoutes)")
-}
-
 // TestText_AddressesAndAlignment: IPv6 hosts are bracketed in the text, and
 // the state column lines up across one- and two-digit and "?" rows.
 func TestText_AddressesAndAlignment(t *testing.T) {

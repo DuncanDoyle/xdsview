@@ -13,7 +13,7 @@ const modulePrefix = "github.com/DuncanDoyle/xdsview/pkg/envoy/"
 
 // core packages may import only the standard library and each other, so that
 // consumers such as kgateway-ui's client-go-free core can use them.
-var core = []string{"model", "parser", "filter", "source", "origin", "chain", "render"}
+var core = []string{"model", "parser", "source", "chain", "render"}
 
 // TestRenderHasNoCharmbracelet is the check kgwctl relies on: the text
 // renderer pulls in no terminal styling library.
@@ -35,8 +35,6 @@ var pure = []string{"model", "parser", "chain", "render"}
 
 // provenancePkgs are the packages, and package trees, a pure package may not reach.
 var provenancePkgs = []string{
-	modulePrefix + "origin",
-	modulePrefix + "filter",
 	modulePrefix + "provenance",
 	"github.com/DuncanDoyle/xdsview/pkg/adapter",
 }
@@ -48,10 +46,32 @@ func TestPureCoreImportsNoProvenance(t *testing.T) {
 			t.Fatalf("go list %s: %v\n%s", pkg, err, out)
 		}
 		for _, dep := range strings.Fields(string(out)) {
+			if !strings.HasPrefix(dep, "github.com/DuncanDoyle/xdsview/") && strings.Contains(strings.SplitN(dep, "/", 2)[0], ".") {
+				t.Errorf("%s depends on third-party %s", pkg, dep)
+			}
 			for _, bad := range provenancePkgs {
 				if dep == bad || strings.HasPrefix(dep, bad+"/") {
 					t.Errorf("%s depends on %s; pure core packages may not import provenance", pkg, dep)
 				}
+			}
+		}
+	}
+}
+
+// removed are the packages provenance replaced (Phase 9.3). Nothing in the
+// module, tests included, may import them.
+var removed = []string{modulePrefix + "origin", modulePrefix + "filter"}
+
+func TestNothingImportsRemovedPackages(t *testing.T) {
+	out, err := exec.Command("go", "list", "-test", "-f", "{{.ImportPath}} {{join .Imports \" \"}}", "github.com/DuncanDoyle/xdsview/...").CombinedOutput()
+	if err != nil {
+		t.Fatalf("go list: %v\n%s", err, out)
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		fields := strings.Fields(line)
+		for _, imp := range fields[1:] {
+			if slices.Contains(removed, imp) {
+				t.Errorf("%s imports %s, which provenance replaced", fields[0], imp)
 			}
 		}
 	}

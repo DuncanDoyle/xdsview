@@ -48,7 +48,6 @@ type Listener struct {
 	State        ListenerState        `json:"state"`
 	Static       bool                 `json:"static,omitempty"`   // a static_listeners entry (bootstrap); status active, though Envoy also dumps it before its workers start
 	Metadata     map[string]any       `json:"metadata,omitempty"` // filter_metadata of the version shown
-	Origin       *ListenerOrigin      `json:"origin,omitempty"`   // set by origin.Annotate
 }
 
 // ListenerStatus is the version of a listener the snapshot shows.
@@ -125,7 +124,6 @@ type HTTPFilter struct {
 	TypedConfig map[string]any `json:"typedConfig,omitempty"` // raw typed config; displayed in interactive mode (Phase 3)
 	Disabled    bool           `json:"disabled,omitempty"`    // filter disabled at HCM level, enabled per-route
 	Discovery   *Discovery     `json:"discovery,omitempty"`   // set when the config comes from ECDS; TypedConfig is then the resolved config
-	Origin      *FilterOrigin  `json:"origin,omitempty"`      // set by origin.Annotate
 }
 
 // Discovery is a filter's config_discovery: its config comes from extension
@@ -149,13 +147,12 @@ type VirtualHost struct {
 	ID ID `json:"id"`
 	// SourcePath is the virtual host's place in its route config source, e.g.
 	// "RD3/V2". It is equal across the uses of a shared source; it is not an occurrence ID.
-	SourcePath           ID                 `json:"sourcePath,omitempty"`
-	Name                 string             `json:"name"`    // e.g. "listener~80~api_example_com"
-	Domains              []string           `json:"domains"` // e.g. ["api.example.com"]
-	Routes               []Route            `json:"routes"`
-	TypedPerFilterConfig map[string]any     `json:"typedPerFilterConfig,omitempty"` // overrides the route config's
-	Metadata             map[string]any     `json:"metadata,omitempty"`             // filter_metadata
-	Origin               *VirtualHostOrigin `json:"origin,omitempty"`               // set by origin.Annotate
+	SourcePath           ID             `json:"sourcePath,omitempty"`
+	Name                 string         `json:"name"`    // e.g. "listener~80~api_example_com"
+	Domains              []string       `json:"domains"` // e.g. ["api.example.com"]
+	Routes               []Route        `json:"routes"`
+	TypedPerFilterConfig map[string]any `json:"typedPerFilterConfig,omitempty"` // overrides the route config's
+	Metadata             map[string]any `json:"metadata,omitempty"`             // filter_metadata
 }
 
 // Route is an Envoy route within a virtual host.
@@ -174,9 +171,6 @@ type Route struct {
 	ResponseHeadersToRemove []string          `json:"responseHeadersToRemove,omitempty"` // response_headers_to_remove
 	TypedPerFilterConfig    map[string]any    `json:"typedPerFilterConfig,omitempty"`    // per-route filter config (Phase 2)
 	Metadata                map[string]any    `json:"metadata,omitempty"`                // filter_metadata (Phase 4)
-	Origin                  *RouteAnnotation  `json:"origin,omitempty"`                  // set by origin.Annotate
-	Policies                []PolicyRef       `json:"policies,omitempty"`                // set by origin.Annotate
-	Chain                   *EffectiveChain   `json:"effectiveChain,omitempty"`          // a copy of chain.Effective's result, set by callers that embed it; the core doesn't read it
 }
 
 // RouteAction is what a route does with a request it matches: the route's

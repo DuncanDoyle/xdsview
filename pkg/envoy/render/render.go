@@ -200,9 +200,6 @@ func (p *printer) listener(l model.Listener) {
 	if s.Draining {
 		parts = append(parts, p.style(ClassWarning, row, "draining"))
 	}
-	if o := l.Origin; o != nil {
-		parts = append(parts, p.style(ClassOrigin, row, listenerOrigin(*o)))
-	}
 	parts[len(parts)-1] += p.labels(row)
 	if e := s.Error; e != nil {
 		msg := "error: " + e.Details
@@ -308,9 +305,6 @@ func (p *printer) chainBody(fc model.NetworkFilterChain, indent string) {
 		if len(vh.Domains) > 0 {
 			line += " " + p.style(ClassOrigin, row, "["+strings.Join(vh.Domains, ", ")+"]")
 		}
-		if o := vh.Origin; o != nil {
-			line += " · " + p.style(ClassOrigin, row, listenerOrigin(model.ListenerOrigin{Certainty: o.Certainty, Port: o.Listener.Port, Section: o.Listener.Section}))
-		}
 		p.line(prefix + line + p.labels(row))
 		for j, r := range vh.Routes {
 			rPrefix, rIndent := node(vhIndent, j == len(vh.Routes)-1)
@@ -322,9 +316,6 @@ func (p *printer) chainBody(fc model.NetworkFilterChain, indent string) {
 func (p *printer) route(hcm model.HCMConfig, r model.Route, prefix, body string) {
 	row := Row{Subject: r.ID, Route: r.ID}
 	line := "route " + p.style(ClassRoute, row, formatMatch(r.Match))
-	if o := routeOrigin(r.Origin); o != "" {
-		line += " · " + p.style(ClassOrigin, row, o)
-	}
 	p.line(prefix + line + p.labels(row))
 	p.notes(row, body)
 
@@ -349,13 +340,6 @@ func (p *printer) route(hcm model.HCMConfig, r model.Route, prefix, body string)
 			names = append(names, f.Name)
 		}
 		p.line(body + "router upstream filters (as configured): " + clean(strings.Join(names, ", ")))
-	}
-	if len(r.Policies) > 0 {
-		var parts []string
-		for _, pr := range r.Policies {
-			parts = append(parts, policy(pr.Policy, pr.Field, pr.Certainty))
-		}
-		p.line(body + "policies: " + p.style(ClassOrigin, row, strings.Join(parts, ", ")))
 	}
 	if p.opts.Trailer != nil {
 		for _, t := range p.opts.Trailer(row) {
@@ -590,76 +574,6 @@ func state(e model.ChainEntry) string {
 		}
 	}
 	return string(e.State)
-}
-
-// policy formats a policy and its field, e.g. "TrafficPolicy ns/x (extAuth, inferred)".
-func policy(r model.Ref, field string, c model.Certainty) string {
-	var notes []string
-	if field != "" {
-		notes = append(notes, field)
-	}
-	if c != model.Exact {
-		notes = append(notes, c.String())
-	}
-	if len(notes) == 0 {
-		return r.String()
-	}
-	return r.String() + " (" + strings.Join(notes, ", ") + ")"
-}
-
-// suffix names an origin's certainty unless it is exact, which prints bare.
-func suffix(c model.Certainty) string {
-	if c == model.Exact {
-		return ""
-	}
-	return " (" + c.String() + ")"
-}
-
-func listenerOrigin(o model.ListenerOrigin) string {
-	var parts []string
-	if o.Gateway != nil {
-		parts = append(parts, o.Gateway.String())
-	}
-	switch {
-	case o.Section != "":
-		parts = append(parts, "listener "+o.Section)
-	case o.Port > 0:
-		parts = append(parts, fmt.Sprintf("port %d", o.Port))
-	}
-	return strings.Join(parts, " ") + suffix(o.Certainty)
-}
-
-// routeOrigin formats a route's origin, e.g. "HTTPRoute ns/web · rule 1 (api) · match 0".
-func routeOrigin(a *model.RouteAnnotation) string {
-	if a == nil || len(a.Candidates) == 0 {
-		return ""
-	}
-	if a.Certainty == model.Ambiguous {
-		var refs []string
-		for _, c := range a.Candidates {
-			refs = append(refs, c.Route.String())
-		}
-		return "ambiguous: " + strings.Join(slices.Compact(refs), ", ")
-	}
-	o := a.Candidates[0]
-	s := o.Route.String()
-	if o.RuleIndex >= 0 {
-		s += fmt.Sprintf(" · rule %d", o.RuleIndex)
-	}
-	if o.RuleName != "" {
-		s += " (" + o.RuleName + ")"
-	}
-	if o.MatchIndex >= 0 {
-		s += fmt.Sprintf(" · match %d", o.MatchIndex)
-	}
-	if o.IndexCertainty == model.Inferred {
-		s += " (partly from name)"
-	}
-	// "chosen from known HTTPRoutes" already says the reading was inferred.
-	if a.NarrowedByKnown {
-		return s + " (chosen from known HTTPRoutes)"
-	}
-	return s + suffix(a.Certainty)
 }
 
 // formatMatch writes a route match compactly. Several conditions are joined

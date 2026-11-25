@@ -252,7 +252,7 @@ func (m linker) Claims(snap *model.Snapshot) []provenance.Claim {
 // type: the extension named by the slot's name suffix, at certainty.
 type extension struct {
 	name, filterType, kind string
-	certainty            model.Certainty
+	certainty              model.Certainty
 }
 
 func (m extension) Name() string { return m.name }

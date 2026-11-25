@@ -165,9 +165,6 @@ func TestEffective_ReadsOnly(t *testing.T) {
 	if after := *snap.Listeners[0].FilterChains[0].HCM.RouteConfig; !reflect.DeepEqual(before, after) {
 		t.Errorf("route config changed:\n%+v\n%+v", before, after)
 	}
-	if r := routes(snap)[0]; r.Chain != nil {
-		t.Errorf("Route.Chain set: %+v", r.Chain)
-	}
 }
 
 // TestEffective_NoRouteConfigLevel uses route and vhost entries only.

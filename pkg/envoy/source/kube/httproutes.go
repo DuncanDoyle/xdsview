@@ -14,7 +14,8 @@ import (
 var httpRouteGVR = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1", Resource: "httproutes"}
 
 // HTTPRoutes lists the HTTPRoutes in every namespace, as refs. Pass them as
-// origin.KgatewayOptions.Known to resolve route names with several readings.
+// the known HTTPRoutes of a route selection to narrow route names with
+// several readings.
 // It needs "list httproutes" cluster-wide.
 func HTTPRoutes(ctx context.Context, opts Options) ([]model.Ref, error) {
 	cfg := opts.RESTConfig
