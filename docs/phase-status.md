@@ -16,7 +16,7 @@ Status: design; owner said start (2026-11-24).
 - [ ] Q5 owner approval
 - [x] 9.1 snapshot and occurrence IDs (`d944818`, local branch)
 - [x] 9.2 pure execution (`3591396`, local branch)
-- [ ] 9.3 provenance contract and kgateway module ← NEXT. API lockable: kgwctl OK after `d74ce59`; Snellius findings accepted. Carries review 9.1–9.2 #3, #4.
+- [ ] 9.3 provenance contract and kgateway module ← CURRENT. API lockable: kgwctl OK after `d74ce59`; Snellius findings accepted. Carries review 9.1–9.2 #3, #4.
 - [x] 9.4 core correctness (`93128af`, local branch). Includes review 9.1–9.2 #5. Ran before 9.3 (D-021) Codex review `reviews/9.4-codex.md`: 9 fixes `c55dd05`–`59ce072`.
 
 ### Exit gates
@@ -28,10 +28,10 @@ Status: design; owner said start (2026-11-24).
 - [ ] phase-9-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-Sub-phase: 9.4 — Core correctness (before 9.3, D-021)
+Sub-phase: 9.3 — Provenance contract and kgateway module
 Kind: planned
-Base: b972693
-Brief: docs/phases/phase-9/phase-9.4-brief.md
+Base: 029ade1
+Brief: docs/phases/phase-9/phase-9.3-brief.md
 Branch: duncandoyle/phase9 (local; nothing merges to main before the consumer review)
 Status: done (2026-11-25), `93128af`; record in phase-9.4-complete.md. Next: 9.3 (waits on Q4).
 
