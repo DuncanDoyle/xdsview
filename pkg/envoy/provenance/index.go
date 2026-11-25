@@ -132,8 +132,8 @@ type Gap struct {
 //     on that route places a record of that level on the slot, link and
 //     record both at inferred or exact; and an HTTP filter slot that runs by
 //     default and is not the router or a helper, unless for each route checked
-//     such a link on that route places a listener-level record on the slot (the
-//     link and record join Objects);
+//     such a link on that route places a listener-level record on the slot.
+//     Every link and record that closes such a gap joins Objects;
 //   - gatewaySource: a listener with no GatewaySource above unknown;
 //   - a dropped claim's kind on its subject (Compose rule 3).
 func (ix *Index) Dependencies(block model.ID) Dependencies {
@@ -194,8 +194,8 @@ func (ix *Index) scope(block model.ID) map[model.ID]bool {
 	return out
 }
 
-// gaps returns the expected attributions missing in scope, and the out-of-scope
-// claims that close a listener-level gap, whose objects the block depends on.
+// gaps returns the expected attributions missing in scope, and the links and
+// records that close a policyRecord gap, whose objects the block depends on.
 func (ix *Index) gaps(scope map[model.ID]bool) ([]Gap, []Claim) {
 	var out []Gap
 	addGap := func(g Gap) {
@@ -270,7 +270,9 @@ func (ix *Index) gaps(scope map[model.ID]bool) ([]Gap, []Claim) {
 			if _, ok := pfc[f.Name]; !ok || !scope[at] || !scope[f.ID] {
 				continue
 			}
-			if _, ok := placing(at, f.ID, routes); !ok {
+			if c, ok := placing(at, f.ID, routes); ok {
+				closers = append(closers, c...)
+			} else {
 				addGap(Gap{Subject: at, Kind: KindPolicyRecord, Slot: f.ID, Level: level})
 			}
 		}

@@ -299,6 +299,30 @@ func TestDependencies_SourceBlock(t *testing.T) {
 	}
 }
 
+// TestDependencies_ClosersObjects (Codex r3 P1): every claim that closes a gap
+// adds its evidence objects, even when it sits outside the block's scope.
+func TestDependencies_ClosersObjects(t *testing.T) {
+	snap := twoListeners()
+	snap.RouteConfigs[0].TypedPerFilterConfig = map[string]any{"authz": map[string]any{}}
+	snap.Listeners[0].FilterChains[0].HCM.RouteConfig.TypedPerFilterConfig = snap.RouteConfigs[0].TypedPerFilterConfig
+	cite := func(l provenance.Claim) provenance.Claim {
+		p := policyB
+		l.Evidence = append(l.Evidence, ev(route0, &p)...)
+		return l
+	}
+	ix := compose(t, snap, fixed{"m", []provenance.Claim{
+		record("src", "RD0", provenance.LevelRouteConfig, policyA),
+		cite(link("src", route0, slot0)), link("src", route1, slot0),
+	}})
+	d := ix.Dependencies("RD0")
+	if hasGap(d, "RD0", provenance.KindPolicyRecord) {
+		t.Fatalf("RD0 gaps %v: the links should close it", d.Gaps)
+	}
+	if !hasObject(d, policyB, provenance.KindFilterLink) {
+		t.Errorf("RD0 objects %v lack the closing link's object", d.Objects)
+	}
+}
+
 // TestRecords lists a route's records at every level, most specific first.
 func TestRecords(t *testing.T) {
 	snap, _ := parser.Parse(strings.NewReader(depsDump), parser.Options{})
