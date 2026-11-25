@@ -146,9 +146,7 @@ func Parse(r io.Reader, opts Options) (*model.Snapshot, error) {
 	slices.SortStableFunc(p.batches, func(a, b batch) int { return a.pos - b.pos })
 	for _, b := range p.batches {
 		for _, e := range b.entries {
-			if !e.matched {
-				snapshot.RouteConfigs = append(snapshot.RouteConfigs, e.source)
-			}
+			snapshot.RouteConfigs = append(snapshot.RouteConfigs, e.source)
 		}
 	}
 	snapshot.Coverage.Sections = p.sections
@@ -183,7 +181,8 @@ type parse struct {
 }
 
 // routeEntry is one route config source with its parsed and raw content.
-// A static entry is matched when it is an inline config's Reported entry.
+// A static entry is matched when it is an inline config's Reported entry; it
+// stays a source, so Reported resolves.
 type routeEntry struct {
 	source  model.RouteConfigSource
 	config  *model.RouteConfig

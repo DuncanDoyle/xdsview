@@ -47,7 +47,7 @@ func wantOutput(t *testing.T, args []string, text, json []string) {
 func TestDump_StaticBootstrap(t *testing.T) {
 	wantOutput(t, []string{"--file", fixture("static-bootstrap")},
 		[]string{"health_listener [::]:9902 · active · static", "route /ready (exact)", "backend: local_service"},
-		[]string{`"static": true`, `"id": "L0/C0/N0/RCI"`, `"reported": "RS0"`})
+		[]string{`"static": true`, `"id": "L0/C0/N0/RCI"`, `"reported": "RS0"`, `"id": "RS0"`})
 }
 
 // TestDump_NetworkFilters: a chain without an HCM lists its network filters;

@@ -187,3 +187,23 @@ func TestPrune_NoRouteConfig(t *testing.T) {
 		t.Errorf("pruned = %v, want %v", shape(got), want)
 	}
 }
+
+// TestPrune_ReportedSource: a kept inline source keeps the static entry it
+// reports, so its Reported ID still resolves in the pruned snapshot.
+func TestPrune_ReportedSource(t *testing.T) {
+	l := listenerWith(0, active, [][]string{{"a"}})
+	l.FilterChains[0].HCM.RouteConfigUse.Source = "L0/C0/N0/RCI"
+	snap := &model.Snapshot{Listeners: []model.Listener{l}, RouteConfigs: []model.RouteConfigSource{
+		{ID: "RS0", Kind: model.SourceStatic, Name: "rc"},
+		{ID: "RS1", Kind: model.SourceStatic, Name: "spare"},
+		{ID: "L0/C0/N0/RCI", Kind: model.SourceInline, Name: "rc", Reported: "RS0"},
+	}}
+	got := model.Prune(snap, func(model.ID) bool { return true })
+	var ids []model.ID
+	for _, s := range got.RouteConfigs {
+		ids = append(ids, s.ID)
+	}
+	if want := []model.ID{"RS0", "L0/C0/N0/RCI"}; !reflect.DeepEqual(ids, want) {
+		t.Errorf("sources = %v, want %v", ids, want)
+	}
+}

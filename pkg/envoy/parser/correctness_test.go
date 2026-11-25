@@ -29,8 +29,10 @@ func TestStaticListeners(t *testing.T) {
 	if hcm == nil || hcm.RouteConfig == nil || hcm.RouteConfig.VirtualHosts[0].Routes[0].Cluster != "local_service" {
 		t.Fatalf("hcm = %+v, want the inline route config joined", hcm)
 	}
+	// The reported static entry stays a source, so Reported never dangles.
 	want := []model.RouteConfigSource{
 		{ID: "L0/C0/N0/RCI", Kind: model.SourceInline, Name: "local_route", Reported: "RS0"},
+		{ID: "RS0", Kind: model.SourceStatic, Name: "local_route"},
 		{ID: "RS1", Kind: model.SourceStatic, Name: "spare_route"},
 	}
 	if !reflect.DeepEqual(snap.RouteConfigs, want) {

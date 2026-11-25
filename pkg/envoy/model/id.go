@@ -61,7 +61,8 @@ type RouteConfigSource struct {
 	Kind RouteConfigSourceKind `json:"kind"`
 	Name string                `json:"name"`
 	// Reported is the static entry Envoy lists for an inline config, when one
-	// has the same name and content.
+	// has the same name and content. That entry is itself a source, so the ID
+	// resolves in the snapshot.
 	Reported ID `json:"reported,omitempty"`
 }
 

@@ -97,6 +97,11 @@
         "reported": "RS0"
       },
       {
+        "id": "RS0",
+        "kind": "static",
+        "name": "local_route"
+      },
+      {
         "id": "RS1",
         "kind": "static",
         "name": "spare_route"

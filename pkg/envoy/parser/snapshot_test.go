@@ -242,13 +242,14 @@ var sourcesDump = `{"configs": [
   {"route_config": {"name": "orphan", "virtual_hosts": []}}]}]}`
 
 // TestRouteConfigs_SourcesAndUses: an inline config records the static entry
-// Envoy reports for it; another static entry is a source with no use; an RDS
-// name never resolves to a static source.
+// Envoy reports for it, which stays a source; another static entry is a source
+// with no use; an RDS name never resolves to a static source.
 func TestRouteConfigs_SourcesAndUses(t *testing.T) {
 	snap := parseString(t, sourcesDump)
 	inline := snap.Listeners[0].FilterChains[0].HCM
 	want := []model.RouteConfigSource{
 		{ID: inline.ID + "/RCI", Kind: model.SourceInline, Name: "local", Reported: "RS0"},
+		{ID: "RS0", Kind: model.SourceStatic, Name: "local"},
 		{ID: "RS1", Kind: model.SourceStatic, Name: "orphan"},
 	}
 	if !reflect.DeepEqual(snap.RouteConfigs, want) {
@@ -266,22 +267,23 @@ func TestRouteConfigs_SourcesAndUses(t *testing.T) {
 
 // TestRouteConfigs_Scenario00: main_route and prometheus_route are inline
 // configs of static listeners, also listed in static_route_configs. Each is
-// one inline source that records the static ID as Reported; no HCM joins a
-// static source.
+// one inline source that records the static ID as Reported, and that static
+// source is in the snapshot; no HCM joins a static source.
 func TestRouteConfigs_Scenario00(t *testing.T) {
 	snap := parseFile(t, "../../../testdata/scenarios/00-simple/envoy/kgateway-v2.5.0/config_dump.json")
 	inline := map[string]model.RouteConfigSource{}
+	static := map[model.ID]string{}
 	for _, s := range snap.RouteConfigs {
 		switch s.Kind {
 		case model.SourceInline:
 			inline[s.Name] = s
 		case model.SourceStatic:
-			t.Errorf("static source %s (%s) has no inline config reporting it", s.ID, s.Name)
+			static[s.ID] = s.Name
 		}
 	}
 	for _, name := range []string{"main_route", "prometheus_route"} {
-		if s := inline[name]; s.ID == "" || !strings.HasPrefix(string(s.Reported), "RS") {
-			t.Errorf("%s: inline source = %+v, want one with a static Reported ID", name, s)
+		if s := inline[name]; s.ID == "" || static[s.Reported] != name {
+			t.Errorf("%s: inline source = %+v, want one whose Reported static source has its name", name, s)
 		}
 	}
 	for _, l := range snap.Listeners {

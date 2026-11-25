@@ -14,7 +14,8 @@ import "slices"
 //     route: it is not active, or it is active with a version warming or
 //     draining beside it, or Envoy rejected its last update.
 //
-// Route config sources stay when a retained HCM uses them. Warnings stay when
+// Route config sources stay when a retained HCM uses them, with the static
+// entry a kept source reports. Warnings stay when
 // they are dump-wide or their subject is itself retained.
 // The copy shares maps and unpruned slices with snap; treat both as read-only.
 func Prune(snap *Snapshot, keep func(ID) bool) *Snapshot {
@@ -33,6 +34,11 @@ func Prune(snap *Snapshot, keep func(ID) bool) *Snapshot {
 			if fc.HCM != nil && fc.HCM.RouteConfigUse.Source != "" {
 				used[fc.HCM.RouteConfigUse.Source] = true
 			}
+		}
+	}
+	for _, s := range snap.RouteConfigs {
+		if used[s.ID] && s.Reported != "" {
+			used[s.Reported] = true
 		}
 	}
 	for _, s := range snap.RouteConfigs {

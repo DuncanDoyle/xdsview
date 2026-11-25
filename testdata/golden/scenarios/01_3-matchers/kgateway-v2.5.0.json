@@ -452,6 +452,16 @@
         "reported": "RS0"
       },
       {
+        "id": "RS0",
+        "kind": "static",
+        "name": "prometheus_route"
+      },
+      {
+        "id": "RS1",
+        "kind": "static",
+        "name": "main_route"
+      },
+      {
         "id": "RD0",
         "kind": "dynamic",
         "name": "listener~80"
