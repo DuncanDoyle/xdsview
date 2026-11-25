@@ -168,3 +168,9 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 
 **Alternatives:** B, tag the break first, fixes in a later minor (rejected: two rounds of consumer goldens). A provenance tree mirroring the snapshot (rejected: rules 4–6 still need IDs and per-claim evidence; Snellius walks levels to find one block's dependencies). Keeping `origin.Mapper` with claims (rejected: callbacks lack occurrence and parent context for scope 4–5).
 **Consequences:** `origin` and `filter` move into `adapter/kgateway`. IDs are valid in one dump only (P-011 rule 6). kgwctl migrates once; Snellius Phase 12 targets the tag.
+
+## D-021 — Phase 9 runs 9.4 before 9.3 (2026-11-25, phase 9)
+**Context:** 9.3 locks the provenance API, and the program asks kgwctl and Snellius to review the design first (kgwctl#14, snellius#70, filed 2026-11-25). 9.4 changes only `model`, `parser` and `render`.
+**Decision:** Run 9.4 (core correctness) before 9.3 (owner, 2026-11-25).
+**Alternatives:** wait for both reviews before any more work (rejected: idle time, no dependency).
+**Consequences:** 9.3 builds on the 9.4 snapshot types. 9.4's goldens change before the `v1alpha2` switch; both land in the one tag.

@@ -12,12 +12,12 @@ Status: design; owner said start (2026-11-24).
 - [x] Q1 design → `design.md` (owner approved 2026-11-25)
 - [x] Q2 implementation plan → `implementation-plan.md`: sub-phases 9.1–9.4
 - [x] Q3 Codex review of design + plan, triage: 11 findings accepted, design and plan amended
-- [ ] Q4 `cross-repo` design-review requests to kgwctl and Snellius (drafted; ask before filing) ← CURRENT (owner)
+- [ ] Q4 design reviews: kgwctl#14, snellius#70 filed 2026-11-25; waiting
 - [ ] Q5 owner approval
 - [x] 9.1 snapshot and occurrence IDs (`d944818`, local branch)
 - [x] 9.2 pure execution (`3591396`, local branch)
 - [ ] 9.3 provenance contract and kgateway module (waits on Q4) ← NEXT
-- [ ] 9.4 core correctness. Carries review 9.1–9.2 #5 (scenario 00 inline source, non-HCM network filter IDs). Proposed to run before 9.3 while Q4 waits (owner)
+- [ ] 9.4 core correctness. Carries review 9.1–9.2 #5 (scenario 00 inline source, non-HCM network filter IDs). Runs before 9.3 (D-021) ← CURRENT
 
 ### Exit gates
 - [ ] tests/vet pass (observed)
@@ -28,10 +28,10 @@ Status: design; owner said start (2026-11-24).
 - [ ] phase-9-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-Sub-phase: 9.2 — Pure execution
+Sub-phase: 9.4 — Core correctness (before 9.3, D-021)
 Kind: planned
-Base: d944818
-Brief: docs/phases/phase-9/phase-9.2-brief.md
+Base: b972693
+Brief: docs/phases/phase-9/phase-9.4-brief.md
 Branch: duncandoyle/phase9 (local; nothing merges to main before the consumer review)
 Status: done (2026-11-25), `3591396`; record in phase-9.2-complete.md. Next: 9.3 (waits on Q4).
 
