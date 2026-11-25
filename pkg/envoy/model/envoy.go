@@ -46,8 +46,9 @@ type Listener struct {
 	Address      string               `json:"address"` // e.g. "0.0.0.0:80"
 	FilterChains []NetworkFilterChain `json:"filterChains"`
 	State        ListenerState        `json:"state"`
-	Static       bool                 `json:"static,omitempty"` // a static_listeners entry (bootstrap); status active, though Envoy also dumps it before its workers start
-	Origin       *ListenerOrigin      `json:"origin,omitempty"` // set by origin.Annotate
+	Static       bool                 `json:"static,omitempty"`   // a static_listeners entry (bootstrap); status active, though Envoy also dumps it before its workers start
+	Metadata     map[string]any       `json:"metadata,omitempty"` // filter_metadata of the version shown
+	Origin       *ListenerOrigin      `json:"origin,omitempty"`   // set by origin.Annotate
 }
 
 // ListenerStatus is the version of a listener the snapshot shows.
@@ -145,17 +146,22 @@ type RouteConfig struct {
 
 // VirtualHost is an Envoy virtual host within a route config.
 type VirtualHost struct {
-	ID                   ID                 `json:"id"`
+	ID ID `json:"id"`
+	// SourcePath is the virtual host's place in its route config source, e.g.
+	// "RD3/V2". It is equal across the uses of a shared source; it is not an occurrence ID.
+	SourcePath           ID                 `json:"sourcePath,omitempty"`
 	Name                 string             `json:"name"`    // e.g. "listener~80~api_example_com"
 	Domains              []string           `json:"domains"` // e.g. ["api.example.com"]
 	Routes               []Route            `json:"routes"`
 	TypedPerFilterConfig map[string]any     `json:"typedPerFilterConfig,omitempty"` // overrides the route config's
+	Metadata             map[string]any     `json:"metadata,omitempty"`             // filter_metadata
 	Origin               *VirtualHostOrigin `json:"origin,omitempty"`               // set by origin.Annotate
 }
 
 // Route is an Envoy route within a virtual host.
 type Route struct {
 	ID                      ID                `json:"id"`
+	SourcePath              ID                `json:"sourcePath,omitempty"` // e.g. "RD3/V2/R5"; see VirtualHost.SourcePath
 	Name                    string            `json:"name"`
 	Match                   RouteMatch        `json:"match"`
 	Action                  RouteAction       `json:"action"`

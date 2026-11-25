@@ -444,7 +444,7 @@ func (p *parse) routeEntry(id model.ID, kind model.RouteConfigSourceKind, raw js
 	}
 	_ = json.Unmarshal(raw, &content) // decoded above, so this succeeds
 	return &routeEntry{
-		source: model.RouteConfigSource{ID: id, Kind: kind, Name: entry.RouteConfig.Name},
+		source: routeConfigSource(id, kind, entry.RouteConfig),
 		config: parseRouteConfig(entry.RouteConfig),
 		raw:    content.RouteConfig,
 	}
@@ -498,6 +498,7 @@ func (p *parse) staticListener(i int, sl rawStaticListener) model.Listener {
 
 // listenerBody fills l's address and filter chains from the listener resource.
 func (p *parse) listenerBody(l *model.Listener, body rawListenerBody) {
+	l.Metadata = filterMetadata(body.Metadata)
 	if body.Address.SocketAddress.Address != "" {
 		l.Address = fmt.Sprintf("%s:%d",
 			body.Address.SocketAddress.Address,
@@ -584,7 +585,7 @@ func (p *parse) join(hcm *model.HCMConfig, inline json.RawMessage, label string,
 			p.warn(use.ID, model.WarnRouteConfigSkipped, "%s: skipped route config %q: %v", label, rrc.Name, err)
 			return
 		}
-		e := &routeEntry{source: model.RouteConfigSource{ID: hcm.ID + "/RCI", Kind: model.SourceInline, Name: rrc.Name}}
+		e := &routeEntry{source: routeConfigSource(hcm.ID+"/RCI", model.SourceInline, rrc)}
 		e.source.Reported = p.reported(rrc.Name, inline)
 		p.inline = append(p.inline, e)
 		use.Source, use.State = e.source.ID, model.RouteConfigFound
@@ -644,12 +645,15 @@ func assignIDs(hcm *model.HCMConfig) {
 	if hcm.RouteConfig == nil {
 		return
 	}
+	src := hcm.RouteConfigUse.Source
 	for v := range hcm.RouteConfig.VirtualHosts {
 		vh := &hcm.RouteConfig.VirtualHosts[v]
 		vh.ID = model.ID(fmt.Sprintf("%s/V%d", hcm.RouteConfigUse.ID, v))
+		vh.SourcePath = model.ID(fmt.Sprintf("%s/V%d", src, v))
 		for r := range vh.Routes {
 			route := &vh.Routes[r]
 			route.ID = model.ID(fmt.Sprintf("%s/R%d", vh.ID, r))
+			route.SourcePath = model.ID(fmt.Sprintf("%s/R%d", vh.SourcePath, r))
 			for w := range route.WeightedClusters {
 				route.WeightedClusters[w].ID = model.ID(fmt.Sprintf("%s/W%d", route.ID, w))
 			}
@@ -786,6 +790,24 @@ func parseHTTPFilter(hf rawHTTPFilter) model.HTTPFilter {
 	return filter
 }
 
+// routeConfigSource builds a source with its route-configuration-level data,
+// decoded apart from any use's copy.
+func routeConfigSource(id model.ID, kind model.RouteConfigSourceKind, raw rawRouteConfig) model.RouteConfigSource {
+	return model.RouteConfigSource{
+		ID: id, Kind: kind, Name: raw.Name,
+		Metadata:             filterMetadata(raw.Metadata),
+		TypedPerFilterConfig: decodeAll(raw.TypedPerFilterConfig),
+	}
+}
+
+// filterMetadata decodes a metadata object's filter_metadata; nil when absent.
+func filterMetadata(m *rawRouteMetadata) map[string]any {
+	if m == nil {
+		return nil
+	}
+	return decodeAll(m.FilterMetadata)
+}
+
 // parseRouteConfig converts a raw route config into the model.
 func parseRouteConfig(raw rawRouteConfig) *model.RouteConfig {
 	rc := &model.RouteConfig{
@@ -798,6 +820,7 @@ func parseRouteConfig(raw rawRouteConfig) *model.RouteConfig {
 			Name:                 rvh.Name,
 			Domains:              rvh.Domains,
 			TypedPerFilterConfig: decodeAll(rvh.TypedPerFilterConfig),
+			Metadata:             filterMetadata(rvh.Metadata),
 		}
 
 		for _, rr := range rvh.Routes {
@@ -849,9 +872,7 @@ func parseRouteConfig(raw rawRouteConfig) *model.RouteConfig {
 			route.ResponseHeadersToRemove = rr.ResponseHeadersToRemove
 
 			route.TypedPerFilterConfig = decodeAll(rr.TypedPerFilterConfig)
-			if rr.Metadata != nil {
-				route.Metadata = decodeAll(rr.Metadata.FilterMetadata)
-			}
+			route.Metadata = filterMetadata(rr.Metadata)
 
 			vh.Routes = append(vh.Routes, route)
 		}
@@ -937,8 +958,9 @@ type rawListenerBody struct {
 			PortValue int    `json:"port_value"`
 		} `json:"socket_address"`
 	} `json:"address"`
-	FilterChains       []rawFilterChain `json:"filter_chains"`
-	DefaultFilterChain *rawFilterChain  `json:"default_filter_chain"`
+	FilterChains       []rawFilterChain  `json:"filter_chains"`
+	DefaultFilterChain *rawFilterChain   `json:"default_filter_chain"`
+	Metadata           *rawRouteMetadata `json:"metadata"`
 }
 
 // UnmarshalJSON decodes the listener and keeps its JSON.
@@ -1080,6 +1102,7 @@ type rawRouteConfig struct {
 	Name                 string                     `json:"name"`
 	VirtualHosts         []rawVirtualHost           `json:"virtual_hosts"`
 	TypedPerFilterConfig map[string]json.RawMessage `json:"typed_per_filter_config"`
+	Metadata             *rawRouteMetadata          `json:"metadata"`
 }
 
 // rawVirtualHost is a single virtual_host within a route config.
@@ -1088,6 +1111,7 @@ type rawVirtualHost struct {
 	Domains              []string                   `json:"domains"`
 	Routes               []rawRoute                 `json:"routes"`
 	TypedPerFilterConfig map[string]json.RawMessage `json:"typed_per_filter_config"`
+	Metadata             *rawRouteMetadata          `json:"metadata"`
 }
 
 // rawRoute is a single route entry within a virtual host.
@@ -1425,7 +1449,8 @@ func int64Text(raw json.RawMessage) string {
 	return strings.Trim(string(raw), `"`)
 }
 
-// rawRouteMetadata holds the `metadata` object on a route, used for EKTP policy cross-references.
+// rawRouteMetadata holds a `metadata` object: on a listener, route config,
+// virtual host or route.
 type rawRouteMetadata struct {
 	FilterMetadata map[string]json.RawMessage `json:"filter_metadata"`
 }
@@ -1492,6 +1517,7 @@ func cloneRouteConfig(rc *model.RouteConfig) *model.RouteConfig {
 			Domains:              append([]string(nil), vh.Domains...),
 			Routes:               make([]model.Route, len(vh.Routes)),
 			TypedPerFilterConfig: copyJSON(vh.TypedPerFilterConfig),
+			Metadata:             copyJSON(vh.Metadata),
 		}
 		for j, r := range vh.Routes {
 			cloneRoute := r // copy all scalar fields

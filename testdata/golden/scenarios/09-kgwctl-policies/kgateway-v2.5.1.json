@@ -142,6 +142,7 @@
                 "virtualHosts": [
                   {
                     "id": "L0/C0/N0/RC/V0",
+                    "sourcePath": "RD0/V0",
                     "name": "listener~8080~orders-kgwctl_proxy_example",
                     "domains": [
                       "orders-kgwctl.proxy.example"
@@ -149,6 +150,7 @@
                     "routes": [
                       {
                         "id": "L0/C0/N0/RC/V0/R0",
+                        "sourcePath": "RD0/V0/R0",
                         "name": "listener~8080~orders-kgwctl_proxy_example-route-0-httproute-orders-kgwctl-proxy-0-0-matcher-0",
                         "match": {
                           "prefix": "/"
@@ -249,6 +251,7 @@
                   },
                   {
                     "id": "L0/C0/N0/RC/V1",
+                    "sourcePath": "RD0/V1",
                     "name": "listener~8080~orders_kgwctl_example",
                     "domains": [
                       "orders.kgwctl.example"
@@ -256,6 +259,7 @@
                     "routes": [
                       {
                         "id": "L0/C0/N0/RC/V1/R0",
+                        "sourcePath": "RD0/V1/R0",
                         "name": "listener~8080~orders_kgwctl_example-route-0-httproute-orders-kgwctl-proxy-0-0-matcher-0",
                         "match": {
                           "prefix": "/"
@@ -446,6 +450,7 @@
                   },
                   {
                     "id": "L0/C0/N0/RC/V2",
+                    "sourcePath": "RD0/V2",
                     "name": "listener~8080~public_kgwctl_example",
                     "domains": [
                       "public.kgwctl.example"
@@ -453,6 +458,7 @@
                     "routes": [
                       {
                         "id": "L0/C0/N0/RC/V2/R0",
+                        "sourcePath": "RD0/V2/R0",
                         "name": "listener~8080~public_kgwctl_example-route-0-httproute-public-kgwctl-proxy-0-0-matcher-0",
                         "match": {
                           "prefix": "/"
@@ -655,6 +661,7 @@
                 "virtualHosts": [
                   {
                     "id": "L1/C0/N0/RC/V0",
+                    "sourcePath": "L1/C0/N0/RCI/V0",
                     "name": "local_service",
                     "domains": [
                       "*"
@@ -662,6 +669,7 @@
                     "routes": [
                       {
                         "id": "L1/C0/N0/RC/V0/R0",
+                        "sourcePath": "L1/C0/N0/RCI/V0/R0",
                         "name": "",
                         "match": {
                           "path": "/ready",
@@ -757,6 +765,7 @@
                 "virtualHosts": [
                   {
                     "id": "L2/C0/N0/RC/V0",
+                    "sourcePath": "L2/C0/N0/RCI/V0",
                     "name": "prometheus_host",
                     "domains": [
                       "*"
@@ -764,6 +773,7 @@
                     "routes": [
                       {
                         "id": "L2/C0/N0/RC/V0/R0",
+                        "sourcePath": "L2/C0/N0/RCI/V0/R0",
                         "name": "",
                         "match": {
                           "path": "/ready",
@@ -796,6 +806,7 @@
                       },
                       {
                         "id": "L2/C0/N0/RC/V0/R1",
+                        "sourcePath": "L2/C0/N0/RCI/V0/R1",
                         "name": "",
                         "match": {
                           "prefix": "/metrics",
@@ -833,6 +844,7 @@
                       },
                       {
                         "id": "L2/C0/N0/RC/V0/R2",
+                        "sourcePath": "L2/C0/N0/RCI/V0/R2",
                         "name": "",
                         "match": {
                           "prefix": "/stats",

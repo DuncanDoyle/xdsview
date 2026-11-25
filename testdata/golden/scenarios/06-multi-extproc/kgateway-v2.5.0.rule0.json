@@ -225,6 +225,7 @@
                 "virtualHosts": [
                   {
                     "id": "L0/C0/N0/RC/V0",
+                    "sourcePath": "RD0/V0",
                     "name": "listener~80~api_example_com",
                     "domains": [
                       "api.example.com"
@@ -232,6 +233,7 @@
                     "routes": [
                       {
                         "id": "L0/C0/N0/RC/V0/R1",
+                        "sourcePath": "RD0/V0/R1",
                         "name": "listener~80~api_example_com-route-1-httproute-api-example-com-kgateway-system-0-0-matcher-0",
                         "match": {
                           "prefix": "/"

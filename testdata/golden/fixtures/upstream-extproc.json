@@ -140,6 +140,7 @@
                 "virtualHosts": [
                   {
                     "id": "L0/C0/N0/RC/V0",
+                    "sourcePath": "RD0/V0",
                     "name": "listener~8080~app_example",
                     "domains": [
                       "app.example"
@@ -147,6 +148,7 @@
                     "routes": [
                       {
                         "id": "L0/C0/N0/RC/V0/R0",
+                        "sourcePath": "RD0/V0/R0",
                         "name": "listener~8080~app_example-route-0-httproute-app-default-0-0-matcher-0",
                         "match": {
                           "prefix": "/private"
@@ -205,6 +207,7 @@
                       },
                       {
                         "id": "L0/C0/N0/RC/V0/R1",
+                        "sourcePath": "RD0/V0/R1",
                         "name": "listener~8080~app_example-route-1-httproute-app-default-1-0-matcher-0",
                         "match": {
                           "prefix": "/"

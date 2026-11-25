@@ -45,6 +45,7 @@
                 "virtualHosts": [
                   {
                     "id": "L0/C0/N0/RC/V0",
+                    "sourcePath": "RD0/V0",
                     "name": "any",
                     "domains": [
                       "*"
@@ -52,6 +53,7 @@
                     "routes": [
                       {
                         "id": "L0/C0/N0/RC/V0/R0",
+                        "sourcePath": "RD0/V0/R0",
                         "name": "by-header",
                         "match": {
                           "prefix": "/header"
@@ -78,6 +80,7 @@
                       },
                       {
                         "id": "L0/C0/N0/RC/V0/R1",
+                        "sourcePath": "RD0/V0/R1",
                         "name": "by-plugin",
                         "match": {
                           "prefix": "/plugin"
@@ -104,6 +107,7 @@
                       },
                       {
                         "id": "L0/C0/N0/RC/V0/R2",
+                        "sourcePath": "RD0/V0/R2",
                         "name": "by-inline-plugin",
                         "match": {
                           "prefix": "/inline"
@@ -133,6 +137,7 @@
                       },
                       {
                         "id": "L0/C0/N0/RC/V0/R3",
+                        "sourcePath": "RD0/V0/R3",
                         "name": "by-name",
                         "match": {
                           "prefix": "/"

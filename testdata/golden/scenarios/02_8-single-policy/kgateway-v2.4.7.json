@@ -74,6 +74,7 @@
                 "virtualHosts": [
                   {
                     "id": "L0/C0/N0/RC/V0",
+                    "sourcePath": "RD0/V0",
                     "name": "listener~80~api_example_com",
                     "domains": [
                       "api.example.com"
@@ -81,6 +82,7 @@
                     "routes": [
                       {
                         "id": "L0/C0/N0/RC/V0/R0",
+                        "sourcePath": "RD0/V0/R0",
                         "name": "listener~80~api_example_com-route-0-httproute-api-example-com-kgateway-system-0-0-matcher-0",
                         "match": {
                           "prefix": "/"
@@ -284,6 +286,7 @@
                 "virtualHosts": [
                   {
                     "id": "L1/C0/N0/RC/V0",
+                    "sourcePath": "L1/C0/N0/RCI/V0",
                     "name": "local_service",
                     "domains": [
                       "*"
@@ -291,6 +294,7 @@
                     "routes": [
                       {
                         "id": "L1/C0/N0/RC/V0/R0",
+                        "sourcePath": "L1/C0/N0/RCI/V0/R0",
                         "name": "",
                         "match": {
                           "path": "/ready",
@@ -386,6 +390,7 @@
                 "virtualHosts": [
                   {
                     "id": "L2/C0/N0/RC/V0",
+                    "sourcePath": "L2/C0/N0/RCI/V0",
                     "name": "prometheus_host",
                     "domains": [
                       "*"
@@ -393,6 +398,7 @@
                     "routes": [
                       {
                         "id": "L2/C0/N0/RC/V0/R0",
+                        "sourcePath": "L2/C0/N0/RCI/V0/R0",
                         "name": "",
                         "match": {
                           "path": "/ready",
@@ -425,6 +431,7 @@
                       },
                       {
                         "id": "L2/C0/N0/RC/V0/R1",
+                        "sourcePath": "L2/C0/N0/RCI/V0/R1",
                         "name": "",
                         "match": {
                           "prefix": "/metrics",
@@ -462,6 +469,7 @@
                       },
                       {
                         "id": "L2/C0/N0/RC/V0/R2",
+                        "sourcePath": "L2/C0/N0/RCI/V0/R2",
                         "name": "",
                         "match": {
                           "prefix": "/stats",

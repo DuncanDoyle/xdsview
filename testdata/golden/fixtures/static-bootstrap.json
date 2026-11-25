@@ -45,6 +45,7 @@
                 "virtualHosts": [
                   {
                     "id": "L0/C0/N0/RC/V0",
+                    "sourcePath": "L0/C0/N0/RCI/V0",
                     "name": "local_host",
                     "domains": [
                       "*"
@@ -52,6 +53,7 @@
                     "routes": [
                       {
                         "id": "L0/C0/N0/RC/V0/R0",
+                        "sourcePath": "L0/C0/N0/RCI/V0/R0",
                         "name": "",
                         "match": {
                           "path": "/ready"

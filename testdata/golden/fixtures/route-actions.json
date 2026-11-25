@@ -45,6 +45,7 @@
                 "virtualHosts": [
                   {
                     "id": "L0/C0/N0/RC/V0",
+                    "sourcePath": "RD0/V0",
                     "name": "any",
                     "domains": [
                       "*"
@@ -52,6 +53,7 @@
                     "routes": [
                       {
                         "id": "L0/C0/N0/RC/V0/R0",
+                        "sourcePath": "RD0/V0/R0",
                         "name": "https",
                         "match": {
                           "prefix": "/old"
@@ -85,6 +87,7 @@
                       },
                       {
                         "id": "L0/C0/N0/RC/V0/R1",
+                        "sourcePath": "RD0/V0/R1",
                         "name": "prefix",
                         "match": {
                           "prefix": "/v1/"
@@ -114,6 +117,7 @@
                       },
                       {
                         "id": "L0/C0/N0/RC/V0/R2",
+                        "sourcePath": "RD0/V0/R2",
                         "name": "regex",
                         "match": {
                           "prefix": "/a/"
@@ -145,6 +149,7 @@
                       },
                       {
                         "id": "L0/C0/N0/RC/V0/R3",
+                        "sourcePath": "RD0/V0/R3",
                         "name": "template",
                         "match": {
                           "prefix": "/t/"
@@ -174,6 +179,7 @@
                       },
                       {
                         "id": "L0/C0/N0/RC/V0/R4",
+                        "sourcePath": "RD0/V0/R4",
                         "name": "down",
                         "match": {
                           "prefix": "/down"
@@ -204,6 +210,7 @@
                       },
                       {
                         "id": "L0/C0/N0/RC/V0/R5",
+                        "sourcePath": "RD0/V0/R5",
                         "name": "bytes",
                         "match": {
                           "prefix": "/bytes"
@@ -234,6 +241,7 @@
                       },
                       {
                         "id": "L0/C0/N0/RC/V0/R6",
+                        "sourcePath": "RD0/V0/R6",
                         "name": "file",
                         "match": {
                           "prefix": "/file"
@@ -263,6 +271,7 @@
                       },
                       {
                         "id": "L0/C0/N0/RC/V0/R7",
+                        "sourcePath": "RD0/V0/R7",
                         "name": "formatted",
                         "match": {
                           "prefix": "/formatted"
@@ -292,6 +301,7 @@
                       },
                       {
                         "id": "L0/C0/N0/RC/V0/R8",
+                        "sourcePath": "RD0/V0/R8",
                         "name": "empty",
                         "match": {
                           "prefix": "/empty"
@@ -320,6 +330,7 @@
                       },
                       {
                         "id": "L0/C0/N0/RC/V0/R9",
+                        "sourcePath": "RD0/V0/R9",
                         "name": "filter",
                         "match": {
                           "prefix": "/filter"
@@ -346,6 +357,7 @@
                       },
                       {
                         "id": "L0/C0/N0/RC/V0/R10",
+                        "sourcePath": "RD0/V0/R10",
                         "name": "non-forwarding",
                         "match": {
                           "prefix": "/"

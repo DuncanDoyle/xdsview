@@ -42,6 +42,10 @@ const (
 	WarnRDSMissing         = "rds-missing"          // an active HCM's RDS name has no route config in a complete capture
 	WarnECDSAmbiguous      = "ecds-ambiguous"       // several ECDS configs match a filter's name and types
 	WarnECDSSkipped        = "ecds-skipped"         // an ECDS config entry could not be read
+
+	// Provenance warnings, on a composed index rather than a snapshot.
+	WarnClaimDropped = "claim-dropped" // a module's claim broke a composition rule
+	WarnLinkDropped  = "link-dropped"  // a filter link could not be resolved
 )
 
 // RouteConfigSourceKind says where in the dump a route configuration sits.
@@ -64,6 +68,10 @@ type RouteConfigSource struct {
 	// has the same name and content. That entry is itself a source, so the ID
 	// resolves in the snapshot.
 	Reported ID `json:"reported,omitempty"`
+	// Route-configuration-level data, kept even for a source with no use:
+	// filter_metadata, and the per-filter config each use also copies.
+	Metadata             map[string]any `json:"metadata,omitempty"`
+	TypedPerFilterConfig map[string]any `json:"typedPerFilterConfig,omitempty"`
 }
 
 // RouteConfigState says whether an HCM's route config use joined a source.
