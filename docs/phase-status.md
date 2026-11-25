@@ -14,6 +14,10 @@ Status: design; owner said start (2026-11-24).
 - [x] Q3 Codex review of design + plan, triage: 11 findings accepted, design and plan amended
 - [ ] Q4 `cross-repo` design-review requests to kgwctl and Snellius (drafted; ask before filing) ← CURRENT (owner)
 - [ ] Q5 owner approval
+- [x] 9.1 snapshot and occurrence IDs (`d944818`, local branch)
+- [ ] 9.2 pure execution ← CURRENT
+- [ ] 9.3 provenance contract and kgateway module (waits on Q4)
+- [ ] 9.4 core correctness
 
 ### Exit gates
 - [ ] tests/vet pass (observed)
@@ -24,10 +28,10 @@ Status: design; owner said start (2026-11-24).
 - [ ] phase-9-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-Sub-phase: 9.1 — Snapshot and occurrence IDs
+Sub-phase: 9.2 — Pure execution
 Kind: planned
-Base: 8d381f6
-Brief: docs/phases/phase-9/phase-9.1-brief.md
+Base: d944818
+Brief: docs/phases/phase-9/phase-9.2-brief.md
 Branch: duncandoyle/phase9 (local; nothing merges to main before the consumer review)
 Status: done (2026-11-25), `4c1f12e`; record in phase-9.1-complete.md. Next: 9.2.
 
