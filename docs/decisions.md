@@ -174,3 +174,12 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 **Decision:** Run 9.4 (core correctness) before 9.3 (owner, 2026-11-25).
 **Alternatives:** wait for both reviews before any more work (rejected: idle time, no dependency).
 **Consequences:** 9.3 builds on the 9.4 snapshot types. 9.4's goldens change before the `v1alpha2` switch; both land in the one tag.
+
+## D-022 — krp's selection choices under the Phase 9 contract (2026-11-25, phase 9)
+**Context:** Selection is the consumer's call (P-010 scope 6). Under design §6 rules 3–4, a route left with one matching reading only by `Known` is ambiguous. krp passes `--route` as `Known`, and corpus route names read two ways, so every such route would leave krp's `--route` output. And `GatewaySource` now comes from metadata only, so listener lines would lose the Gateway that `--gateway` names.
+**Decision:**
+1. krp also selects an ambiguous route whose `Narrowing` kept exactly one reading that matches the query, and marks it narrowed in text and JSON. The user named that HTTPRoute; this is today's behaviour. `kgateway.Select` keeps the stricter rule, which kgwctl uses.
+2. krp prints the Gateway from `--gateway` on listener lines as its own context, labelled as such, never as a claim.
+
+**Alternatives:** change `Select` for everyone (rejected: kgwctl needs the strict rule); accept the output loss (rejected: krp's `--route` would show nothing on most corpus dumps).
+**Consequences:** krp output is unchanged for these cases. The JSON `selection` shows which routes krp added this way.
