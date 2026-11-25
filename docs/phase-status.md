@@ -9,7 +9,7 @@ Docs: docs/phases/phase-9/
 Status: design; owner said start (2026-11-24).
 
 ### Queue
-- [ ] Q1 design (brainstorming) → `design.md`: P-010 scope 1–8, core correctness list incl. E14 missing-RDS, Phase 8 deferred P1s (#2, #4, #5) ← CURRENT
+- [ ] Q1 design (brainstorming) → `design.md`: P-010 scope 1–8, core correctness list incl. E14 missing-RDS, Phase 8 deferred P1s (#2, #4, #5). Draft written; owner review ← CURRENT
 - [ ] Q2 implementation plan → `implementation-plan.md`, split into planned sub-phases
 - [ ] Q3 Codex review of design + plan, triage
 - [ ] Q4 `cross-repo` design-review requests to kgwctl and Snellius (ask before filing)
@@ -41,6 +41,7 @@ Consumers: E6 (kgwctl move into kgateway): `v0.6.0` released. E13 available (`v0
 - Phase 9 (P-010, E15), after P-009: one contract break, design reviewed by kgwctl and Snellius before approval. File `cross-repo` review requests in both when the design is ready (ask first).
 
 ## Notes
+- 2026-11-25: owner chose API option 1 (D-020). Design draft `phases/phase-9/design.md` written; waiting on owner review before the plan.
 - 2026-11-24: Phase 9 started at 40822d0 (owner: yes).
 - 2026-11-24: design in progress (brainstorming). Owner decided: one tag at the end of the phase, break plus core correctness (option A). Open, asked and unanswered: API shape. Proposed option 1 (position-keyed claims: `parser.Parse` → read-only snapshot with occurrence IDs; `chain.Effective` keyed by ID; `provenance.Compose(snap, modules...)` returns flat claims; conflicts → ambiguous). Rejected: a parallel provenance tree (not additive), keeping `Mapper` (misses scope 4–5). Resume there.
 - 2026-11-24: P-009 done (`263055d`). Owner: missing-RDS finding into Phase 9; kgwctl#13, snellius#68 filed; program `0b71089`; M-3 not approved.

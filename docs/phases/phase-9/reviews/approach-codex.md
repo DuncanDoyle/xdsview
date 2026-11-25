@@ -30,7 +30,7 @@ Give kgwctl a route-ID lookup for its payload and unresolved-route listing, and 
 | # | Finding | Dimension | Decision |
 |---|---|---|---|
 | 1 | Releases: A | architecture | accept (owner chose A, 2026-11-24) |
-| 2 | API: option 1 with typed claims and indexed lookup | architecture | accept, pending owner |
+| 2 | API: option 1 with typed claims and indexed lookup | architecture | accept (owner chose option 1, 2026-11-25, D-020) |
 | 3 | Route-ID lookup for kgwctl, block-dependency query for Snellius | architecture | accept into design |
 | 4 | IDs assigned before pruning, carried through every projection | correctness | accept into design |
 | 5 | Duplicate RDS names overwritten; shared config cloned per HCM | correctness | accept into design (core correctness) |

@@ -159,3 +159,12 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 2. Retires the carry-over "sides hook on a consumer's request": modules never supply sides (P-010 rule 3).
 3. The kgateway knowledge in `origin` and `filter` moves into a kgateway module. `docs/roadmap.md`'s architecture diagram changes when the package moves.
 4. Public hygiene: tests use neutral fixtures only; other control planes are tested downstream.
+
+## D-020 — Phase 9 release and API shape (2026-11-25, phase 9)
+**Context:** Phase 9 (D-019) needed two decisions before its design: how to release, and the Go API shape that separates execution from provenance. Codex was consulted without the author's pick (`phases/phase-9/reviews/approach-codex.md`).
+**Decision:**
+1. One tag at phase close, with the break and the core-correctness fixes (owner, 2026-11-24, option A).
+2. Position-keyed claims (owner, 2026-11-25, option 1): `parser.Parse` returns a snapshot with occurrence IDs; `chain.Effective` returns chains keyed by route ID and calls no module; `provenance.Compose(snap, modules...)` returns typed claims in an indexed result; conflicts of equal certainty are ambiguous. Codex agreed with both.
+
+**Alternatives:** B, tag the break first, fixes in a later minor (rejected: two rounds of consumer goldens). A provenance tree mirroring the snapshot (rejected: rules 4–6 still need IDs and per-claim evidence; Snellius walks levels to find one block's dependencies). Keeping `origin.Mapper` with claims (rejected: callbacks lack occurrence and parent context for scope 4–5).
+**Consequences:** `origin` and `filter` move into `adapter/kgateway`. IDs are valid in one dump only (P-011 rule 6). kgwctl migrates once; Snellius Phase 12 targets the tag.
