@@ -195,6 +195,50 @@ func TestDependencies_PolicyGapsPerSlot(t *testing.T) {
 	}
 }
 
+// TestDependencies_PlacementPerRoute (Codex r2 #1, N2): a vhost-level gap on
+// a slot closes for a route only when a link on that route places a vhost
+// record on the slot, with the record and link both at inferred or exact.
+func TestDependencies_PlacementPerRoute(t *testing.T) {
+	snap := twoListeners()
+	snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].TypedPerFilterConfig = map[string]any{"authz": map[string]any{}}
+	gap := provenance.Gap{Subject: vhost0, Kind: provenance.KindPolicyRecord, Slot: slot0, Level: provenance.LevelVirtualHost}
+	vhRecord := func(c model.Certainty) provenance.Claim {
+		r := record("vhost", vhost0, provenance.LevelVirtualHost, policyA)
+		r.Certainty = c
+		return r
+	}
+	onRoute := func(route model.ID, c model.Certainty) provenance.Claim {
+		l := link("vhost", route, slot0)
+		l.Certainty = c
+		return l
+	}
+	for _, tc := range []struct {
+		name   string
+		claims []provenance.Claim
+		gap    bool
+	}{
+		{"linked on this route", []provenance.Claim{vhRecord(model.Exact), onRoute(route0, model.Inferred)}, false},
+		{"linked on a sibling route", []provenance.Claim{vhRecord(model.Exact), onRoute(route1, model.Inferred)}, true},
+		{"two links from the record on this route", []provenance.Claim{vhRecord(model.Exact), onRoute(route0, model.Inferred), onRoute(route0, model.Inferred)}, true},
+		{"ambiguous link", []provenance.Claim{vhRecord(model.Exact), onRoute(route0, model.Ambiguous)}, true},
+		{"unknown link", []provenance.Claim{vhRecord(model.Exact), onRoute(route0, model.Unknown)}, true},
+		{"unknown record", []provenance.Claim{vhRecord(model.Unknown), onRoute(route0, model.Inferred)}, true},
+	} {
+		ix := compose(t, snap, fixed{"m", tc.claims})
+		if got := slices.Contains(ix.Dependencies(route0).Gaps, gap); got != tc.gap {
+			t.Errorf("%s: vhost gap on R0 = %v, want %v", tc.name, got, tc.gap)
+		}
+	}
+	// The sibling's own view is closed by its own link.
+	ix := compose(t, snap, fixed{"m", []provenance.Claim{vhRecord(model.Exact), onRoute(route1, model.Inferred)}})
+	if slices.Contains(ix.Dependencies(route1).Gaps, gap) {
+		t.Error("R1's own link leaves its vhost gap")
+	}
+	if !slices.Contains(ix.Dependencies(vhost0).Gaps, gap) {
+		t.Error("the vhost block has no gap though R0 has no link")
+	}
+}
+
 // TestRecords lists a route's records at every level, most specific first.
 func TestRecords(t *testing.T) {
 	snap, _ := parser.Parse(strings.NewReader(depsDump), parser.Options{})

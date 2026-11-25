@@ -127,8 +127,9 @@ type Gap struct {
 //   - extensionSource: an HTTP filter slot with per-filter config on any route
 //     of its HCM and no such ExtensionSource;
 //   - policyRecord: per-filter config for a slot at route, virtual host or
-//     route config level that no kept [FilterLink] places a record of that
-//     level on; and an HTTP filter slot that runs by default, is not the
+//     route config level, unless for each route checked a kept [FilterLink]
+//     on that route places a record of that level on the slot, link and
+//     record both at inferred or exact; and an HTTP filter slot that runs by default, is not the
 //     router or a helper, with no listener-level PolicyRecord on its listener;
 //   - gatewaySource: a listener with no GatewaySource above unknown;
 //   - a dropped claim's kind on its subject (Compose rule 3).
@@ -221,18 +222,28 @@ func (ix *Index) gaps(scope map[model.ID]bool) []Gap {
 			}
 		}
 	}
-	// placed holds (record subject, slot) pairs that a kept link joins.
-	placed := map[[2]model.ID]bool{}
+	// placed holds (route, record subject, slot) for kept links whose link and
+	// record are both at inferred or exact.
+	placed := map[[3]model.ID]bool{}
 	for _, c := range ix.claims {
-		if l, ok := c.Assertion.(FilterLink); ok {
-			if rec, ok := ix.Record(c); ok {
-				placed[[2]model.ID{rec.Subject, l.Slot}] = true
+		if l, ok := c.Assertion.(FilterLink); ok && c.Certainty >= model.Inferred {
+			if rec, ok := ix.Record(c); ok && rec.Certainty >= model.Inferred {
+				placed[[3]model.ID{c.Subject, rec.Subject, l.Slot}] = true
 			}
 		}
 	}
-	unplaced := func(at model.ID, level Level, pfc map[string]any, hcm *model.HCMConfig) {
+	// unplaced checks config at `at` against the in-scope routes beneath it, or
+	// all of them when none is in scope (e.g. a route config source block).
+	unplaced := func(at model.ID, level Level, pfc map[string]any, hcm *model.HCMConfig, routes []model.ID) {
+		checked := slices.DeleteFunc(slices.Clone(routes), func(r model.ID) bool { return !scope[r] })
+		if len(checked) == 0 {
+			checked = routes
+		}
 		for _, f := range hcm.HTTPFilters {
-			if _, ok := pfc[f.Name]; ok && scope[at] && scope[f.ID] && !placed[[2]model.ID{at, f.ID}] {
+			if _, ok := pfc[f.Name]; !ok || !scope[at] || !scope[f.ID] {
+				continue
+			}
+			if len(checked) == 0 || slices.ContainsFunc(checked, func(r model.ID) bool { return !placed[[3]model.ID{r, at, f.ID}] }) {
 				addGap(Gap{Subject: at, Kind: KindPolicyRecord, Slot: f.ID, Level: level})
 			}
 		}
@@ -263,15 +274,15 @@ func (ix *Index) gaps(scope map[model.ID]bool) []Gap {
 				}
 			}
 			if src, ok := sources[hcm.RouteConfigUse.Source]; ok {
-				unplaced(src.ID, LevelRouteConfig, src.TypedPerFilterConfig, hcm)
+				unplaced(src.ID, LevelRouteConfig, src.TypedPerFilterConfig, hcm, routeIDs(hcm.RouteConfig, nil))
 			}
 			if hcm.RouteConfig == nil {
 				continue
 			}
 			for _, vh := range hcm.RouteConfig.VirtualHosts {
-				unplaced(vh.ID, LevelVirtualHost, vh.TypedPerFilterConfig, hcm)
+				unplaced(vh.ID, LevelVirtualHost, vh.TypedPerFilterConfig, hcm, routeIDs(nil, &vh))
 				for _, r := range vh.Routes {
-					unplaced(r.ID, LevelRoute, r.TypedPerFilterConfig, hcm)
+					unplaced(r.ID, LevelRoute, r.TypedPerFilterConfig, hcm, []model.ID{r.ID})
 					if scope[r.ID] {
 						if !resolved(r.ID, KindRouteSource) {
 							add(r.ID, KindRouteSource)
@@ -306,6 +317,24 @@ func (ix *Index) gaps(scope map[model.ID]bool) []Gap {
 		}
 		return strings.Compare(string(a.Level), string(b.Level))
 	})
+	return out
+}
+
+// routeIDs returns the IDs of vh's routes, or of every route in rc when vh is nil.
+func routeIDs(rc *model.RouteConfig, vh *model.VirtualHost) []model.ID {
+	var vhs []model.VirtualHost
+	switch {
+	case vh != nil:
+		vhs = []model.VirtualHost{*vh}
+	case rc != nil:
+		vhs = rc.VirtualHosts
+	}
+	var out []model.ID
+	for _, v := range vhs {
+		for _, r := range v.Routes {
+			out = append(out, r.ID)
+		}
+	}
 	return out
 }
 
