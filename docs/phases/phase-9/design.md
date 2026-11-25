@@ -47,8 +47,8 @@ The core answers what Envoy runs, from Envoy data alone. Product modules add cla
 | core | `pkg/envoy/parser` | config dump → `*model.Snapshot` | model |
 | core | `pkg/envoy/chain` | `Effective`: effective chain per route | model |
 | core | `pkg/envoy/render` | text view of a snapshot and its chains; generic note hooks | model |
-| core | `pkg/envoy/source`, `source/kube` | unchanged | as today |
-| contract | `pkg/envoy/provenance` | `Claim`, assertion kinds, `Module`, `Compose`, `Index`, `NameMapper` | model, chain |
+| core | `pkg/envoy/source`, `source/kube` | as today, plus `Capture()` on `Source` | as today |
+| contract | `pkg/envoy/provenance` | `Claim`, assertion kinds, `Module`, `Compose`, `Index`, `NameMapper`, `Notes` | model, chain, render |
 | module | `pkg/adapter/kgateway` | today's `origin/kgateway.go` and `filter`: claims, `merge.*` and `route_source` decoding, route selection, names | model, provenance |
 
 `origin` and `filter` are removed. A dependency test fails the build if `model`, `parser`, `chain` or `render` import `provenance` or `adapter/...` (extends the D-004 test).
@@ -57,7 +57,7 @@ The core answers what Envoy runs, from Envoy data alone. Product modules add cla
 
 `parser.Parse(r, opts) (*model.Snapshot, error)`. Warnings move into the snapshot, typed and keyed by ID.
 
-The same bytes can come from a complete or a filtered dump (design review #2). `parser.Options.Capture` says which: `CaptureUnverified` (the default, and every file input unless the caller states otherwise) or `CaptureComplete` (set by `source.Admin` and `kube` when they fetched `/config_dump` with no filter or mask). `Snapshot.Capture` carries it. Missing-RDS (§4.1) needs `CaptureComplete`.
+The same bytes can come from a complete or a filtered dump (design review #2). `model.Capture` says which: `CaptureUnverified` (the default, and every file input unless the caller states otherwise) or `CaptureComplete`. `source.Source` gains `Capture() model.Capture`: `Admin` and `kube` return `CaptureComplete` when they fetched `/config_dump` with no filter or mask, `File` returns unverified. The caller passes it in `parser.Options.Capture`, and `Snapshot.Capture` carries it. Missing-RDS (§4.1) needs `CaptureComplete`.
 
 ```go
 // ID names one occurrence in one Snapshot. It is opaque and valid only in
@@ -129,7 +129,7 @@ Each item changes OSS output. Goldens change only through reviewed `-update` run
 | 1 | Missing RDS (E14) | An active listener's HCM with an RDS name and no matching dynamic source gets `RouteConfigState` `missing` and a `rds-missing` warning, only on a `CaptureComplete` snapshot. It is `unknown` when the capture is unverified, `RoutesConfigDump` is absent, or any route config entry was skipped. Warming and draining listeners stay `unknown`. Tests cover complete, unverified (filtered) and draining cases. |
 | 2 | Static listeners and route configs | `static_listeners` and `static_route_configs` are parsed (§2 sources and uses). `Listener.Static` marks them. |
 | 3 | Non-HCM chains | Every filter chain lists its network filters (ID, name, type). A chain without an HCM is kept, not dropped. |
-| 4 | ECDS and wrapper state | A filter with `config_discovery` takes its config from the `EcdsConfigDump` entry whose name is the filter's name and whose type is in `type_urls` (`ConfigSource: ecds`). With no entry, `default_config` applies only when `apply_default_config_without_warming` is set (`ecdsDefault`). Otherwise the filter stays in place: `Runs` unknown, `State` unresolved. Composite and ExtensionWithMatcher set `Wrapper`; both set `Conditional`. |
+| 4 | ECDS and wrapper state | A filter with `config_discovery` takes its config from the `EcdsConfigDump` entry whose name is the filter's name and whose type is in `type_urls` (`ConfigSource: ecds`). With no entry, on an active listener with `default_config` set, the default is in use: Envoy applies it when discovery fails, and `apply_default_config_without_warming` only decides whether it waits (`ecdsDefault`). Otherwise the filter stays in place: `Runs` unknown, `State` unresolved. Composite and ExtensionWithMatcher set `Wrapper`; both set `Conditional`. |
 | 5 | Matchers | Header matchers read the top-level `exact_match`, `prefix_match`, `suffix_match`, `contains_match`, `safe_regex_match`, `present_match` and `range_match`, every `string_match` form, `invert_match` and `ignore_case`. Query matchers read `string_match` and `present_match`. `RouteMatch.CaseSensitive` and `connect_matcher` are read. Predicates the parser doesn't model (gRPC, runtime fraction, dynamic metadata, TLS context, path match policy) are listed in `RouteMatch.Unparsed` and shown in text and JSON, never dropped. |
 | 6 | Default filter chain | `Listener.DefaultFilterChain` is parsed with its own ID (`L0/Cd`). |
 | 7 | Cluster selectors | `cluster_header`, `cluster_specifier_plugin` and `inline_cluster_specifier_plugin` are read into `Route.Action`. The route has no cluster name, and says why. |
@@ -171,7 +171,8 @@ func Compose(snap *model.Snapshot, modules ...Module) (*Index, error)
 
 | Kind | Subject | Fields | Cardinality | Certainty cap |
 |---|---|---|---|---|
-| `ListenerSource` | listener, filter chain, route config source | Gateway (only from metadata), port, section | alternatives | as read |
+| `ListenerSource` | listener, filter chain, route config source | port, section (from the name) | alternatives | as read |
+| `GatewaySource` | listener, route config source | Gateway ref (from metadata only) | alternatives | as read |
 | `HostSource` | virtual host | hostname | alternatives | as read |
 | `RouteSource` | route | HTTPRoute ref, rule index, rule name, match index, index certainty | alternatives | as read |
 | `ExtensionSource` | HTTP filter slot | extension ref, filter kind, helper | alternatives | as read |
@@ -184,8 +185,8 @@ Alternatives compete: for one subject and kind, the highest certainty wins, and 
 Compose rules:
 1. Each module gets its own deep copy of `snap`. A test runs two modules, one of which mutates nested maps, slices and pointers, and checks the original is unchanged (R2).
 2. Module names are unique. Claims keep module order, then emission order.
-3. A claim is dropped, with a warning on the index, when its subject is not in `snap`, it has no evidence, or it exceeds its kind's cap.
-4. A `FilterLink` is resolved by the composer (design review #6). Its record ref must name a `PolicyRecord` of the same module that survived rule 3. Its slot must be in the HCM that serves the route, and the route's chain must have per-filter config for that slot at some level or on a weighted backend (today's rule, `chain/annotate.go:66`). The composer computes this with `chain.Effective`. Two links from one record on one route drop both.
+3. A claim is dropped, with a warning on the index, when its subject is not in `snap`, it has no evidence, an object its assertion names is not the `Object` of any of its evidence, or it exceeds its kind's cap. A fact with different evidence is a separate claim, so fields with separate evidence never compete as one value.
+4. A `FilterLink` is resolved by the composer (design review #6). Its record ref must name a `PolicyRecord` of the same module that survived rule 3. The record's subject must be the route, one of its ancestors, or the route config source its use resolves to. Its slot must be in the HCM that serves the route, and the route's chain must have per-filter config for that slot at some level or on a weighted backend (today's rule, `chain/annotate.go:66`). The composer computes this with `chain.Effective`. Two links from one record on one route drop both.
 
 ```go
 type Index struct{ /* unexported */ }
@@ -214,7 +215,7 @@ type Gap struct {
 
 `Dependencies(block)` covers everything the block shows and relies on (design review #1):
 1. Claims on the block and its descendants.
-2. Claims on its ancestors up to the listener, and on the route config source its use resolves to. Inherited policy records count.
+2. Claims on its ancestors up to the listener, and on the route config source of every use in or above the block, including a source shared with HCMs outside it. Inherited policy records count.
 3. Claims on the HTTP filter slots of the HCM that serves it.
 
 A gap is recorded per expected kind, not per subject: a route without `RouteSource`, a slot with per-filter config and no `ExtensionSource`, a route or backend with a cluster and no `BackendSource`, each below inferred or ambiguous. A policy claim on a route doesn't hide a missing `RouteSource`.
@@ -246,7 +247,7 @@ type Query struct {
 type Selection struct {
 	Routes     []model.ID  // selected
 	Ambiguous  []model.ID  // could match, not selected
-	Unresolved []model.ID  // carry a kgateway route-name marker but no valid reading
+	Unresolved []model.ID  // carry a route-name marker that could name the queried HTTPRoute and rule, but no valid reading
 	Narrowed   []Narrowing // a reading dropped because its HTTPRoute isn't in Known
 }
 
@@ -254,7 +255,7 @@ type Selection struct {
 func Narrow(ix *provenance.Index, known []model.Ref) []Narrowing
 ```
 
-`Known` only removes readings. It never establishes a match on its own: a route whose readings all fall outside `Known` stays unresolved, not narrowed to nothing (kgwctl `view.go:114`, design review #8). krp's live mode without `--route` calls `Narrow` and shows the narrowed reading with its note, as today.
+`Known` only removes readings. It never establishes a match on its own: a route whose readings all fall outside `Known` stays unresolved, not narrowed to nothing (kgwctl `view.go:114`, design review #8). krp's live mode without `--route` calls `Narrow` and shows the narrowed reading with its note, as today. A reading that `Known` alone leaves single keeps its ambiguity label (`narrowed`); its certainty is not raised.
 
 Consumers prune with `model.Prune(snap, in(sel.Routes))`. The index keeps every candidate.
 
@@ -293,7 +294,7 @@ Notes func(r Row) []string // lines under the row; kgwctl's narrowing note is a 
 
 krp flow: parse → `chain.Effective` → `provenance.Compose(snap, kgateway.New())` → `kgateway.Select` when `--route` is set, else `kgateway.Narrow` in live mode → `model.Prune` → render. The TUI reads the same results.
 
-Pruned output projects every result onto the retained subjects: chains, claims (by subject; a link also needs its record), selection and warnings for subjects that remain. No JSON field refers to an ID absent from `snapshot` (design review #10).
+Pruned output projects every result onto the retained subjects: chains, claims and warnings for subjects that remain. Prune keeps the route config source of every retained use, so evidence subjects stay present; a claim whose evidence names a dropped subject is dropped from the output. `selection` is the exception: it describes the full snapshot, so its ambiguous and unresolved entries carry the route name and vhost name beside the ID, and the schema says those IDs may be absent from `snapshot` (design review r2).
 
 krp `-o json` `v1alpha2`:
 

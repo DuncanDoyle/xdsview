@@ -21,7 +21,7 @@ Order: IDs first, because every later piece keys on them. Execution next, so the
    6. **Prune.** `model.Prune` keeps the selected routes and their ancestors, every non-active listener, and every active listener that is warming a replacement, draining or has an error; IDs are unchanged. The current `filter` package tests that cover pruning are ported to it.
    7. **Independent parses.** Two parses of one dump are deep-equal, IDs included.
    8. **Sources and uses.** Scenario 00's `main_route` (inline and in `static_route_configs`) is one inline source that records the static ID; a static entry with no inline match is a source with no use; an RDS name never resolves to a static source.
-   9. **Capture.** `parser.Options` defaults to `CaptureUnverified`; `source.Admin` and `kube` report `CaptureComplete`.
+   9. **Capture.** `parser.Options` defaults to `CaptureUnverified`; `source.File` reports unverified, `source.Admin` and `kube` report `CaptureComplete` through `Source.Capture()`.
 2. Implement in `model`, `parser` and `source`. `parser.Parse` returns `*model.Snapshot`; `EnvoySnapshot` is renamed. `origin`, `filter` and `chain.Annotate` are adapted mechanically so krp keeps working; their behaviour doesn't change.
 
 **Done:** tests pass. krp JSON goldens gain IDs, `routeConfigs`, capture and typed warnings. Text goldens unchanged except where a duplicate RDS name now reads `ambiguous`; each such change is listed.
@@ -45,13 +45,13 @@ Order: IDs first, because every later piece keys on them. Execution next, so the
    2. **Compose rules.** A claim with an unknown subject, no evidence, or certainty over its kind's cap is dropped with an index warning. Duplicate module names fail. Two modules with distinct `RouteSource` at equal certainty resolve ambiguous with both candidates; at unequal certainty the higher wins and both claims stay listed. Two `PolicyRecord`s on one route are both kept. A `FilterLink` with a dangling or rejected record ref, a slot on another HCM, or no per-filter config for the route is dropped. Output order is deterministic across runs.
    3. **Claims parity.** Through krp's new path, every scenario's text golden is unchanged except where a deferred P1 fix applies.
    4. **`merge.*` levels (R5).** Records at listener, route config and vhost level become `PolicyRecord` claims on those subjects, level-local. Try a kind capture first (kgateway `v2.5.x`, policies at Gateway and listener level); otherwise hand-built fixtures, and the complete record says so.
-   5. **Filter link (rule 4).** One matching slot: a `FilterLink` naming the record claim and the slot, `inferred`. Two: none, the record stays unplaced.
+   5. **Filter link (rule 4).** One matching slot: a `FilterLink` naming the record claim and the slot, `inferred`. Two: none, the record stays unplaced. A link to a record on an unrelated listener is dropped. A claim naming an object no evidence names is dropped.
    6. **Deferred P1s.** #2: `--rule 0` selects a route whose rule name is `api.v1`. #4: `name` and `module` disagree: no link. #5: a Composite-wrapped rustformation filter gets its link. Each fails today.
-   7. **Dependencies (R6).** A route block lists the objects of its own claims, its vhost's and route config source's policy records, its listener's claims and its HCM's slot claims. A route with only a policy claim has a `routeSource` gap; a slot with per-filter config and no extension claim has a gap.
+   7. **Dependencies (R6).** A listener block includes the claims of a route config source it shares with another listener. Policy metadata on a source with no use, and on one with two uses, appears in each use's dependencies (none for the unused one). A route block lists the objects of its own claims, its vhost's and route config source's policy records, its listener's claims and its HCM's slot claims. A route with only a policy claim has a `routeSource` gap; a slot with per-filter config and no extension claim has a gap.
    8. **Selection (R8).** krp `--route`, `--rule` and live `Known` narrowing give today's routes; ambiguous candidates, unresolved marker routes and narrowings are listed in `Selection`; the index still holds every candidate. A route whose readings are all outside `Known` stays unresolved. krp live mode without `--route` shows narrowed readings via `Narrow`, as today.
    9. **NameMapper (R9).** Cluster, route config and listener names give certainty, kind and candidates; an ambiguous name lists all. `Guess` on a name that reads as two kinds is ambiguous.
    10. **Policy-field table check (R14, #30).** Every `merge.*` field in the corpus is in the table or a recorded exclusion. The table names its kgateway version.
-   11. **krp `v1alpha2` (R10).** JSON goldens regenerated and reviewed; schema doc updated. With `--route`, no JSON field refers to an ID absent from `snapshot`.
+   11. **krp `v1alpha2` (R10).** JSON goldens regenerated and reviewed; schema doc updated. With `--route`, no field outside `selection` refers to an ID absent from `snapshot`; `selection` entries carry route and vhost names.
    12. **Consumer payload.** An example test builds a kgwctl-shaped route payload (route ID, match, backend, route source, chain with links) from exported API only. This is xdsview's acceptance for E15; kgwctl's own goldens are kgwctl's.
 2. Implement `pkg/envoy/provenance` and `pkg/adapter/kgateway`. Remove `origin`, `filter` and the provenance fields from `model`. Port krp, `internal/renderer` and the TUI.
 
@@ -63,10 +63,10 @@ Each row of design §4 is one test-first item, through krp text and JSON:
 1. Missing RDS: `missing` on a `CaptureComplete` dump with an active listener; `unknown` when the capture is unverified (a file, or a filtered dump), `RoutesConfigDump` is absent, an entry was skipped, or the listener is warming or draining. Built from scenario 00 with the route config removed.
 2. Static listeners and route configs, and an inline HCM `route_config`: a neutral static bootstrap fixture.
 3. Non-HCM chains: a `tcp_proxy` chain is listed.
-4. ECDS: with `EcdsConfigDump`, the config is joined; without it, `Runs` unknown and `State` unresolved, and the filter is not in the request order as running.
-5. Matchers: every header and query form, `invert_match`, `ignore_case`, `case_sensitive`; an unmodelled predicate is in `Unparsed`.
+4. ECDS: an entry with matching name and type is joined; a type outside `type_urls` is not. No entry plus `default_config` on an active listener: `ecdsDefault`, with and without `apply_default_config_without_warming`. No entry and no default: `Runs` unknown, `State` unresolved, shown in position with a label. A Composite and an ExtensionWithMatcher are `Conditional`.
+5. Matchers: every top-level header form and every `string_match` form, query forms, `invert_match`, `ignore_case`, `case_sensitive`, `connect_matcher`; an unmodelled predicate is in `Unparsed` in text and JSON.
 6. Default filter chain: parsed with ID `L<n>/Cd`.
-7. Cluster selectors: `cluster_header` and a cluster specifier plugin are shown, with no cluster name.
+7. Cluster selectors: `cluster_header`, a cluster specifier plugin and an inline one are shown, with no cluster name.
 8. Actions: redirect and direct response, body size only.
 9. Coverage: every section in a dump is listed as parsed, partial or ignored; a secret section is never decoded; `scoped_routes` gives `unknown`.
 
@@ -92,3 +92,7 @@ kgwctl and Snellius review the design (program open question 7, D-019). The prog
 | 9.2 | chain, render, krp glue | ~350 lines + tests |
 | 9.3 | provenance, adapter/kgateway, krp, TUI; removes origin, filter | ~1,200 lines + tests |
 | 9.4 | parser, model, render | ~600 lines + tests |
+
+## E15 acceptance
+
+xdsview's side is the example payload test (9.3 test 12) and the `v1alpha2` goldens. kgwctl's side is its own gate, tracked in its migration issue: its `ProxyRoutes` payload, the shared `kgwctl.kgateway.dev/v1alpha2` envelope across every command, and reviewed text, JSON and YAML goldens. The program marks E15 done only when both hold.
