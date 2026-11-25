@@ -53,6 +53,28 @@ func TestAdmin_ServerError(t *testing.T) {
 	}
 }
 
+// TestAdmin_Redirect: a redirect may lead to a filtered dump, so the fetch
+// fails instead of following it under a complete capture.
+func TestAdmin_Redirect(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.RawQuery == "" {
+			http.Redirect(w, r, "/config_dump?resource=dynamic_listeners", http.StatusFound)
+			return
+		}
+		_, _ = w.Write([]byte(dumpBody))
+	}))
+	defer srv.Close()
+
+	rc, err := source.Admin(srv.URL).ConfigDump(context.Background())
+	if err == nil {
+		rc.Close()
+		t.Fatal("redirect was followed, want an error")
+	}
+	if !strings.Contains(err.Error(), "redirect") || !strings.Contains(err.Error(), "resource=dynamic_listeners") {
+		t.Errorf("err = %v, want one naming the redirect and its target", err)
+	}
+}
+
 func TestAdmin_CancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
