@@ -71,6 +71,19 @@ func Text(w io.Writer, snap *model.Snapshot, chains map[model.ID]model.Effective
 	for _, l := range snap.Listeners {
 		p.listener(l)
 	}
+	var ignored []string
+	for _, s := range snap.Coverage.Sections {
+		if s.Status == model.CoverageIgnored {
+			name := s.Type[strings.LastIndex(s.Type, ".")+1:]
+			if name == "" {
+				name = "(unreadable)"
+			}
+			ignored = append(ignored, name)
+		}
+	}
+	if len(ignored) > 0 {
+		p.line("ignored dump sections: " + clean(strings.Join(ignored, ", ")))
+	}
 	_, err := io.WriteString(w, p.b.String())
 	return err
 }
@@ -258,7 +271,11 @@ func (p *printer) chainBody(fc model.NetworkFilterChain, indent string) {
 		case model.RouteConfigMissing:
 			status = " missing: no route config has this name in a complete dump"
 		}
-		p.line(prefix + p.style(ClassWarning, Row{Subject: hcm.RouteConfigUse.ID}, "route config "+hcm.RouteConfigName+status))
+		text := "route config " + hcm.RouteConfigName + status
+		if hcm.ScopedRoutes {
+			text = "route config: scoped routes, not parsed"
+		}
+		p.line(prefix + p.style(ClassWarning, Row{Subject: hcm.RouteConfigUse.ID}, text))
 		p.filters(p.chains[hcm.RouteConfigUse.ID], "", body)
 		return
 	}

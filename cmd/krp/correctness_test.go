@@ -217,6 +217,23 @@ func TestDump_RouteActions(t *testing.T) {
 	}
 }
 
+// TestDump_Coverage: one text line names the ignored sections; JSON lists
+// every section; secrets never reach the output.
+func TestDump_Coverage(t *testing.T) {
+	wantOutput(t, []string{"--file", fixture("coverage")},
+		[]string{
+			"ignored dump sections: BootstrapConfigDump, ClustersConfigDump, EndpointsConfigDump, ScopedRoutesConfigDump, SecretsConfigDump, UnknownConfigDump",
+			"route config: scoped routes, not parsed",
+		},
+		[]string{`"coverage": {`, `"status": "partial"`, `"status": "ignored"`, `"scopedRoutes": true`})
+	for _, format := range []string{"text", "json"} {
+		out, stderr, err := runKrp(t, "dump", "--file", fixture("coverage"), "-o", format)
+		if err != nil || strings.Contains(out+stderr, "SECRET-MARKER") {
+			t.Errorf("-o %s: err %v; output holds a secret", format, err)
+		}
+	}
+}
+
 // TestDump_DefaultFilterChain: the default chain is shown last, labelled,
 // with its routes and their chains.
 func TestDump_DefaultFilterChain(t *testing.T) {

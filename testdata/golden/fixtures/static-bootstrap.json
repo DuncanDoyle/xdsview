@@ -101,7 +101,19 @@
         "kind": "static",
         "name": "spare_route"
       }
-    ]
+    ],
+    "coverage": {
+      "sections": [
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
+          "status": "parsed"
+        },
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump",
+          "status": "parsed"
+        }
+      ]
+    }
   },
   "warnings": []
 }

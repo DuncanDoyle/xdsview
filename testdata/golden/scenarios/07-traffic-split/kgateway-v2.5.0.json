@@ -464,7 +464,35 @@
         "kind": "dynamic",
         "name": "listener~80"
       }
-    ]
+    ],
+    "coverage": {
+      "sections": [
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.BootstrapConfigDump",
+          "status": "ignored"
+        },
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.ClustersConfigDump",
+          "status": "ignored"
+        },
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
+          "status": "parsed"
+        },
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.ScopedRoutesConfigDump",
+          "status": "ignored"
+        },
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump",
+          "status": "parsed"
+        },
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.SecretsConfigDump",
+          "status": "ignored"
+        }
+      ]
+    }
   },
   "warnings": []
 }

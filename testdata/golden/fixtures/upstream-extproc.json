@@ -284,7 +284,19 @@
         "kind": "dynamic",
         "name": "listener~8080"
       }
-    ]
+    ],
+    "coverage": {
+      "sections": [
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
+          "status": "parsed"
+        },
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump",
+          "status": "parsed"
+        }
+      ]
+    }
   },
   "warnings": []
 }

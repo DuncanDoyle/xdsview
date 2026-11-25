@@ -1,0 +1,109 @@
+{
+  "schemaVersion": "v1alpha1",
+  "snapshot": {
+    "capture": "unverified",
+    "listeners": [
+      {
+        "id": "L0",
+        "name": "scoped",
+        "address": "0.0.0.0:8080",
+        "filterChains": [
+          {
+            "id": "L0/C0",
+            "name": "",
+            "networkFilters": [
+              {
+                "id": "L0/C0/N0",
+                "name": "envoy.filters.network.http_connection_manager",
+                "type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+              }
+            ],
+            "hcm": {
+              "id": "L0/C0/N0",
+              "routeConfigName": "",
+              "scopedRoutes": true,
+              "httpFilters": [
+                {
+                  "id": "L0/C0/N0/F0",
+                  "name": "envoy.filters.http.router",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "router"
+                  }
+                }
+              ],
+              "routeConfigUse": {
+                "id": "L0/C0/N0/RC",
+                "state": "unknown"
+              }
+            }
+          }
+        ],
+        "state": {
+          "status": "active",
+          "lastUpdated": "2026-01-01T00:00:00Z"
+        }
+      }
+    ],
+    "routeConfigs": [
+      {
+        "id": "RD0",
+        "kind": "dynamic",
+        "name": "scope_a"
+      }
+    ],
+    "coverage": {
+      "sections": [
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.BootstrapConfigDump",
+          "status": "ignored"
+        },
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.ClustersConfigDump",
+          "status": "ignored"
+        },
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.EndpointsConfigDump",
+          "status": "ignored"
+        },
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
+          "status": "parsed"
+        },
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.ScopedRoutesConfigDump",
+          "status": "ignored"
+        },
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump",
+          "status": "partial"
+        },
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.SecretsConfigDump",
+          "status": "ignored"
+        },
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.EcdsConfigDump",
+          "status": "parsed"
+        },
+        {
+          "type": "type.googleapis.com/example.UnknownConfigDump",
+          "status": "ignored"
+        }
+      ]
+    },
+    "warnings": [
+      {
+        "code": "route-config-skipped",
+        "message": "skipped route config \"broken\": json: cannot unmarshal number into Go struct field .route_config.virtual_hosts of type []parser.rawVirtualHost"
+      }
+    ]
+  },
+  "warnings": [
+    "skipped route config \"broken\": json: cannot unmarshal number into Go struct field .route_config.virtual_hosts of type []parser.rawVirtualHost"
+  ]
+}

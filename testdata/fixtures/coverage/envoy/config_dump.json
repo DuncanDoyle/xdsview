@@ -1,0 +1,80 @@
+{
+ "configs": [
+  {
+   "@type": "type.googleapis.com/envoy.admin.v3.BootstrapConfigDump",
+   "bootstrap": {"node": {"id": "proxy-0", "cluster": "proxy"}}
+  },
+  {
+   "@type": "type.googleapis.com/envoy.admin.v3.ClustersConfigDump",
+   "static_clusters": [{"cluster": {"@type": "type.googleapis.com/envoy.config.cluster.v3.Cluster", "name": "web_backend"}}]
+  },
+  {
+   "@type": "type.googleapis.com/envoy.admin.v3.EndpointsConfigDump",
+   "static_endpoint_configs": []
+  },
+  {
+   "@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
+   "dynamic_listeners": [
+    {
+     "name": "scoped",
+     "active_state": {
+      "version_info": "1",
+      "listener": {
+       "@type": "type.googleapis.com/envoy.config.listener.v3.Listener",
+       "name": "scoped",
+       "address": {"socket_address": {"address": "0.0.0.0", "port_value": 8080}},
+       "filter_chains": [
+        {
+         "filters": [
+          {
+           "name": "envoy.filters.network.http_connection_manager",
+           "typed_config": {
+            "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+            "stat_prefix": "scoped",
+            "scoped_routes": {
+             "name": "scopes",
+             "scope_key_builder": {"fragments": [{"header_value_extractor": {"name": "x-scope", "element_separator": ";"}}]},
+             "rds_config_source": {"ads": {}, "resource_api_version": "V3"},
+             "scoped_rds": {"scoped_rds_config_source": {"ads": {}, "resource_api_version": "V3"}}
+            },
+            "http_filters": [
+             {"name": "envoy.filters.http.router", "typed_config": {"@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"}}
+            ]
+           }
+          }
+         ]
+        }
+       ]
+      },
+      "last_updated": "2026-01-01T00:00:00Z"
+     }
+    }
+   ]
+  },
+  {
+   "@type": "type.googleapis.com/envoy.admin.v3.ScopedRoutesConfigDump",
+   "dynamic_scoped_route_configs": [{"name": "scopes", "scoped_route_configs": [{"name": "a", "route_configuration_name": "scope_a", "key": {"fragments": [{"string_key": "a"}]}}]}]
+  },
+  {
+   "@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump",
+   "dynamic_route_configs": [
+    {"route_config": {"@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration", "name": "scope_a", "virtual_hosts": []}},
+    {"route_config": {"@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration", "name": "broken", "virtual_hosts": 1}}
+   ]
+  },
+  {
+   "@type": "type.googleapis.com/envoy.admin.v3.SecretsConfigDump",
+   "dynamic_active_secrets": [
+    {"name": "token", "secret": {"@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret", "name": "token", "generic_secret": {"secret": {"inline_string": "SECRET-MARKER"}}}}
+   ]
+  },
+  {
+   "@type": "type.googleapis.com/envoy.admin.v3.EcdsConfigDump",
+   "ecds_filters": []
+  },
+  {
+   "@type": "type.googleapis.com/example.UnknownConfigDump",
+   "anything": true
+  }
+ ]
+}

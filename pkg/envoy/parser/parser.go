@@ -72,16 +72,24 @@ func Parse(r io.Reader, opts Options) (*model.Snapshot, error) {
 	var statics []rawStaticListener
 	listenersAt := -1 // section index of the listeners, where inline sources go
 
+	// Only @type is read from a section the parser ignores, so secrets are never decoded.
 	for pos, raw := range dump.Configs {
+		p.at = pos
 		var typed typedConfig
 		if err := json.Unmarshal(raw, &typed); err != nil {
+			p.sections = append(p.sections, model.SectionCoverage{Status: model.CoverageIgnored})
 			p.warn("", model.WarnSectionSkipped, "skipped config section: cannot read @type: %v", err)
 			p.routesSkipped = true // it may have held route configs
 			continue
 		}
+		p.sections = append(p.sections, model.SectionCoverage{Type: typed.Type, Status: model.CoverageIgnored})
 
 		switch typed.Type {
-		case "type.googleapis.com/envoy.admin.v3.ListenersConfigDump":
+		case listenersType, routesType, ecdsType:
+			p.sections[pos].Status = model.CoverageParsed
+		}
+		switch typed.Type {
+		case listenersType:
 			var ld listenersConfigDump
 			if err := json.Unmarshal(raw, &ld); err != nil {
 				p.warn("", model.WarnSectionSkipped, "skipped ListenersConfigDump: %v", err)
@@ -101,7 +109,7 @@ func Parse(r io.Reader, opts Options) (*model.Snapshot, error) {
 				}
 			}
 
-		case "type.googleapis.com/envoy.admin.v3.RoutesConfigDump":
+		case routesType:
 			var rd routesConfigDump
 			if err := json.Unmarshal(raw, &rd); err != nil {
 				p.warn("", model.WarnSectionSkipped, "skipped RoutesConfigDump: %v", err)
@@ -110,10 +118,11 @@ func Parse(r io.Reader, opts Options) (*model.Snapshot, error) {
 			}
 			p.routeSection(pos, rd)
 
-		case "type.googleapis.com/envoy.admin.v3.EcdsConfigDump":
+		case ecdsType:
 			p.ecdsSection(raw)
 		}
 	}
+	p.at = listenersAt // later skips are in the listeners section
 	// Missing RDS needs every dynamic route config: a complete capture, read in full.
 	p.rdsComplete = capture == model.CaptureComplete && p.routesRead && !p.routesSkipped
 
@@ -138,9 +147,17 @@ func Parse(r io.Reader, opts Options) (*model.Snapshot, error) {
 			}
 		}
 	}
+	snapshot.Coverage.Sections = p.sections
 	snapshot.Warnings = p.warnings
 	return snapshot, nil
 }
+
+// Config dump sections the parser reads.
+const (
+	listenersType = "type.googleapis.com/envoy.admin.v3.ListenersConfigDump"
+	routesType    = "type.googleapis.com/envoy.admin.v3.RoutesConfigDump"
+	ecdsType      = "type.googleapis.com/envoy.admin.v3.EcdsConfigDump"
+)
 
 // parse holds the state of one [Parse] call.
 type parse struct {
@@ -156,6 +173,9 @@ type parse struct {
 	routesRead    bool // a RoutesConfigDump section was read
 	routesSkipped bool // a route config, or a section that may hold one, was skipped
 	rdsComplete   bool // an unmatched RDS name is missing, not unknown
+
+	sections []model.SectionCoverage // one per dump section
+	at       int                     // the section being parsed; -1 for none
 }
 
 // routeEntry is one route config source with its parsed and raw content.
@@ -173,8 +193,15 @@ type batch struct {
 	entries []*routeEntry
 }
 
+// warn records a warning. One that skips something makes the current section partial.
 func (p *parse) warn(subject model.ID, code, format string, args ...any) {
 	p.warnings = append(p.warnings, model.Warning{Subject: subject, Code: code, Message: fmt.Sprintf(format, args...)})
+	switch code {
+	case model.WarnSectionSkipped, model.WarnRouteConfigSkipped, model.WarnHCMSkipped, model.WarnECDSSkipped:
+		if p.at >= 0 && p.at < len(p.sections) && p.sections[p.at].Status == model.CoverageParsed {
+			p.sections[p.at].Status = model.CoveragePartial
+		}
+	}
 }
 
 // routeSection adds the static and dynamic entries of one RoutesConfigDump
@@ -501,6 +528,7 @@ func (p *parse) parseHCM(id model.ID, raw json.RawMessage, active bool) (*model.
 
 	result := &model.HCMConfig{
 		RouteConfigName: hcm.RDS.RouteConfigName,
+		ScopedRoutes:    present(hcm.ScopedRoutes),
 	}
 
 	for i, hf := range hcm.HTTPFilters {
@@ -777,8 +805,9 @@ type rawHCM struct {
 	RDS struct {
 		RouteConfigName string `json:"route_config_name"`
 	} `json:"rds"`
-	RouteConfig json.RawMessage `json:"route_config"` // inline; decoded in join
-	HTTPFilters []rawHTTPFilter `json:"http_filters"`
+	RouteConfig  json.RawMessage `json:"route_config"`  // inline; decoded in join
+	ScopedRoutes json.RawMessage `json:"scoped_routes"` // not read beyond its presence
+	HTTPFilters  []rawHTTPFilter `json:"http_filters"`
 }
 
 // rawHTTPFilter is a single entry in the HCM `http_filters` list.

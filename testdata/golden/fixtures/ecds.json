@@ -370,7 +370,19 @@
         "kind": "inline",
         "name": "pending_route"
       }
-    ]
+    ],
+    "coverage": {
+      "sections": [
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
+          "status": "parsed"
+        },
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.EcdsConfigDump",
+          "status": "parsed"
+        }
+      ]
+    }
   },
   "warnings": []
 }

@@ -111,7 +111,15 @@
         "kind": "inline",
         "name": "fallback_route"
       }
-    ]
+    ],
+    "coverage": {
+      "sections": [
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
+          "status": "parsed"
+        }
+      ]
+    }
   },
   "warnings": []
 }

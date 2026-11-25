@@ -39,3 +39,4 @@ prometheus_listener 0.0.0.0:9091 · active · static
         1 envoy.filters.http.router  on
       rewrite prefix: /stats
       backend: admin_port_cluster
+ignored dump sections: BootstrapConfigDump, ClustersConfigDump, ScopedRoutesConfigDump, SecretsConfigDump

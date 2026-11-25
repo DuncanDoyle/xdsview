@@ -331,6 +331,40 @@ func TestRouteActions(t *testing.T) {
 	}
 }
 
+// TestCoverage: every section is listed, in dump order, as parsed, partial or
+// ignored; an HCM with scoped_routes has an unknown route config use.
+func TestCoverage(t *testing.T) {
+	snap := parseFile(t, fixtures+"coverage/envoy/config_dump.json")
+	s := func(typ string, st model.CoverageStatus) model.SectionCoverage {
+		return model.SectionCoverage{Type: "type.googleapis.com/" + typ, Status: st}
+	}
+	want := []model.SectionCoverage{
+		s("envoy.admin.v3.BootstrapConfigDump", model.CoverageIgnored),
+		s("envoy.admin.v3.ClustersConfigDump", model.CoverageIgnored),
+		s("envoy.admin.v3.EndpointsConfigDump", model.CoverageIgnored),
+		s("envoy.admin.v3.ListenersConfigDump", model.CoverageParsed),
+		s("envoy.admin.v3.ScopedRoutesConfigDump", model.CoverageIgnored),
+		s("envoy.admin.v3.RoutesConfigDump", model.CoveragePartial),
+		s("envoy.admin.v3.SecretsConfigDump", model.CoverageIgnored),
+		s("envoy.admin.v3.EcdsConfigDump", model.CoverageParsed),
+		s("example.UnknownConfigDump", model.CoverageIgnored),
+	}
+	if !reflect.DeepEqual(snap.Coverage.Sections, want) {
+		t.Errorf("coverage =\n%+v\nwant\n%+v", snap.Coverage.Sections, want)
+	}
+	hcm := snap.Listeners[0].FilterChains[0].HCM
+	if !hcm.ScopedRoutes || hcm.RouteConfigUse.State != model.RouteConfigUnknown {
+		t.Errorf("scoped HCM = %+v, want ScopedRoutes and an unknown use", hcm)
+	}
+
+	// A section that fails to decode, and one whose @type can't be read.
+	snap = parseString(t, `{"configs": [[], {"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump", "dynamic_listeners": 1}]}`)
+	want = []model.SectionCoverage{{Status: model.CoverageIgnored}, s("envoy.admin.v3.ListenersConfigDump", model.CoveragePartial)}
+	if !reflect.DeepEqual(snap.Coverage.Sections, want) {
+		t.Errorf("coverage = %+v, want %+v", snap.Coverage.Sections, want)
+	}
+}
+
 // TestDefaultFilterChain: default_filter_chain is parsed as the listener's
 // last chain, with ID L<n>/Cd, and its routes get IDs under it.
 func TestDefaultFilterChain(t *testing.T) {

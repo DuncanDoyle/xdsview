@@ -13,8 +13,30 @@ type Snapshot struct {
 	Capture      Capture             `json:"capture"`
 	Listeners    []Listener          `json:"listeners"`
 	RouteConfigs []RouteConfigSource `json:"routeConfigs,omitempty"` // every route config source, in dump order
+	Coverage     Coverage            `json:"coverage"`
 	Warnings     []Warning           `json:"warnings,omitempty"`
 }
+
+// Coverage says what the parser did with each config dump section.
+type Coverage struct {
+	Sections []SectionCoverage `json:"sections,omitempty"` // in dump order
+}
+
+// SectionCoverage is one config dump section and what the parser did with it.
+type SectionCoverage struct {
+	Type   string         `json:"type"` // the section's @type; empty when unreadable
+	Status CoverageStatus `json:"status"`
+}
+
+// CoverageStatus is what the parser did with a section.
+type CoverageStatus string
+
+// Coverage statuses.
+const (
+	CoverageParsed  CoverageStatus = "parsed"
+	CoveragePartial CoverageStatus = "partial" // parsed, but entries were skipped; the warnings say which
+	CoverageIgnored CoverageStatus = "ignored" // not read: clusters, endpoints, secrets, scoped routes, bootstrap and unknown types
+)
 
 // Listener represents an Envoy listener (e.g. listener~80, listener~443).
 // An LDS-wide error with no listener name is a rejected Listener with an empty Name.
@@ -84,6 +106,7 @@ type TLSContext struct {
 type HCMConfig struct {
 	ID              ID             `json:"id"`
 	RouteConfigName string         `json:"routeConfigName"`           // rds.route_config_name
+	ScopedRoutes    bool           `json:"scopedRoutes,omitempty"`    // routes come from scoped_routes, which the parser doesn't read; the use is unknown
 	HTTPFilters     []HTTPFilter   `json:"httpFilters"`               // the HTTP filter pipeline
 	UpstreamFilters []HTTPFilter   `json:"upstreamFilters,omitempty"` // router upstream_http_filters, run per upstream request
 	RouteConfigUse  RouteConfigUse `json:"routeConfigUse"`
