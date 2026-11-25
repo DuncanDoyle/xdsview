@@ -210,6 +210,35 @@ func TestCompose_Rule4(t *testing.T) {
 	}
 }
 
+// TestCompose_PointerAssertions (Codex #2): a pointer assertion goes through
+// the same rules as its value: a dangling *FilterLink is dropped, a valid one
+// is kept as a FilterLink value, and a nil pointer is dropped.
+func TestCompose_PointerAssertions(t *testing.T) {
+	p := policyA
+	ix := compose(t, twoListeners(), fixed{"m", []provenance.Claim{
+		{Ref: "r", Subject: route0, Assertion: &provenance.PolicyRecord{Policy: p, Field: "f", Level: provenance.LevelRoute}, Certainty: model.Exact, Evidence: ev(route0, &p)},
+		{Subject: route0, Assertion: &provenance.FilterLink{Record: "missing", Slot: slot0}, Certainty: model.Inferred, Evidence: ev(slot0, nil)},
+		{Subject: route0, Assertion: &provenance.FilterLink{Record: "r", Slot: other}, Certainty: model.Inferred, Evidence: ev(slot0, nil)},
+		{Subject: route0, Assertion: &provenance.FilterLink{Record: "r", Slot: slot0}, Certainty: model.Inferred, Evidence: ev(slot0, nil)},
+		{Subject: route0, Assertion: (*provenance.FilterLink)(nil), Certainty: model.Inferred, Evidence: ev(slot0, nil)},
+	}})
+	links := provenance.Resolve[provenance.FilterLink](ix, route0)
+	if len(links.Candidates) != 1 || links.Candidates[0] != (provenance.FilterLink{Record: "r", Slot: slot0}) {
+		t.Errorf("links %+v, want only r on slot0", links.Candidates)
+	}
+	for _, c := range ix.Claims() {
+		if _, ok := c.Assertion.(*provenance.FilterLink); ok {
+			t.Errorf("%s kept as a pointer", c.ID)
+		}
+		if _, ok := c.Assertion.(*provenance.PolicyRecord); ok {
+			t.Errorf("%s kept as a pointer", c.ID)
+		}
+	}
+	if len(ix.Warnings()) != 3 {
+		t.Errorf("warnings %v, want 3 drops", ix.Warnings())
+	}
+}
+
 // TestCompose_Order: claims are ordered by subject (numerically), then module
 // order, then emission order, the same on every run.
 func TestCompose_Order(t *testing.T) {
