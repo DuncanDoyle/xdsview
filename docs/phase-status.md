@@ -9,16 +9,16 @@ Docs: docs/phases/phase-9/
 Status: design; owner said start (2026-11-24).
 
 ### Queue
-- [ ] Q1 design (brainstorming) → `design.md`: P-010 scope 1–8, core correctness list incl. E14 missing-RDS, Phase 8 deferred P1s (#2, #4, #5). Draft written; owner review ← CURRENT
-- [ ] Q2 implementation plan → `implementation-plan.md`, split into planned sub-phases
-- [ ] Q3 Codex review of design + plan, triage
-- [ ] Q4 `cross-repo` design-review requests to kgwctl and Snellius (ask before filing)
+- [x] Q1 design → `design.md` (owner approved 2026-11-25)
+- [x] Q2 implementation plan → `implementation-plan.md`: sub-phases 9.1–9.4
+- [x] Q3 Codex review of design + plan, triage: 11 findings accepted, design and plan amended
+- [ ] Q4 `cross-repo` design-review requests to kgwctl and Snellius (drafted; ask before filing) ← CURRENT (owner)
 - [ ] Q5 owner approval
 
 ### Exit gates
 - [ ] tests/vet pass (observed)
 - [ ] all queue items done or deferred
-- [ ] design+plan cross-model review + triage: reviews/design-codex.md
+- [x] design+plan cross-model review + triage: reviews/design-codex.md
 - [ ] phase cross-model review + triage: reviews/phase-codex.md
 - [ ] decisions.md / design / plan in sync with code
 - [ ] phase-9-complete.md written, roadmap updated, tracked items closed

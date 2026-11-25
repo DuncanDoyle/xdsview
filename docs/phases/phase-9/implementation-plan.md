@@ -18,11 +18,13 @@ Order: IDs first, because every later piece keys on them. Execution next, so the
    3. **Shared route config.** A hand-built dump with two HCMs on one RDS name: one source (`RouteConfigs`), two uses with distinct vhost and route IDs.
    4. **Duplicate RDS names.** Two sources with one name: both listed; the referencing HCM has `RouteConfigState` `ambiguous`, no join, and a warning with its subject. Fails today (the later entry wins).
    5. **Typed warnings.** Each existing warning keeps its text and gains a code and, where it has one, a subject ID.
-   6. **Prune.** `model.Prune` keeps the selected routes and their ancestors and every non-active listener; IDs are unchanged. The current `filter` package tests that cover pruning are ported to it.
+   6. **Prune.** `model.Prune` keeps the selected routes and their ancestors, every non-active listener, and every active listener that is warming a replacement, draining or has an error; IDs are unchanged. The current `filter` package tests that cover pruning are ported to it.
    7. **Independent parses.** Two parses of one dump are deep-equal, IDs included.
-2. Implement in `model` and `parser`. `parser.Parse` returns `*model.Snapshot`; `EnvoySnapshot` is renamed. `origin`, `filter` and `chain.Annotate` are adapted mechanically so krp keeps working; their behaviour doesn't change.
+   8. **Sources and uses.** Scenario 00's `main_route` (inline and in `static_route_configs`) is one inline source that records the static ID; a static entry with no inline match is a source with no use; an RDS name never resolves to a static source.
+   9. **Capture.** `parser.Options` defaults to `CaptureUnverified`; `source.Admin` and `kube` report `CaptureComplete`.
+2. Implement in `model`, `parser` and `source`. `parser.Parse` returns `*model.Snapshot`; `EnvoySnapshot` is renamed. `origin`, `filter` and `chain.Annotate` are adapted mechanically so krp keeps working; their behaviour doesn't change.
 
-**Done:** tests pass. krp JSON goldens gain IDs, `routeConfigs` and typed warnings only. Text goldens unchanged.
+**Done:** tests pass. krp JSON goldens gain IDs, `routeConfigs`, capture and typed warnings. Text goldens unchanged except where a duplicate RDS name now reads `ambiguous`; each such change is listed.
 
 ## 9.2 — Pure execution (R1, part of R11)
 
@@ -30,26 +32,27 @@ Order: IDs first, because every later piece keys on them. Execution next, so the
    1. **Boundary.** `boundary_test.go` fails when `model`, `parser`, `chain` or `render` import `provenance`, `adapter/...`, `origin` or `filter`. Fails today (`chain` imports `origin`).
    2. **Effective.** `chain.Effective(snap)` returns one chain per route ID, each entry carrying its slot ID. Run state and sides are `Tri`. Existing chain tests are ported, values unchanged.
    3. **Wrappers.** A Composite sets `Wrapper: composite`; an ExtensionWithMatcher sets `Wrapper: extensionWithMatcher` and `Conditional`. Its sides stay its inner filter's.
-   4. **Render by ID.** `render.Text(w, snap, chains, opts)` with `Style` and `Notes` keyed by ID gives today's text for every scenario when krp's notes reproduce today's origin and contribution lines.
+   4. **Render by row.** `render.Text(w, snap, chains, opts)` with `Style` and `Notes` keyed by `Row` gives today's text for every scenario when krp's notes reproduce today's origin and contribution lines. One slot under two routes with different config gets different notes per row.
    5. **Sides table check (R14).** Every HTTP filter type in the corpus and fixtures is in the sides table or a recorded exclusion. The table names its Envoy version.
-2. Implement. Contributions leave `ChainEntry`; krp computes them in its own glue from `origin` until 9.3 replaces it. `chain.Annotate` is removed.
+2. Implement. Contributions leave `ChainEntry`; krp computes them in its own glue from `origin` until 9.3 replaces it. `chain.Annotate` is removed. In the same step, the attribution tests move onto that glue at the krp boundary, and `internal/renderer` and the TUI switch to `Row`.
 
 **Done:** tests pass. Text goldens unchanged. JSON goldens change only in chain shape (slot IDs, `Tri`, no contributions inside entries).
 
 ## 9.3 — Provenance contract and kgateway module (R2, R4–R10, R13)
 
 1. Tests first:
-   1. **Invariance (R2).** For every scenario: parse twice; compose the kgateway module on one. Both snapshots and both `Effective` results are deep-equal. A test module that mutates its input changes neither.
-   2. **Compose rules.** A claim with an unknown subject, no evidence, or certainty over its kind's cap is dropped with an index warning. Two modules with distinct `RouteSource` at equal certainty resolve ambiguous with both candidates; at unequal certainty the higher wins and both claims stay listed. Output order is deterministic across runs.
+   1. **Invariance (R2).** For every scenario: parse twice; compose the kgateway module plus a second test module that mutates nested maps, slices and pointers. Both snapshots and both `Effective` results are deep-equal. The test module lives in `provenance_test`, so it uses exported API only (R15).
+   2. **Compose rules.** A claim with an unknown subject, no evidence, or certainty over its kind's cap is dropped with an index warning. Duplicate module names fail. Two modules with distinct `RouteSource` at equal certainty resolve ambiguous with both candidates; at unequal certainty the higher wins and both claims stay listed. Two `PolicyRecord`s on one route are both kept. A `FilterLink` with a dangling or rejected record ref, a slot on another HCM, or no per-filter config for the route is dropped. Output order is deterministic across runs.
    3. **Claims parity.** Through krp's new path, every scenario's text golden is unchanged except where a deferred P1 fix applies.
    4. **`merge.*` levels (R5).** Records at listener, route config and vhost level become `PolicyRecord` claims on those subjects, level-local. Try a kind capture first (kgateway `v2.5.x`, policies at Gateway and listener level); otherwise hand-built fixtures, and the complete record says so.
    5. **Filter link (rule 4).** One matching slot: a `FilterLink` naming the record claim and the slot, `inferred`. Two: none, the record stays unplaced.
    6. **Deferred P1s.** #2: `--rule 0` selects a route whose rule name is `api.v1`. #4: `name` and `module` disagree: no link. #5: a Composite-wrapped rustformation filter gets its link. Each fails today.
-   7. **Dependencies (R6).** A vhost block lists every object its claims rest on; a route with no route claim appears in `Unattributed`.
-   8. **Selection (R8).** krp `--route`, `--rule` and live `Known` narrowing give today's routes; ambiguous candidates and narrowings are listed in `Selection`; the index still holds every candidate.
-   9. **NameMapper (R9).** Cluster and route config names give certainty, kind and candidates; an ambiguous name lists all.
+   7. **Dependencies (R6).** A route block lists the objects of its own claims, its vhost's and route config source's policy records, its listener's claims and its HCM's slot claims. A route with only a policy claim has a `routeSource` gap; a slot with per-filter config and no extension claim has a gap.
+   8. **Selection (R8).** krp `--route`, `--rule` and live `Known` narrowing give today's routes; ambiguous candidates, unresolved marker routes and narrowings are listed in `Selection`; the index still holds every candidate. A route whose readings are all outside `Known` stays unresolved. krp live mode without `--route` shows narrowed readings via `Narrow`, as today.
+   9. **NameMapper (R9).** Cluster, route config and listener names give certainty, kind and candidates; an ambiguous name lists all. `Guess` on a name that reads as two kinds is ambiguous.
    10. **Policy-field table check (R14, #30).** Every `merge.*` field in the corpus is in the table or a recorded exclusion. The table names its kgateway version.
-   11. **krp `v1alpha2` (R10).** JSON goldens regenerated and reviewed; schema doc updated.
+   11. **krp `v1alpha2` (R10).** JSON goldens regenerated and reviewed; schema doc updated. With `--route`, no JSON field refers to an ID absent from `snapshot`.
+   12. **Consumer payload.** An example test builds a kgwctl-shaped route payload (route ID, match, backend, route source, chain with links) from exported API only. This is xdsview's acceptance for E15; kgwctl's own goldens are kgwctl's.
 2. Implement `pkg/envoy/provenance` and `pkg/adapter/kgateway`. Remove `origin`, `filter` and the provenance fields from `model`. Port krp, `internal/renderer` and the TUI.
 
 **Done:** tests pass. `go list -deps ./pkg/envoy/model ./pkg/envoy/parser ./pkg/envoy/chain ./pkg/envoy/render` shows no `provenance`, `adapter` or third-party package.
@@ -57,7 +60,7 @@ Order: IDs first, because every later piece keys on them. Execution next, so the
 ## 9.4 — Core correctness (R12)
 
 Each row of design §4 is one test-first item, through krp text and JSON:
-1. Missing RDS: `missing` on a complete dump with an active listener; `unknown` when `RoutesConfigDump` is absent, an entry was skipped, or the listener is warming. Built from scenario 00 with the route config removed.
+1. Missing RDS: `missing` on a `CaptureComplete` dump with an active listener; `unknown` when the capture is unverified (a file, or a filtered dump), `RoutesConfigDump` is absent, an entry was skipped, or the listener is warming or draining. Built from scenario 00 with the route config removed.
 2. Static listeners and route configs, and an inline HCM `route_config`: a neutral static bootstrap fixture.
 3. Non-HCM chains: a `tcp_proxy` chain is listed.
 4. ECDS: with `EcdsConfigDump`, the config is joined; without it, `Runs` unknown and `State` unresolved, and the filter is not in the request order as running.
@@ -79,7 +82,7 @@ Fixtures are neutral and hand-built where no OSS capture shows the case (P-010).
 
 ## Before 9.3 locks the API
 
-kgwctl and Snellius review the design (program open question 7). The requests are drafted in `.agents-tmp/p9/` and filed only after the owner says yes. 9.1 and 9.2 change no consumer-facing names beyond the snapshot rename, so they can run meanwhile.
+kgwctl and Snellius review the design (program open question 7, D-019). The program puts that review before owner approval; the owner approved first (2026-11-25). Open for the owner: file the requests now, and accept that 9.1 and 9.2 run on a local branch meanwhile (design review #10). The requests are drafted in `.agents-tmp/p9/` and filed only after the owner says yes. 9.1 and 9.2 change no consumer-facing names beyond the snapshot rename; nothing merges to `main` before the consumer review.
 
 ## Order and size
 
