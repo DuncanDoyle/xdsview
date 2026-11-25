@@ -98,11 +98,13 @@ A route name can be read several ways, because HTTPRoute names and namespaces ma
 2. `--route`/`--route-ns` names one. It takes the place of the listing.
 3. kgateway runs with `enableRouteSourceMetadata: true` (Helm), which writes each route's source into Envoy's config. kgateway marks it experimental.
 
-A route settled by 1 or 2 is marked "(chosen from known HTTPRoutes)": a route Envoy still serves for a deleted HTTPRoute can resolve to a live one.
+A route settled by 1 or 2 is marked "(chosen from known HTTPRoutes)": a route Envoy still serves for a deleted HTTPRoute can resolve to a live one. With `--route`, krp shows such a route when the one reading left is the named HTTPRoute and rule; `-o json` marks it `"selected": true` under `selection.narrowed`.
 
-With `--file` and none of these, a route prints `ambiguous:` and its readings. `-o json` lists every reading, with a `certainty` of `exact`, `inferred` or `ambiguous`.
+With `--file` and none of these, a route prints `ambiguous:` and its readings. `-o json` lists every reading as a `routeSource` claim, with a `certainty` of `exact`, `inferred` or `ambiguous`.
 
-Every label states how it was derived. `(inferred)` marks one read from a naming convention or krp's field-to-filter table; `exact` ones, read from metadata, print bare. `(partly from name)` marks a route whose identity came from metadata while at least one of its rule index, rule name or match index came from the Envoy route name. A policy is linked to a filter only when exactly one filter configured for the route matches its field; otherwise it shows under `policies:` only. `-o json` carries the same as `certainty` on each contribution and policy, and `indexCertainty` on a route origin.
+Every label states how it was derived. `(inferred)` marks one read from a naming convention or the kgateway module's field-to-filter table; `exact` ones, read from metadata, print bare. `(partly from name)` marks a route whose identity came from metadata while at least one of its rule index, rule name or match index came from the Envoy route name. A policy is linked to a filter only when exactly one filter configured for the route matches its field; otherwise it shows under `policies:` only. Policies recorded at the virtual host, route config or listener show under `inherited policies:`.
+
+With `--gateway`, listener lines end with `Gateway <ns>/<name> (from --gateway)`: the Gateway krp was pointed at, not something read from the dump.
 
 ### Effective filter chain
 
@@ -127,7 +129,17 @@ A weighted-cluster backend can override the route's entry when Envoy picks it. k
 krp dump --file config_dump.json -o json
 ```
 
-The document is `{"schemaVersion": "v1alpha1", "snapshot": {...}, "warnings": [...]}`. `warnings` and `snapshot.listeners` are always arrays, never `null`. Every occurrence in `snapshot` has an `id`, valid only within that document; `snapshot.routeConfigs` lists the route config sources each HCM's `routeConfigUse` points at, and `snapshot.warnings` holds the warnings with a code and subject. Each route's `effectiveChain` entry names its HCM filter `slot`; `runs`, `request` and `response` are `yes`, `no` or `unknown`. `contributions` maps a route ID, then a slot ID, to the objects krp attributes to that entry. `schemaVersion` changes only when a field is removed or renamed. `testdata/golden/` holds the expected output for every test dump. `-o json` can't be combined with `--interactive`.
+The document (`schemaVersion` `v1alpha2`) has these fields:
+
+| Field | Content |
+|---|---|
+| `snapshot` | The parsed dump: `listeners` (always an array), `routeConfigs` (the route config sources each HCM's `routeConfigUse` points at) and `coverage`. Every occurrence has an `id`, valid only within that document. |
+| `chains` | Each route's effective filter chain by route ID, and an HCM's chain by its `routeConfigUse` ID when no route config joined. Each entry names its HCM filter `slot`; `runs`, `request` and `response` are `yes`, `no` or `unknown`. |
+| `claims` | What the kgateway module says each occurrence came from: `id`, `subject`, `assertion` (an object with `kind` and its fields), `certainty`, `evidence` and `module`. Kinds: `listenerSource`, `gatewaySource`, `hostSource`, `routeSource`, `extensionSource`, `backendSource`, `policyRecord` (with its `level`) and `filterLink` (a `policyRecord`'s `record` ref and the `slot` it configures on the claim's route). |
+| `selection` | With `--route`: the `query`, the `routes` krp shows, the `ambiguous` and `unresolved` routes it leaves out, and the `narrowed` routes with the readings kept and dropped. In live mode without `--route`: `narrowed` only. Absent otherwise. |
+| `warnings` | Every warning, typed: `subject` (absent for a dump-wide one), `code` and `message`. Parse warnings and dropped claims alike. |
+
+With `--route`, every field except `selection` covers only what `snapshot` keeps: no ID outside `selection` is absent from `snapshot`. `selection` describes the whole dump, so its entries may name routes `snapshot` lacks; they carry the route `name` and `virtualHost` beside the `id`. `schemaVersion` changes only when a field is removed or renamed. `testdata/golden/` holds the expected output for every test dump. `-o json` can't be combined with `--interactive`.
 
 ### Collecting a config dump manually
 
@@ -186,12 +198,13 @@ cmd/krp/          CLI entrypoint (cobra)
 pkg/envoy/        Importable library (standard library only, except source/kube)
   model/          Snapshot data model
   parser/         Envoy config dump JSON parser (io.Reader)
-  filter/         HTTPRoute snapshot filter
-  origin/         Envoy object → Gateway API object mapping (kgateway OSS, pluggable)
   chain/          Effective HTTP filter chain per route
   render/         Plain-text tree (what krp prints, without colour)
+  provenance/     Claims about where occurrences came from, composed from modules
   source/         Config dump sources: File, Admin (HTTP)
     kube/         Port-forward sources: Gateway, Deployment (client-go)
+pkg/adapter/
+  kgateway/       The kgateway OSS provenance module, route selection and name mapping
 internal/
   renderer/       Terminal output (lipgloss)
   tui/            Interactive TUI (bubbletea)
@@ -205,7 +218,7 @@ testdata/
 ### Using xdsview as a library
 
 ```go
-// Fetch, parse and narrow a config dump to one HTTPRoute.
+// Fetch and parse a config dump.
 src := kube.Gateway("gw", "kgateway-system", kube.Options{RESTConfig: cfg})
 rc, err := src.ConfigDump(ctx)
 if err != nil {
@@ -214,44 +227,48 @@ if err != nil {
 defer rc.Close() // also closes the port-forward
 
 // Capture tells the parser whether the dump is known to be complete.
-parsed, err := parser.Parse(rc, parser.Options{Capture: src.Capture()})
+snap, err := parser.Parse(rc, parser.Options{Capture: src.Capture()})
 if err != nil {
 	return err
 }
-snap := filter.Filter(parsed, filter.Options{
-	HTTPRouteName: "api-example-com", HTTPRouteNamespace: "default", RuleIndex: filter.AllRules,
+
+// Each route's runtime filter chain, keyed by route ID, from Envoy data alone.
+chains := chain.Effective(snap)
+```
+
+Snapshots are read-only once shared: `model.Prune` returns a view that shares data with its input.
+
+```go
+// Claims about where each occurrence came from. A vendor module is another
+// provenance.Module; Compose gives each one its own copy of the snapshot.
+ix, err := provenance.Compose(snap, kgateway.New(), vendorModule)
+if err != nil {
+	return err // duplicate module names
+}
+route := provenance.Resolve[provenance.RouteSource](ix, routeID) // candidates and certainty
+
+// The routes of one HTTPRoute. Known HTTPRoutes narrow names that read
+// several ways; a narrowed route stays in Ambiguous with its Narrowing.
+q := kgateway.Query{Route: model.Ref{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute", Namespace: "shop", Name: "orders"}, Known: httpRoutes}
+sel := kgateway.Select(ix, snap, q)
+keep := map[model.ID]bool{}
+for _, id := range sel.Routes {
+	keep[id] = true
+}
+pruned := model.Prune(snap, func(id model.ID) bool { return keep[id] })
+
+// The tree krp prints, without colour, with the provenance labels and policies lines.
+err = render.Text(os.Stdout, pruned, chains, render.Options{
+	Header:  "Gateway kgateway-system/gw",
+	Labels:  provenance.Labels(ix, sel.Narrowed),
+	Trailer: provenance.Notes(ix),
 })
+
+// A bare name from proxy stats: a cluster, route config, listener or route.
+answer := provenance.Guess(kgateway.Names(), "kube_shop_cart_8080") // Service shop/cart
 ```
 
-Snapshots are read-only once shared: `filter.Filter` returns a view that shares data with its input.
-
-```go
-// Label a snapshot with Gateway API origins. Known HTTPRoutes resolve route
-// names that can be read several ways; a vendor plugin is another Mapper in the chain.
-m := origin.Chain(vendorMapper, origin.Kgateway(origin.KgatewayOptions{
-	Gateway: &model.Ref{Group: "gateway.networking.k8s.io", Kind: "Gateway", Namespace: "kgateway-system", Name: "gw"},
-	Known:   httpRoutes,
-}))
-annotated := origin.Annotate(snap, m)
-
-// A bare name from proxy stats: a cluster or a route config.
-ref, ok := origin.ObjectForName(m, "kube_shop_cart_8080") // Service shop/cart
-```
-
-```go
-// Narrow on resolved origins: annotate first. An ambiguous route is never
-// selected; filter.Ambiguous names the ones that may belong to the HTTPRoute.
-opts := filter.Options{HTTPRouteName: "orders", HTTPRouteNamespace: "shop", RuleIndex: filter.AllRules}
-narrowed := filter.Filter(annotated, opts)
-maybe := filter.Ambiguous(annotated, opts)
-
-// Each route's runtime filter chain (EffectiveChain), keyed by route ID, from
-// Envoy data alone; then the tree krp prints, without colour or contributions.
-chains := chain.Effective(narrowed)
-err = render.Text(os.Stdout, narrowed, chains, render.Options{Header: "Gateway kgateway-system/gw"})
-```
-
-Each chain entry carries its slot ID; `Runs`, `Request` and `Response` are `yes`, `no` or `unknown`. `render.Options` has `AllFilters` (list every HCM filter inline), `ResponseOrder`, and hooks keyed by `render.Row` (route ID and slot ID): `Style`, `Labels` (shown on a row after " · ") and `Notes` (lines under a route or filter row). krp computes extension and policy contributions itself and passes them as `Labels`.
+Each chain entry carries its slot ID; `Runs`, `Request` and `Response` are `yes`, `no` or `unknown`. `render.Options` has `AllFilters` (list every HCM filter inline), `ResponseOrder`, and hooks keyed by `render.Row` (route ID and slot ID): `Style`, `Labels` (shown on a row after " · "), `Notes` (lines under a route or filter row) and `Trailer` (labelled lines after a route's filters). `ix.Dependencies(block)` lists the objects a block's claims rest on and the attribution it lacks.
 
 ---
 
