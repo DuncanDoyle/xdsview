@@ -238,9 +238,19 @@ func otherNetworkFilters(fc model.NetworkFilterChain) bool {
 func networkFilters(fc model.NetworkFilterChain) string {
 	var names []string
 	for _, nf := range fc.NetworkFilters {
+		if unresolvedNetwork(nf) {
+			names = append(names, nf.Name+" (ECDS, unresolved)")
+			continue
+		}
 		names = append(names, nf.Name+shortType(nf.Type))
 	}
 	return "network filters: " + clean(strings.Join(names, ", "))
+}
+
+// unresolvedNetwork reports whether nf's config comes from ECDS and the
+// snapshot doesn't hold it: nf may even be an HCM.
+func unresolvedNetwork(nf model.NetworkFilter) bool {
+	return nf.Discovery != nil && nf.Discovery.Source == ""
 }
 
 // shortType writes a type URL's message name, e.g. " (TcpProxy)"; "" when unset.
@@ -255,7 +265,11 @@ func (p *printer) chainBody(fc model.NetworkFilterChain, indent string) {
 	hcm := fc.HCM
 	if hcm == nil {
 		prefix, _ := node(indent, true)
-		line := p.style(ClassWarning, Row{Subject: fc.ID}, "no HTTP connection manager")
+		text := "no HTTP connection manager"
+		if slices.ContainsFunc(fc.NetworkFilters, unresolvedNetwork) {
+			text = "HTTP filters unknown: a network filter's ECDS config isn't resolved"
+		}
+		line := p.style(ClassWarning, Row{Subject: fc.ID}, text)
 		if len(fc.NetworkFilters) > 0 {
 			line = networkFilters(fc) + " · " + line
 		}

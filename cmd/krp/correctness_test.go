@@ -178,6 +178,19 @@ func TestDump_ECDS(t *testing.T) {
 	}
 }
 
+// TestDump_ECDSNetworkAndRouter: an ECDS network filter shows unresolved, not
+// as a chain without an HCM; an ECDS router shows its upstream filters.
+func TestDump_ECDSNetworkAndRouter(t *testing.T) {
+	asComplete(t, fixture("ecds-network"))
+	wantOutput(t, []string{"--gateway", "gw", "-n", "ns"},
+		[]string{"network filters: ecds.hcm (ECDS, unresolved) · HTTP filters unknown", "router upstream filters (as configured): envoy.filters.http.upstream_codec"},
+		[]string{`"discovery": {`, `"name": "envoy.filters.http.upstream_codec"`})
+	out, _, err := runKrp(t, "dump", "--file", fixture("ecds-network"))
+	if err != nil || strings.Contains(out, "no HTTP connection manager") {
+		t.Errorf("err %v; an unresolved ECDS network filter reads as no HCM:\n%s", err, out)
+	}
+}
+
 // TestDump_Matchers: every matcher form prints; unmodelled predicates show
 // in text and JSON, so a route never looks wider than it is.
 func TestDump_Matchers(t *testing.T) {

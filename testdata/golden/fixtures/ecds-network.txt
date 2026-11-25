@@ -1,0 +1,8 @@
+discovered 0.0.0.0:8080 · active
+└─ network filters: ecds.hcm (ECDS, unresolved) · HTTP filters unknown: a network filter's ECDS config isn't resolved
+router 0.0.0.0:8081 · active
+└─ vhost any [*]
+   └─ route / (prefix)
+      filters (request order):
+        1? ecds.router  unresolved: no ECDS config in this dump
+      backend: web_backend

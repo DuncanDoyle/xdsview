@@ -94,6 +94,9 @@ type NetworkFilter struct {
 	ID   ID     `json:"id"`
 	Name string `json:"name"`
 	Type string `json:"type,omitempty"` // typed_config @type
+	// Discovery is set when the config comes from ECDS. The parser doesn't
+	// resolve it: Source stays empty, and whether the chain has an HCM is unknown.
+	Discovery *Discovery `json:"discovery,omitempty"`
 }
 
 // TLSContext holds TLS/SNI information for a filter chain.

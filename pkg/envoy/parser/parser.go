@@ -536,9 +536,12 @@ func (p *parse) filterChain(l *model.Listener, id model.ID, chain string, rfc ra
 	for n, nf := range rfc.Filters {
 		var typed typedConfig
 		_ = json.Unmarshal(nf.TypedConfig, &typed) // a filter without a readable @type keeps an empty Type
-		nfc.NetworkFilters = append(nfc.NetworkFilters, model.NetworkFilter{
-			ID: model.ID(fmt.Sprintf("%s/N%d", nfc.ID, n)), Name: nf.Name, Type: typed.Type,
-		})
+		netf := model.NetworkFilter{ID: model.ID(fmt.Sprintf("%s/N%d", nfc.ID, n)), Name: nf.Name, Type: typed.Type}
+		// Not resolved: the filter, maybe an HCM, stays in place with an unknown config.
+		if d := nf.ConfigDiscovery; d != nil {
+			netf.Discovery = &model.Discovery{TypeURLs: d.TypeURLs, DefaultConfig: present(d.DefaultConfig), ApplyDefaultWithoutWarming: d.ApplyDefaultConfigWithoutWarming}
+		}
+		nfc.NetworkFilters = append(nfc.NetworkFilters, netf)
 		if !isHCM(nf) {
 			continue
 		}
@@ -680,14 +683,16 @@ func (p *parse) parseHCM(id model.ID, raw json.RawMessage, active bool) (*model.
 	}
 
 	for i, hf := range hcm.HTTPFilters {
-		filter := p.httpFilter(model.ID(fmt.Sprintf("%s/F%d", id, i)), hf, active, ecdsHTTP)
+		filter, config := p.httpFilter(model.ID(fmt.Sprintf("%s/F%d", id, i)), hf, active, ecdsHTTP)
 		result.HTTPFilters = append(result.HTTPFilters, filter)
 		if filter.Type == routerType {
+			// Read from the config the router runs, which ECDS may have supplied.
 			var router rawRouter
-			if err := json.Unmarshal(hf.TypedConfig, &router); err == nil {
+			if err := json.Unmarshal(config, &router); err == nil {
 				for _, uf := range router.UpstreamHTTPFilters {
 					uid := model.ID(fmt.Sprintf("%s/U%d", id, len(result.UpstreamFilters)))
-					result.UpstreamFilters = append(result.UpstreamFilters, p.httpFilter(uid, uf, active, ecdsUpstreamHTTP))
+					upstream, _ := p.httpFilter(uid, uf, active, ecdsUpstreamHTTP)
+					result.UpstreamFilters = append(result.UpstreamFilters, upstream)
 				}
 			}
 		}
@@ -702,11 +707,12 @@ func (p *parse) parseHCM(id model.ID, raw json.RawMessage, active bool) (*model.
 // and whose type is in type_urls, when the dump shows that entry is its
 // subscription's. With none, an active listener in a complete capture with no
 // skipped ECDS entry runs default_config (config_source.proto,
-// ExtensionConfigSource). Otherwise it has no config.
-func (p *parse) httpFilter(id model.ID, hf rawHTTPFilter, active bool, category string) model.HTTPFilter {
+// ExtensionConfigSource). Otherwise it has no config. It also returns the
+// raw config the filter runs, nil when unresolved.
+func (p *parse) httpFilter(id model.ID, hf rawHTTPFilter, active bool, category string) (model.HTTPFilter, json.RawMessage) {
 	d := hf.ConfigDiscovery
 	if d == nil {
-		return parseHTTPFilter(hf)
+		return parseHTTPFilter(hf), hf.TypedConfig
 	}
 	disc := &model.Discovery{TypeURLs: d.TypeURLs, DefaultConfig: present(d.DefaultConfig), ApplyDefaultWithoutWarming: d.ApplyDefaultConfigWithoutWarming}
 	pool := slices.Concat(p.ecdsSections...)
@@ -735,7 +741,7 @@ func (p *parse) httpFilter(id model.ID, hf rawHTTPFilter, active bool, category 
 	}
 	filter := parseHTTPFilter(hf)
 	filter.Discovery = disc
-	return filter
+	return filter, hf.TypedConfig
 }
 
 // present reports whether raw holds a JSON value other than null.
@@ -962,8 +968,9 @@ type rawFilterChain struct {
 
 // rawNetworkFilter is a single entry in a filter chain's `filters` list.
 type rawNetworkFilter struct {
-	Name        string          `json:"name"`
-	TypedConfig json.RawMessage `json:"typed_config"`
+	Name            string              `json:"name"`
+	TypedConfig     json.RawMessage     `json:"typed_config"`
+	ConfigDiscovery *rawConfigDiscovery `json:"config_discovery"`
 }
 
 // HCM

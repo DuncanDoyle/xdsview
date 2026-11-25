@@ -1,0 +1,130 @@
+{
+  "schemaVersion": "v1alpha1",
+  "snapshot": {
+    "capture": "unverified",
+    "listeners": [
+      {
+        "id": "L0",
+        "name": "discovered",
+        "address": "0.0.0.0:8080",
+        "filterChains": [
+          {
+            "id": "L0/C0",
+            "name": "",
+            "networkFilters": [
+              {
+                "id": "L0/C0/N0",
+                "name": "ecds.hcm",
+                "discovery": {
+                  "typeUrls": [
+                    "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+                  ]
+                }
+              }
+            ]
+          }
+        ],
+        "state": {
+          "status": "active",
+          "lastUpdated": "2026-01-01T00:00:00Z"
+        }
+      },
+      {
+        "id": "L1",
+        "name": "router",
+        "address": "0.0.0.0:8081",
+        "filterChains": [
+          {
+            "id": "L1/C0",
+            "name": "",
+            "networkFilters": [
+              {
+                "id": "L1/C0/N0",
+                "name": "envoy.filters.network.http_connection_manager",
+                "type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+              }
+            ],
+            "hcm": {
+              "id": "L1/C0/N0",
+              "routeConfigName": "",
+              "httpFilters": [
+                {
+                  "id": "L1/C0/N0/F0",
+                  "name": "ecds.router",
+                  "discovery": {
+                    "typeUrls": [
+                      "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                    ],
+                    "defaultConfig": true
+                  }
+                }
+              ],
+              "routeConfigUse": {
+                "id": "L1/C0/N0/RC",
+                "source": "L1/C0/N0/RCI",
+                "state": "found"
+              },
+              "routeConfig": {
+                "name": "router_route",
+                "virtualHosts": [
+                  {
+                    "id": "L1/C0/N0/RC/V0",
+                    "name": "any",
+                    "domains": [
+                      "*"
+                    ],
+                    "routes": [
+                      {
+                        "id": "L1/C0/N0/RC/V0/R0",
+                        "name": "",
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "action": {
+                          "kind": "route"
+                        },
+                        "cluster": "web_backend",
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "slot": "L1/C0/N0/F0",
+                              "name": "ecds.router",
+                              "runs": "unknown",
+                              "state": "unresolved",
+                              "request": "unknown",
+                              "response": "unknown"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "state": {
+          "status": "active",
+          "lastUpdated": "2026-01-01T00:00:00Z"
+        }
+      }
+    ],
+    "routeConfigs": [
+      {
+        "id": "L1/C0/N0/RCI",
+        "kind": "inline",
+        "name": "router_route"
+      }
+    ],
+    "coverage": {
+      "sections": [
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
+          "status": "parsed"
+        }
+      ]
+    }
+  },
+  "warnings": []
+}

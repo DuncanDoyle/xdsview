@@ -363,6 +363,25 @@ func TestECDS_SubscriptionKey(t *testing.T) {
 	}
 }
 
+// TestECDS_NetworkAndRouter: a network filter with config_discovery
+// (listener_components.proto, Filter.config_discovery) stays in place,
+// unresolved; a router from ECDS lists the upstream filters of the config it
+// runs, here its default.
+func TestECDS_NetworkAndRouter(t *testing.T) {
+	snap := parseFixture(t, "ecds-network", model.CaptureComplete)
+	fc := snap.Listeners[0].FilterChains[0]
+	if nf := fc.NetworkFilters; len(nf) != 1 || nf[0].Discovery == nil || nf[0].Discovery.Source != "" || fc.HCM != nil {
+		t.Errorf("network filters = %+v, HCM %v; want one unresolved ECDS filter", nf, fc.HCM)
+	}
+	hcm := snap.Listeners[1].FilterChains[0].HCM
+	if f := hcm.HTTPFilters[0]; f.Discovery == nil || f.Discovery.Source != model.ConfigECDSDefault {
+		t.Fatalf("router = %+v, want its ECDS default", f)
+	}
+	if u := hcm.UpstreamFilters; len(u) != 1 || u[0].ID != "L1/C0/N0/U0" || u[0].Name != "envoy.filters.http.upstream_codec" {
+		t.Errorf("upstream filters = %+v, want the default router's upstream_codec", u)
+	}
+}
+
 // TestECDS_DefaultNeedsFullCapture: a missing ECDS entry proves the default
 // runs only when the capture is complete and no ECDS entry was skipped; else
 // the installed config is unknown (P-010 rule 3).
