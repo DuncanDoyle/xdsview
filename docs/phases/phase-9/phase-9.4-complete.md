@@ -54,3 +54,33 @@ Reviewed after each `-update`; no line was removed except a trailing comma or th
 - New additive model fields for `v1alpha2`: `Static`, `NetworkFilters`, `Default`, `Discovery`, `ScopedRoutes`, `Action`, `Coverage`, matcher `Kind` and modifiers. Decide there whether `Regex` and `Route.Cluster` stay.
 - ECDS filters now carry their resolved `TypedConfig`, so filter attribution may start to match them.
 - `schemaVersion` is still `v1alpha1`.
+
+## Review fixes
+Codex review [9.4-codex.md](reviews/9.4-codex.md), triage there. Each test failed first (`.agents-tmp/p9/rf/<finding>-before.txt`), then passed (`…-after.txt`). `go test ./...` and `go vet ./...` pass.
+
+| # | Commit | Change |
+|---|---|---|
+| 1, 9 | [`c55dd05`](https://github.com/DuncanDoyle/xdsview/commit/c55dd05) | ECDS entries join per category (downstream, upstream HTTP) and need one config source per name. Sections map to categories by Envoy's key order only when every `config_discovery` in the listeners is accounted for and the section count matches; otherwise a found entry leaves the slot unresolved with `ecds-ambiguous`. |
+| 2 | [`ed002e2`](https://github.com/DuncanDoyle/xdsview/commit/ed002e2) | A network filter with `config_discovery` gets `NetworkFilter.Discovery`, unresolved; text: `(ECDS, unresolved) · HTTP filters unknown`. An ECDS router's upstream filters come from the config it runs. |
+| 3 | [`71ab11d`](https://github.com/DuncanDoyle/xdsview/commit/71ab11d) | `ecdsDefault` needs `CaptureComplete` and no skipped ECDS entry or section. |
+| 4 | [`ba0f9fc`](https://github.com/DuncanDoyle/xdsview/commit/ba0f9fc) | Missing RDS on a static listener needs an active dynamic listener (workers started); else `unknown`. ECDS defaults follow the same rule. |
+| 5 | [`c558772`](https://github.com/DuncanDoyle/xdsview/commit/c558772) | The default chain has no `TLS`: Envoy ignores its `filter_chain_match`. |
+| 6 | [`88b0e08`](https://github.com/DuncanDoyle/xdsview/commit/88b0e08) | Empty top-level `exact_match` → new `MatchKind` `anyValue`, text `any value`. Not `present`: with `invert_match` the two differ (`header_utility.h`). |
+| 7 | [`266b517`](https://github.com/DuncanDoyle/xdsview/commit/266b517) | A reported static entry stays a source; `Prune` keeps the entry a kept source reports. No `reported` ID dangles. |
+| 8 | [`59ce072`](https://github.com/DuncanDoyle/xdsview/commit/59ce072) | `RouteConfigUse.Chain` (`effectiveChain`) carries the chain of an HCM with no route config in JSON. |
+
+Golden changes, reviewed after each `-update`:
+- `88b0e08`: `matchers.txt`/`.json` gain the fixture's new `x-any` header (`any value`, `kind: anyValue`).
+- `266b517`: all 55 corpus JSON goldens and `static-bootstrap.json` gain the static sources `RS0`/`RS1` in `routeConfigs`; nothing removed.
+- `59ce072`: `coverage.json`: the scoped-routes use gains `effectiveChain`.
+- `71ab11d`: `ecds.txt`/`.json`: `ecds.default` and `ecds.default_no_warming` become unresolved (`?`), since goldens parse files as unverified.
+- `ed002e2`: new `ecds-network.txt`/`.json`.
+- `c558772`, `ba0f9fc`, `c55dd05`: none. The `default-chain` fixture gains an SNI on its default chain; output is unchanged.
+
+Golden changes item 1 no longer holds: static sources stay beside the inline ones that report them. Scope limits that stay:
+- Cluster upstream filters share the router's ECDS subscriptions but aren't read. A cluster subscribing to a router filter's name from another config source isn't detected.
+- An ECDS router with an entry, or any `config_discovery` outside HCM and router filters, leaves sections unmapped, so found entries stay unresolved.
+- An unresolved ECDS router's upstream filters are unknown and not listed; the router slot's `?` covers them.
+- A static listener's `Status` stays `active` even before workers start; only the missing-RDS and ECDS-default verdicts check.
+
+For 9.3: `Prune` keeps reported sources; `RouteConfigUse.Chain` is a provenance-free copy like `Route.Chain`, to move with it.
