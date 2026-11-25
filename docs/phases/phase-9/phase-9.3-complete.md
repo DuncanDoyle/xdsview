@@ -150,3 +150,20 @@ Fail-closed `Dependencies` (Codex re-review 4), rerun on the same machine. `Benc
 `Dependencies` on all route blocks costs about 27 ms (5.5 µs and 89 allocations per block). The first call builds the per-HCM structure and link placements, so the cost is linear in routes.
 
 Not measured: the kind capture for scoped `merge.*`; that is for the owner (R5 tested on hand-built fixtures, design Risks).
+
+## Corpus gaps
+
+Fail-closed `Dependencies` on the 279 route blocks of the 51 scenario dumps (kgateway module only, file capture). None is gap-free. 204 blocks sit on the static `readiness_listener` and `prometheus_listener` (51 dumps each); 75 sit on kgateway listeners.
+
+| Gap kind | Before | After | Static | kgateway | Class | Reason |
+|---|---|---|---|---|---|---|
+| `gatewaySource` | 279 | 279 | 204 | 75 | b | No corpus listener has metadata; a consumer closes it with its captured Gateway (§5 note 2). |
+| `routeSource` | 271 | 271 | 204 | 67 | b | Static: bootstrap routes have no HTTPRoute. kgateway: no `route_source` metadata, and the name reads two to five ways; krp prints `ambiguous` too. The 8 routes with metadata resolve. |
+| `hostSource` | 204 | 204 | 204 | 0 | b | Bootstrap vhosts `local_service`, `prometheus_host`; kgateway vhosts all resolve. |
+| `backendSource` | 204 | 204 | 204 | 0 | b | `admin_port_cluster` is bootstrap; kgateway backends all resolve. |
+| `extensionSource` | 51 | 51 | 51 | 0 | b | `envoy.filters.http.health_check` on the readiness listener; no object installed it. |
+| `policyRecord` | 51 | 51 | 51 | 0 | b | Same slot runs by default at listener level, with no `merge.*` record. |
+
+No (a) cause: on kgateway listeners the module covers every host, backend, slot and policy input krp shows an origin for, and the index drops no claim. Static gaps follow §5, which lists every listener as an input (part A deviation 9), so static route blocks can never be gap-free.
+
+(c), not on the corpus: `placement` reports a gap when the routes checked are empty, as for a default-on slot of an HCM with no routes. §5's "for each route checked" would hold vacuously there.
