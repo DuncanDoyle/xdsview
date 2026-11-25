@@ -157,6 +157,10 @@ type RouteAction struct {
 	ClusterHeader                string     `json:"clusterHeader,omitempty"`                // the request header naming the cluster
 	ClusterSpecifierPlugin       string     `json:"clusterSpecifierPlugin,omitempty"`       // a plugin the route config defines, by name
 	InlineClusterSpecifierPlugin *Extension `json:"inlineClusterSpecifierPlugin,omitempty"` // a plugin defined on the route
+
+	Redirect         *Redirect       `json:"redirect,omitempty"`         // for Kind redirect
+	DirectResponse   *DirectResponse `json:"directResponse,omitempty"`   // for Kind directResponse
+	FilterActionType string          `json:"filterActionType,omitempty"` // for Kind filterAction: the action's @type
 }
 
 // ActionKind is the kind of a route's action.
@@ -164,7 +168,42 @@ type ActionKind string
 
 // Action kinds.
 const (
-	ActionRoute ActionKind = "route" // forward to a cluster
+	ActionRoute          ActionKind = "route"          // forward to a cluster
+	ActionRedirect       ActionKind = "redirect"       // answer with a redirect
+	ActionDirectResponse ActionKind = "directResponse" // answer directly
+	ActionFilter         ActionKind = "filterAction"   // a filter-defined action; not implemented in Envoy
+	ActionNonForwarding  ActionKind = "nonForwarding"  // answered without an upstream; for non-proxy xDS clients
+)
+
+// Redirect is a redirect action (route_components.proto, RedirectAction).
+type Redirect struct {
+	ResponseCode int    `json:"responseCode"`     // 301 unless the dump says otherwise
+	Scheme       string `json:"scheme,omitempty"` // "https" for https_redirect
+	Host         string `json:"host,omitempty"`
+	Port         int    `json:"port,omitempty"`
+	// At most one path rewrite is set.
+	Path              string `json:"path,omitempty"`              // path_redirect
+	PrefixRewrite     string `json:"prefixRewrite,omitempty"`     // prefix_rewrite
+	RegexPattern      string `json:"regexPattern,omitempty"`      // regex_rewrite.pattern.regex
+	RegexSubstitution string `json:"regexSubstitution,omitempty"` // regex_rewrite.substitution
+	PathRewrite       string `json:"pathRewrite,omitempty"`       // path_rewrite, a substitution format string
+	StripQuery        bool   `json:"stripQuery,omitempty"`
+}
+
+// DirectResponse is a direct response action. It keeps the body's size and
+// source, never the body.
+type DirectResponse struct {
+	Status     int    `json:"status"`
+	BodySource string `json:"bodySource,omitempty"` // "inline", "file" or "env"; empty without a body
+	BodySize   *int   `json:"bodySize,omitempty"`   // bytes of an inline body
+	BodyFormat bool   `json:"bodyFormat,omitempty"` // body_format sets how the body is written
+}
+
+// Body sources of a direct response (core.v3.DataSource).
+const (
+	BodyInline = "inline"
+	BodyFile   = "file"
+	BodyEnv    = "env"
 )
 
 // Extension names a typed extension: its name and its typed_config @type.

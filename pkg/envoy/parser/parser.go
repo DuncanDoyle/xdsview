@@ -27,6 +27,7 @@
 package parser
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -929,7 +930,89 @@ type rawRoute struct {
 	ResponseHeadersToRemove []string                   `json:"response_headers_to_remove"`
 	TypedPerFilterConfig    map[string]json.RawMessage `json:"typed_per_filter_config"`
 	Metadata                *rawRouteMetadata          `json:"metadata"`
-	fields                  []string                   // every field the dump sets
+	Redirect                *rawRedirect               `json:"redirect"`
+	DirectResponse          *rawDirectResponse         `json:"direct_response"`
+	FilterAction            *struct {
+		Action typedConfig `json:"action"`
+	} `json:"filter_action"`
+	fields []string // every field the dump sets
+}
+
+// rawRedirect is a RedirectAction.
+type rawRedirect struct {
+	HTTPSRedirect  bool             `json:"https_redirect"`
+	SchemeRedirect string           `json:"scheme_redirect"`
+	HostRedirect   string           `json:"host_redirect"`
+	PortRedirect   int              `json:"port_redirect"`
+	PathRedirect   string           `json:"path_redirect"`
+	PrefixRewrite  string           `json:"prefix_rewrite"`
+	RegexRewrite   *rawRegexRewrite `json:"regex_rewrite"`
+	PathRewrite    string           `json:"path_rewrite"`
+	ResponseCode   json.RawMessage  `json:"response_code"`
+	StripQuery     bool             `json:"strip_query"`
+}
+
+type rawRegexRewrite struct {
+	Pattern      rawRegex `json:"pattern"`
+	Substitution string   `json:"substitution"`
+}
+
+// rawDirectResponse is a DirectResponseAction. The body stays raw: only its
+// size and source are read.
+type rawDirectResponse struct {
+	Status     int                        `json:"status"`
+	Body       map[string]json.RawMessage `json:"body"`
+	BodyFormat json.RawMessage            `json:"body_format"`
+}
+
+// redirectCodes maps RedirectAction.RedirectResponseCode, by name and by
+// number, to its HTTP status. Unset is MOVED_PERMANENTLY.
+var redirectCodes = map[string]int{
+	"MOVED_PERMANENTLY": 301, "FOUND": 302, "SEE_OTHER": 303, "TEMPORARY_REDIRECT": 307, "PERMANENT_REDIRECT": 308,
+	"0": 301, "1": 302, "2": 303, "3": 307, "4": 308,
+}
+
+func parseRedirect(r rawRedirect) *model.Redirect {
+	out := &model.Redirect{
+		ResponseCode: 301, Scheme: r.SchemeRedirect, Host: r.HostRedirect, Port: r.PortRedirect,
+		Path: r.PathRedirect, PrefixRewrite: r.PrefixRewrite, PathRewrite: r.PathRewrite, StripQuery: r.StripQuery,
+	}
+	if r.HTTPSRedirect {
+		out.Scheme = "https"
+	}
+	if rx := r.RegexRewrite; rx != nil {
+		out.RegexPattern, out.RegexSubstitution = rx.Pattern.Regex, rx.Substitution
+	}
+	if c, ok := redirectCodes[strings.Trim(string(r.ResponseCode), `"`)]; ok {
+		out.ResponseCode = c
+	}
+	return out
+}
+
+// parseDirectResponse reads a direct response's status and its body's
+// source and size. The body is decoded only to measure it.
+func parseDirectResponse(d rawDirectResponse) *model.DirectResponse {
+	out := &model.DirectResponse{Status: d.Status, BodyFormat: present(d.BodyFormat)}
+	var s string
+	switch {
+	case present(d.Body["inline_string"]):
+		if json.Unmarshal(d.Body["inline_string"], &s) == nil {
+			n := len(s)
+			out.BodySource, out.BodySize = model.BodyInline, &n
+		}
+	case present(d.Body["inline_bytes"]):
+		if json.Unmarshal(d.Body["inline_bytes"], &s) == nil {
+			if b, err := base64.StdEncoding.DecodeString(s); err == nil {
+				n := len(b)
+				out.BodySource, out.BodySize = model.BodyInline, &n
+			}
+		}
+	case present(d.Body["filename"]):
+		out.BodySource = model.BodyFile
+	case present(d.Body["environment_variable"]):
+		out.BodySource = model.BodyEnv
+	}
+	return out
 }
 
 // UnmarshalJSON decodes the route and records which fields it sets.
@@ -949,13 +1032,22 @@ func (r *rawRoute) UnmarshalJSON(b []byte) error {
 // routeAction reads the route's action oneof (route_components.proto, Route.action).
 func routeAction(rr rawRoute) model.RouteAction {
 	var a model.RouteAction
-	if slices.Contains(rr.fields, "route") {
+	switch {
+	case slices.Contains(rr.fields, "route"):
 		a.Kind = model.ActionRoute
 		a.ClusterHeader = rr.Route.ClusterHeader
 		a.ClusterSpecifierPlugin = rr.Route.ClusterSpecifierPlugin
 		if p := rr.Route.InlineClusterSpecifierPlugin; p != nil {
 			a.InlineClusterSpecifierPlugin = &model.Extension{Name: p.Extension.Name, Type: p.Extension.TypedConfig.Type}
 		}
+	case rr.Redirect != nil:
+		a.Kind, a.Redirect = model.ActionRedirect, parseRedirect(*rr.Redirect)
+	case rr.DirectResponse != nil:
+		a.Kind, a.DirectResponse = model.ActionDirectResponse, parseDirectResponse(*rr.DirectResponse)
+	case rr.FilterAction != nil:
+		a.Kind, a.FilterActionType = model.ActionFilter, rr.FilterAction.Action.Type
+	case slices.Contains(rr.fields, "non_forwarding_action"):
+		a.Kind = model.ActionNonForwarding
 	}
 	return a
 }
@@ -1158,6 +1250,18 @@ func cloneAction(a model.RouteAction) model.RouteAction {
 	if p := a.InlineClusterSpecifierPlugin; p != nil {
 		c := *p
 		a.InlineClusterSpecifierPlugin = &c
+	}
+	if r := a.Redirect; r != nil {
+		c := *r
+		a.Redirect = &c
+	}
+	if d := a.DirectResponse; d != nil {
+		c := *d
+		if d.BodySize != nil {
+			n := *d.BodySize
+			c.BodySize = &n
+		}
+		a.DirectResponse = &c
 	}
 	return a
 }

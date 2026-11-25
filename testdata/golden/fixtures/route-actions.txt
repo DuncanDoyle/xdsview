@@ -1,0 +1,46 @@
+web 0.0.0.0:8080 · active
+└─ vhost any [*]
+   ├─ route /old (prefix)
+   │  filters (request order):
+   │    1 envoy.filters.http.router  on
+   │  redirect: 308 · scheme https · host new.example.test · port 8443 · path /moved · strip query
+   ├─ route /v1/ (prefix)
+   │  filters (request order):
+   │    1 envoy.filters.http.router  on
+   │  redirect: 301 · prefix /v2/
+   ├─ route /a/ (prefix)
+   │  filters (request order):
+   │    1 envoy.filters.http.router  on
+   │  redirect: 302 · scheme http · regex ^/a/(.*) → /b/\1
+   ├─ route /t/ (prefix)
+   │  filters (request order):
+   │    1 envoy.filters.http.router  on
+   │  redirect: 301 · path rewrite /new/%REQ(x-version)%
+   ├─ route /down (prefix)
+   │  filters (request order):
+   │    1 envoy.filters.http.router  on
+   │  direct response: 503 · body 24 bytes
+   ├─ route /bytes (prefix)
+   │  filters (request order):
+   │    1 envoy.filters.http.router  on
+   │  direct response: 200 · body 5 bytes
+   ├─ route /file (prefix)
+   │  filters (request order):
+   │    1 envoy.filters.http.router  on
+   │  direct response: 404 · body from a file
+   ├─ route /formatted (prefix)
+   │  filters (request order):
+   │    1 envoy.filters.http.router  on
+   │  direct response: 200 · body format
+   ├─ route /empty (prefix)
+   │  filters (request order):
+   │    1 envoy.filters.http.router  on
+   │  direct response: 204
+   ├─ route /filter (prefix)
+   │  filters (request order):
+   │    1 envoy.filters.http.router  on
+   │  filter action: type.googleapis.com/example.Action
+   └─ route / (prefix)
+      filters (request order):
+        1 envoy.filters.http.router  on
+      non-forwarding

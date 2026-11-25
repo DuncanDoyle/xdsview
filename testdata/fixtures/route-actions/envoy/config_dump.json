@@ -1,0 +1,70 @@
+{
+ "configs": [
+  {
+   "@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
+   "dynamic_listeners": [
+    {
+     "name": "web",
+     "active_state": {
+      "version_info": "1",
+      "listener": {
+       "@type": "type.googleapis.com/envoy.config.listener.v3.Listener",
+       "name": "web",
+       "address": {"socket_address": {"address": "0.0.0.0", "port_value": 8080}},
+       "filter_chains": [
+        {
+         "filters": [
+          {
+           "name": "envoy.filters.network.http_connection_manager",
+           "typed_config": {
+            "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+            "stat_prefix": "web",
+            "rds": {"route_config_name": "web", "config_source": {"ads": {}, "resource_api_version": "V3"}},
+            "http_filters": [
+             {"name": "envoy.filters.http.router", "typed_config": {"@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"}}
+            ]
+           }
+          }
+         ]
+        }
+       ]
+      },
+      "last_updated": "2026-01-01T00:00:00Z"
+     }
+    }
+   ]
+  },
+  {
+   "@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump",
+   "dynamic_route_configs": [
+    {
+     "version_info": "1",
+     "route_config": {
+      "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
+      "name": "web",
+      "virtual_hosts": [
+       {
+        "name": "any",
+        "domains": ["*"],
+        "routes": [
+         {"name": "https", "match": {"prefix": "/old"}, "redirect": {"https_redirect": true, "host_redirect": "new.example.test", "port_redirect": 8443, "path_redirect": "/moved", "response_code": "PERMANENT_REDIRECT", "strip_query": true}},
+         {"name": "prefix", "match": {"prefix": "/v1/"}, "redirect": {"prefix_rewrite": "/v2/"}},
+         {"name": "regex", "match": {"prefix": "/a/"}, "redirect": {"scheme_redirect": "http", "regex_rewrite": {"pattern": {"google_re2": {}, "regex": "^/a/(.*)"}, "substitution": "/b/\\1"}, "response_code": "FOUND"}},
+         {"name": "template", "match": {"prefix": "/t/"}, "redirect": {"path_rewrite": "/new/%REQ(x-version)%"}},
+         {"name": "down", "match": {"prefix": "/down"}, "direct_response": {"status": 503, "body": {"inline_string": "BODY-MARKER service down"}}},
+         {"name": "bytes", "match": {"prefix": "/bytes"}, "direct_response": {"status": 200, "body": {"inline_bytes": "aGVsbG8="}}},
+         {"name": "file", "match": {"prefix": "/file"}, "direct_response": {"status": 404, "body": {"filename": "/srv/BODY-MARKER.txt"}}},
+         {"name": "formatted", "match": {"prefix": "/formatted"}, "direct_response": {"status": 200, "body_format": {"text_format_source": {"inline_string": "BODY-MARKER %REQ(:path)%"}}}},
+         {"name": "empty", "match": {"prefix": "/empty"}, "direct_response": {"status": 204}},
+         {"name": "filter", "match": {"prefix": "/filter"}, "filter_action": {"action": {"@type": "type.googleapis.com/example.Action"}}},
+         {"name": "non-forwarding", "match": {"prefix": "/"}, "non_forwarding_action": {}}
+        ]
+       }
+      ]
+     },
+     "last_updated": "2026-01-01T00:00:00Z"
+    }
+   ]
+  }
+ ]
+}

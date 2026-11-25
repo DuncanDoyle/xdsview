@@ -442,6 +442,13 @@ func (p *printer) routeActions(r model.Route, row Row, body string) {
 	if r.Cluster != "" {
 		p.line(body + "backend: " + p.style(ClassBackend, row, r.Cluster))
 	}
+	if len(r.WeightedClusters) > 0 {
+		var parts []string
+		for _, wc := range r.WeightedClusters {
+			parts = append(parts, p.style(ClassBackend, row, wc.Name)+fmt.Sprintf(" (%d)", wc.Weight))
+		}
+		p.line(body + "backends: " + strings.Join(parts, ", "))
+	}
 	a := r.Action
 	switch {
 	case a.ClusterHeader != "":
@@ -451,14 +458,58 @@ func (p *printer) routeActions(r model.Route, row Row, body string) {
 	case a.InlineClusterSpecifierPlugin != nil:
 		x := a.InlineClusterSpecifierPlugin
 		p.line(body + "backend: from inline cluster specifier plugin " + p.style(ClassBackend, row, x.Name) + clean(shortType(x.Type)))
+	case a.Redirect != nil:
+		p.line(body + "redirect: " + clean(redirect(*a.Redirect)))
+	case a.DirectResponse != nil:
+		p.line(body + "direct response: " + directResponse(*a.DirectResponse))
+	case a.Kind == model.ActionFilter:
+		p.line(body + "filter action: " + clean(a.FilterActionType))
+	case a.Kind == model.ActionNonForwarding:
+		p.line(body + "non-forwarding")
 	}
-	if len(r.WeightedClusters) > 0 {
-		var parts []string
-		for _, wc := range r.WeightedClusters {
-			parts = append(parts, p.style(ClassBackend, row, wc.Name)+fmt.Sprintf(" (%d)", wc.Weight))
+}
+
+// redirect writes a redirect's status and the parts it changes.
+func redirect(r model.Redirect) string {
+	parts := []string{fmt.Sprint(r.ResponseCode)}
+	add := func(label, v string) {
+		if v != "" {
+			parts = append(parts, label+" "+v)
 		}
-		p.line(body + "backends: " + strings.Join(parts, ", "))
 	}
+	add("scheme", r.Scheme)
+	add("host", r.Host)
+	if r.Port != 0 {
+		add("port", fmt.Sprint(r.Port))
+	}
+	add("path", r.Path)
+	add("prefix", r.PrefixRewrite)
+	if r.RegexPattern != "" {
+		add("regex", r.RegexPattern+" → "+r.RegexSubstitution)
+	}
+	add("path rewrite", r.PathRewrite)
+	if r.StripQuery {
+		parts = append(parts, "strip query")
+	}
+	return strings.Join(parts, " · ")
+}
+
+// directResponse writes a direct response's status and its body's size or
+// source, never the body.
+func directResponse(d model.DirectResponse) string {
+	parts := []string{fmt.Sprint(d.Status)}
+	switch {
+	case d.BodySize != nil:
+		parts = append(parts, fmt.Sprintf("body %d bytes", *d.BodySize))
+	case d.BodySource == model.BodyFile:
+		parts = append(parts, "body from a file")
+	case d.BodySource == model.BodyEnv:
+		parts = append(parts, "body from an environment variable")
+	}
+	if d.BodyFormat {
+		parts = append(parts, "body format")
+	}
+	return strings.Join(parts, " · ")
 }
 
 var levelWords = map[model.ConfigLevel]string{

@@ -295,6 +295,42 @@ func TestClusterSelectors(t *testing.T) {
 	}
 }
 
+// TestRouteActions: redirect and direct response keep their fields
+// (route_components.proto RedirectAction, DirectResponseAction); a body
+// keeps its size and source, never its content.
+func TestRouteActions(t *testing.T) {
+	snap := parseFile(t, fixtures+"route-actions/envoy/config_dump.json")
+	size := func(n int) *int { return &n }
+	redirect := func(r model.Redirect) model.RouteAction {
+		return model.RouteAction{Kind: model.ActionRedirect, Redirect: &r}
+	}
+	direct := func(d model.DirectResponse) model.RouteAction {
+		return model.RouteAction{Kind: model.ActionDirectResponse, DirectResponse: &d}
+	}
+	want := []model.RouteAction{
+		redirect(model.Redirect{ResponseCode: 308, Scheme: "https", Host: "new.example.test", Port: 8443, Path: "/moved", StripQuery: true}),
+		redirect(model.Redirect{ResponseCode: 301, PrefixRewrite: "/v2/"}),
+		redirect(model.Redirect{ResponseCode: 302, Scheme: "http", RegexPattern: "^/a/(.*)", RegexSubstitution: `/b/\1`}),
+		redirect(model.Redirect{ResponseCode: 301, PathRewrite: "/new/%REQ(x-version)%"}),
+		direct(model.DirectResponse{Status: 503, BodySource: model.BodyInline, BodySize: size(24)}),
+		direct(model.DirectResponse{Status: 200, BodySource: model.BodyInline, BodySize: size(5)}),
+		direct(model.DirectResponse{Status: 404, BodySource: model.BodyFile}),
+		direct(model.DirectResponse{Status: 200, BodyFormat: true}),
+		direct(model.DirectResponse{Status: 204}),
+		{Kind: model.ActionFilter, FilterActionType: "type.googleapis.com/example.Action"},
+		{Kind: model.ActionNonForwarding},
+	}
+	routes := snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes
+	if len(routes) != len(want) {
+		t.Fatalf("%d routes, want %d", len(routes), len(want))
+	}
+	for i, r := range routes {
+		if !reflect.DeepEqual(r.Action, want[i]) || r.Cluster != "" {
+			t.Errorf("%s: action %+v (redirect %+v, direct %+v), want %+v", r.Name, r.Action, r.Action.Redirect, r.Action.DirectResponse, want[i])
+		}
+	}
+}
+
 // TestDefaultFilterChain: default_filter_chain is parsed as the listener's
 // last chain, with ID L<n>/Cd, and its routes get IDs under it.
 func TestDefaultFilterChain(t *testing.T) {

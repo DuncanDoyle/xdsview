@@ -191,6 +191,32 @@ func TestDump_ClusterSelectors(t *testing.T) {
 		[]string{`"kind": "route"`, `"clusterHeader": "x-target-cluster"`, `"clusterSpecifierPlugin": "picker"`, `"inlineClusterSpecifierPlugin"`})
 }
 
+// TestDump_RouteActions: redirects and direct responses print their fields;
+// a direct response body never reaches the output, only its size.
+func TestDump_RouteActions(t *testing.T) {
+	wantOutput(t, []string{"--file", fixture("route-actions")},
+		[]string{
+			"redirect: 308 · scheme https · host new.example.test · port 8443 · path /moved · strip query",
+			"redirect: 301 · prefix /v2/",
+			`redirect: 302 · scheme http · regex ^/a/(.*) → /b/\1`,
+			"redirect: 301 · path rewrite /new/%REQ(x-version)%",
+			"direct response: 503 · body 24 bytes",
+			"direct response: 200 · body 5 bytes",
+			"direct response: 404 · body from a file",
+			"direct response: 200 · body format",
+			"direct response: 204",
+			"filter action: type.googleapis.com/example.Action",
+			"non-forwarding",
+		},
+		[]string{`"kind": "redirect"`, `"responseCode": 308`, `"kind": "directResponse"`, `"bodySize": 24`, `"kind": "filterAction"`, `"kind": "nonForwarding"`})
+	for _, format := range []string{"text", "json"} {
+		out, _, err := runKrp(t, "dump", "--file", fixture("route-actions"), "-o", format)
+		if err != nil || strings.Contains(out, "BODY-MARKER") {
+			t.Errorf("-o %s: err %v; output holds a direct response body", format, err)
+		}
+	}
+}
+
 // TestDump_DefaultFilterChain: the default chain is shown last, labelled,
 // with its routes and their chains.
 func TestDump_DefaultFilterChain(t *testing.T) {

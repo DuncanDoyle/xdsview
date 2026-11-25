@@ -1,0 +1,394 @@
+{
+  "schemaVersion": "v1alpha1",
+  "snapshot": {
+    "capture": "unverified",
+    "listeners": [
+      {
+        "id": "L0",
+        "name": "web",
+        "address": "0.0.0.0:8080",
+        "filterChains": [
+          {
+            "id": "L0/C0",
+            "name": "",
+            "networkFilters": [
+              {
+                "id": "L0/C0/N0",
+                "name": "envoy.filters.network.http_connection_manager",
+                "type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+              }
+            ],
+            "hcm": {
+              "id": "L0/C0/N0",
+              "routeConfigName": "web",
+              "httpFilters": [
+                {
+                  "id": "L0/C0/N0/F0",
+                  "name": "envoy.filters.http.router",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "router"
+                  }
+                }
+              ],
+              "routeConfigUse": {
+                "id": "L0/C0/N0/RC",
+                "source": "RD0",
+                "state": "found"
+              },
+              "routeConfig": {
+                "name": "web",
+                "virtualHosts": [
+                  {
+                    "id": "L0/C0/N0/RC/V0",
+                    "name": "any",
+                    "domains": [
+                      "*"
+                    ],
+                    "routes": [
+                      {
+                        "id": "L0/C0/N0/RC/V0/R0",
+                        "name": "https",
+                        "match": {
+                          "prefix": "/old"
+                        },
+                        "action": {
+                          "kind": "redirect",
+                          "redirect": {
+                            "responseCode": 308,
+                            "scheme": "https",
+                            "host": "new.example.test",
+                            "port": 8443,
+                            "path": "/moved",
+                            "stripQuery": true
+                          }
+                        },
+                        "cluster": "",
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "slot": "L0/C0/N0/F0",
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no",
+                              "configSource": "inline"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "L0/C0/N0/RC/V0/R1",
+                        "name": "prefix",
+                        "match": {
+                          "prefix": "/v1/"
+                        },
+                        "action": {
+                          "kind": "redirect",
+                          "redirect": {
+                            "responseCode": 301,
+                            "prefixRewrite": "/v2/"
+                          }
+                        },
+                        "cluster": "",
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "slot": "L0/C0/N0/F0",
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no",
+                              "configSource": "inline"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "L0/C0/N0/RC/V0/R2",
+                        "name": "regex",
+                        "match": {
+                          "prefix": "/a/"
+                        },
+                        "action": {
+                          "kind": "redirect",
+                          "redirect": {
+                            "responseCode": 302,
+                            "scheme": "http",
+                            "regexPattern": "^/a/(.*)",
+                            "regexSubstitution": "/b/\\1"
+                          }
+                        },
+                        "cluster": "",
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "slot": "L0/C0/N0/F0",
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no",
+                              "configSource": "inline"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "L0/C0/N0/RC/V0/R3",
+                        "name": "template",
+                        "match": {
+                          "prefix": "/t/"
+                        },
+                        "action": {
+                          "kind": "redirect",
+                          "redirect": {
+                            "responseCode": 301,
+                            "pathRewrite": "/new/%REQ(x-version)%"
+                          }
+                        },
+                        "cluster": "",
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "slot": "L0/C0/N0/F0",
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no",
+                              "configSource": "inline"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "L0/C0/N0/RC/V0/R4",
+                        "name": "down",
+                        "match": {
+                          "prefix": "/down"
+                        },
+                        "action": {
+                          "kind": "directResponse",
+                          "directResponse": {
+                            "status": 503,
+                            "bodySource": "inline",
+                            "bodySize": 24
+                          }
+                        },
+                        "cluster": "",
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "slot": "L0/C0/N0/F0",
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no",
+                              "configSource": "inline"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "L0/C0/N0/RC/V0/R5",
+                        "name": "bytes",
+                        "match": {
+                          "prefix": "/bytes"
+                        },
+                        "action": {
+                          "kind": "directResponse",
+                          "directResponse": {
+                            "status": 200,
+                            "bodySource": "inline",
+                            "bodySize": 5
+                          }
+                        },
+                        "cluster": "",
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "slot": "L0/C0/N0/F0",
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no",
+                              "configSource": "inline"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "L0/C0/N0/RC/V0/R6",
+                        "name": "file",
+                        "match": {
+                          "prefix": "/file"
+                        },
+                        "action": {
+                          "kind": "directResponse",
+                          "directResponse": {
+                            "status": 404,
+                            "bodySource": "file"
+                          }
+                        },
+                        "cluster": "",
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "slot": "L0/C0/N0/F0",
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no",
+                              "configSource": "inline"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "L0/C0/N0/RC/V0/R7",
+                        "name": "formatted",
+                        "match": {
+                          "prefix": "/formatted"
+                        },
+                        "action": {
+                          "kind": "directResponse",
+                          "directResponse": {
+                            "status": 200,
+                            "bodyFormat": true
+                          }
+                        },
+                        "cluster": "",
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "slot": "L0/C0/N0/F0",
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no",
+                              "configSource": "inline"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "L0/C0/N0/RC/V0/R8",
+                        "name": "empty",
+                        "match": {
+                          "prefix": "/empty"
+                        },
+                        "action": {
+                          "kind": "directResponse",
+                          "directResponse": {
+                            "status": 204
+                          }
+                        },
+                        "cluster": "",
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "slot": "L0/C0/N0/F0",
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no",
+                              "configSource": "inline"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "L0/C0/N0/RC/V0/R9",
+                        "name": "filter",
+                        "match": {
+                          "prefix": "/filter"
+                        },
+                        "action": {
+                          "kind": "filterAction",
+                          "filterActionType": "type.googleapis.com/example.Action"
+                        },
+                        "cluster": "",
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "slot": "L0/C0/N0/F0",
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no",
+                              "configSource": "inline"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "L0/C0/N0/RC/V0/R10",
+                        "name": "non-forwarding",
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "action": {
+                          "kind": "nonForwarding"
+                        },
+                        "cluster": "",
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "slot": "L0/C0/N0/F0",
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no",
+                              "configSource": "inline"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "state": {
+          "status": "active",
+          "lastUpdated": "2026-01-01T00:00:00Z"
+        }
+      }
+    ],
+    "routeConfigs": [
+      {
+        "id": "RD0",
+        "kind": "dynamic",
+        "name": "web"
+      }
+    ]
+  },
+  "warnings": []
+}
