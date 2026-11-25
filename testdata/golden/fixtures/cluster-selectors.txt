@@ -1,0 +1,18 @@
+web 0.0.0.0:8080 · active
+└─ vhost any [*]
+   ├─ route /header (prefix)
+   │  filters (request order):
+   │    1 envoy.filters.http.router  on
+   │  backend: from request header x-target-cluster
+   ├─ route /plugin (prefix)
+   │  filters (request order):
+   │    1 envoy.filters.http.router  on
+   │  backend: from cluster specifier plugin picker
+   ├─ route /inline (prefix)
+   │  filters (request order):
+   │    1 envoy.filters.http.router  on
+   │  backend: from inline cluster specifier plugin inline-picker (InlinePicker)
+   └─ route / (prefix)
+      filters (request order):
+        1 envoy.filters.http.router  on
+      backend: web_backend

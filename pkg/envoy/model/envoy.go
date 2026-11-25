@@ -132,7 +132,8 @@ type Route struct {
 	ID                      ID                `json:"id"`
 	Name                    string            `json:"name"`
 	Match                   RouteMatch        `json:"match"`
-	Cluster                 string            `json:"cluster"`                           // backend cluster name; empty for a traffic split
+	Action                  RouteAction       `json:"action"`
+	Cluster                 string            `json:"cluster"`                           // backend cluster name; empty for a traffic split or another selector in Action
 	WeightedClusters        []WeightedCluster `json:"weightedClusters,omitempty"`        // weighted_clusters (traffic split)
 	Rewrite                 *RouteRewrite     `json:"rewrite,omitempty"`                 // path rewrite (URLRewrite HTTPRouteFilter)
 	MirrorClusters          []string          `json:"mirrorClusters,omitempty"`          // request_mirror_policies cluster names
@@ -144,6 +145,32 @@ type Route struct {
 	Origin                  *RouteAnnotation  `json:"origin,omitempty"`                  // set by origin.Annotate
 	Policies                []PolicyRef       `json:"policies,omitempty"`                // set by origin.Annotate
 	Chain                   *EffectiveChain   `json:"effectiveChain,omitempty"`          // a copy of chain.Effective's result, set by callers that embed it; the core doesn't read it
+}
+
+// RouteAction is what a route does with a request it matches: the route's
+// action oneof (route_components.proto, Route.action).
+type RouteAction struct {
+	Kind ActionKind `json:"kind,omitempty"` // empty when the route sets no action
+	// Cluster selectors other than a name or weights, for Kind route
+	// (RouteAction.cluster_specifier). Route.Cluster is empty with any of them:
+	// the cluster is chosen per request.
+	ClusterHeader                string     `json:"clusterHeader,omitempty"`                // the request header naming the cluster
+	ClusterSpecifierPlugin       string     `json:"clusterSpecifierPlugin,omitempty"`       // a plugin the route config defines, by name
+	InlineClusterSpecifierPlugin *Extension `json:"inlineClusterSpecifierPlugin,omitempty"` // a plugin defined on the route
+}
+
+// ActionKind is the kind of a route's action.
+type ActionKind string
+
+// Action kinds.
+const (
+	ActionRoute ActionKind = "route" // forward to a cluster
+)
+
+// Extension names a typed extension: its name and its typed_config @type.
+type Extension struct {
+	Name string `json:"name"`
+	Type string `json:"type,omitempty"`
 }
 
 // RouteRewrite captures path rewrite configuration on a route action.

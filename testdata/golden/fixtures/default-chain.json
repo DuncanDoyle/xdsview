@@ -73,6 +73,9 @@
                         "match": {
                           "prefix": "/"
                         },
+                        "action": {
+                          "kind": "route"
+                        },
                         "cluster": "fallback_backend",
                         "effectiveChain": {
                           "filters": [

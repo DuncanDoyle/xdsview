@@ -56,6 +56,9 @@
                         "match": {
                           "pathSeparatedPrefix": "/amb"
                         },
+                        "action": {
+                          "kind": "route"
+                        },
                         "cluster": "kube_httpbin_httpbin_8000",
                         "origin": {
                           "certainty": "ambiguous",
@@ -127,6 +130,9 @@
                         "match": {
                           "pathSeparatedPrefix": "/ab"
                         },
+                        "action": {
+                          "kind": "route"
+                        },
                         "cluster": "kube_httpbin_httpbin_8000",
                         "origin": {
                           "certainty": "ambiguous",
@@ -197,6 +203,9 @@
                         "name": "listener~80~api_example_com-route-2-httproute-api-example-com-kgateway-system-0-0-a-matcher-0",
                         "match": {
                           "pathSeparatedPrefix": "/a"
+                        },
+                        "action": {
+                          "kind": "route"
                         },
                         "cluster": "kube_httpbin_httpbin_8000",
                         "origin": {
@@ -368,6 +377,9 @@
                             }
                           ]
                         },
+                        "action": {
+                          "kind": "route"
+                        },
                         "cluster": "admin_port_cluster",
                         "effectiveChain": {
                           "filters": [
@@ -467,6 +479,9 @@
                             }
                           ]
                         },
+                        "action": {
+                          "kind": "route"
+                        },
                         "cluster": "admin_port_cluster",
                         "effectiveChain": {
                           "filters": [
@@ -495,6 +510,9 @@
                               "kind": "exact"
                             }
                           ]
+                        },
+                        "action": {
+                          "kind": "route"
                         },
                         "cluster": "admin_port_cluster",
                         "rewrite": {
@@ -529,6 +547,9 @@
                               "kind": "exact"
                             }
                           ]
+                        },
+                        "action": {
+                          "kind": "route"
                         },
                         "cluster": "admin_port_cluster",
                         "rewrite": {

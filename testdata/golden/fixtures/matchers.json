@@ -111,6 +111,9 @@
                             }
                           ]
                         },
+                        "action": {
+                          "kind": "route"
+                        },
                         "cluster": "web_backend",
                         "effectiveChain": {
                           "filters": [
@@ -173,6 +176,9 @@
                             }
                           ]
                         },
+                        "action": {
+                          "kind": "route"
+                        },
                         "cluster": "web_backend",
                         "effectiveChain": {
                           "filters": [
@@ -229,6 +235,9 @@
                             }
                           ]
                         },
+                        "action": {
+                          "kind": "route"
+                        },
                         "cluster": "web_backend",
                         "effectiveChain": {
                           "filters": [
@@ -250,6 +259,9 @@
                         "name": "connect",
                         "match": {
                           "connect": true
+                        },
+                        "action": {
+                          "kind": "route"
                         },
                         "cluster": "tunnel_backend",
                         "effectiveChain": {
@@ -280,6 +292,9 @@
                             "tls_context"
                           ]
                         },
+                        "action": {
+                          "kind": "route"
+                        },
                         "cluster": "web_backend",
                         "effectiveChain": {
                           "filters": [
@@ -303,6 +318,9 @@
                           "unparsed": [
                             "path_match_policy"
                           ]
+                        },
+                        "action": {
+                          "kind": "route"
                         },
                         "cluster": "web_backend",
                         "effectiveChain": {

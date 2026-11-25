@@ -63,6 +63,9 @@
                             }
                           ]
                         },
+                        "action": {
+                          "kind": "route"
+                        },
                         "cluster": "kube_httpbin_httpbin_8000",
                         "rewrite": {
                           "regexPattern": ".*",
@@ -233,6 +236,9 @@
                             }
                           ]
                         },
+                        "action": {
+                          "kind": "route"
+                        },
                         "cluster": "admin_port_cluster",
                         "effectiveChain": {
                           "filters": [
@@ -332,6 +338,9 @@
                             }
                           ]
                         },
+                        "action": {
+                          "kind": "route"
+                        },
                         "cluster": "admin_port_cluster",
                         "effectiveChain": {
                           "filters": [
@@ -360,6 +369,9 @@
                               "kind": "exact"
                             }
                           ]
+                        },
+                        "action": {
+                          "kind": "route"
                         },
                         "cluster": "admin_port_cluster",
                         "rewrite": {
@@ -394,6 +406,9 @@
                               "kind": "exact"
                             }
                           ]
+                        },
+                        "action": {
+                          "kind": "route"
                         },
                         "cluster": "admin_port_cluster",
                         "rewrite": {

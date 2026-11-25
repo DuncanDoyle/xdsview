@@ -167,6 +167,9 @@
                         "match": {
                           "prefix": "/"
                         },
+                        "action": {
+                          "kind": "route"
+                        },
                         "cluster": "web_backend",
                         "effectiveChain": {
                           "filters": [
@@ -315,6 +318,9 @@
                         "name": "",
                         "match": {
                           "prefix": "/"
+                        },
+                        "action": {
+                          "kind": "route"
                         },
                         "cluster": "web_backend",
                         "effectiveChain": {

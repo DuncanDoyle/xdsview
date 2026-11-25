@@ -85,6 +85,9 @@
                         "match": {
                           "prefix": "/"
                         },
+                        "action": {
+                          "kind": "route"
+                        },
                         "cluster": "kube_httpbin_httpbin_8000",
                         "typedPerFilterConfig": {
                           "ratelimit/kgateway-system/ratelimit": {
@@ -299,6 +302,9 @@
                             }
                           ]
                         },
+                        "action": {
+                          "kind": "route"
+                        },
                         "cluster": "admin_port_cluster",
                         "effectiveChain": {
                           "filters": [
@@ -398,6 +404,9 @@
                             }
                           ]
                         },
+                        "action": {
+                          "kind": "route"
+                        },
                         "cluster": "admin_port_cluster",
                         "effectiveChain": {
                           "filters": [
@@ -426,6 +435,9 @@
                               "kind": "exact"
                             }
                           ]
+                        },
+                        "action": {
+                          "kind": "route"
                         },
                         "cluster": "admin_port_cluster",
                         "rewrite": {
@@ -460,6 +472,9 @@
                               "kind": "exact"
                             }
                           ]
+                        },
+                        "action": {
+                          "kind": "route"
                         },
                         "cluster": "admin_port_cluster",
                         "rewrite": {

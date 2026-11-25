@@ -151,6 +151,9 @@
                         "match": {
                           "prefix": "/private"
                         },
+                        "action": {
+                          "kind": "route"
+                        },
                         "cluster": "kube_default_app_8080",
                         "typedPerFilterConfig": {
                           "envoy.filters.http.ext_proc": {
@@ -205,6 +208,9 @@
                         "name": "listener~8080~app_example-route-1-httproute-app-default-1-0-matcher-0",
                         "match": {
                           "prefix": "/"
+                        },
+                        "action": {
+                          "kind": "route"
                         },
                         "cluster": "kube_default_app_8080",
                         "origin": {

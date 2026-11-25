@@ -236,6 +236,9 @@
                         "match": {
                           "prefix": "/"
                         },
+                        "action": {
+                          "kind": "route"
+                        },
                         "cluster": "kube_httpbin_httpbin_8000",
                         "typedPerFilterConfig": {
                           "ext_proc/kgateway-system/ext-proc-a": {

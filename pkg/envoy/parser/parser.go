@@ -607,7 +607,7 @@ func parseRouteConfig(raw rawRouteConfig) *model.RouteConfig {
 		}
 
 		for _, rr := range rvh.Routes {
-			route := model.Route{Name: rr.Name, Match: parseMatch(rr.Match)}
+			route := model.Route{Name: rr.Name, Match: parseMatch(rr.Match), Action: routeAction(rr)}
 
 			// Extract cluster from the route action
 			if rr.Route.Cluster != "" {
@@ -904,6 +904,14 @@ type rawRoute struct {
 			} `json:"pattern"`
 			Substitution string `json:"substitution"`
 		} `json:"regex_rewrite"`
+		ClusterHeader                string `json:"cluster_header"`
+		ClusterSpecifierPlugin       string `json:"cluster_specifier_plugin"`
+		InlineClusterSpecifierPlugin *struct {
+			Extension struct {
+				Name        string      `json:"name"`
+				TypedConfig typedConfig `json:"typed_config"`
+			} `json:"extension"`
+		} `json:"inline_cluster_specifier_plugin"`
 	} `json:"route"`
 	// Native Envoy header manipulation (used by HTTPRouteFilter RequestHeaderModifier / ResponseHeaderModifier)
 	RequestHeadersToAdd []struct {
@@ -921,6 +929,35 @@ type rawRoute struct {
 	ResponseHeadersToRemove []string                   `json:"response_headers_to_remove"`
 	TypedPerFilterConfig    map[string]json.RawMessage `json:"typed_per_filter_config"`
 	Metadata                *rawRouteMetadata          `json:"metadata"`
+	fields                  []string                   // every field the dump sets
+}
+
+// UnmarshalJSON decodes the route and records which fields it sets.
+func (r *rawRoute) UnmarshalJSON(b []byte) error {
+	type plain rawRoute
+	if err := json.Unmarshal(b, (*plain)(r)); err != nil {
+		return err
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(b, &fields); err != nil {
+		return err
+	}
+	r.fields = slices.Sorted(maps.Keys(fields))
+	return nil
+}
+
+// routeAction reads the route's action oneof (route_components.proto, Route.action).
+func routeAction(rr rawRoute) model.RouteAction {
+	var a model.RouteAction
+	if slices.Contains(rr.fields, "route") {
+		a.Kind = model.ActionRoute
+		a.ClusterHeader = rr.Route.ClusterHeader
+		a.ClusterSpecifierPlugin = rr.Route.ClusterSpecifierPlugin
+		if p := rr.Route.InlineClusterSpecifierPlugin; p != nil {
+			a.InlineClusterSpecifierPlugin = &model.Extension{Name: p.Extension.Name, Type: p.Extension.TypedConfig.Type}
+		}
+	}
+	return a
 }
 
 // rawRouteMatch is a RouteMatch. fields lists every field the dump sets.
@@ -1116,6 +1153,15 @@ func copyValue(v any) any {
 	return v
 }
 
+// cloneAction returns a copy of a that shares no pointers with it.
+func cloneAction(a model.RouteAction) model.RouteAction {
+	if p := a.InlineClusterSpecifierPlugin; p != nil {
+		c := *p
+		a.InlineClusterSpecifierPlugin = &c
+	}
+	return a
+}
+
 // cloneRouteConfig returns a deep copy of rc so each HCM owns its own RouteConfig.
 // This prevents mutations in later phases from corrupting filter chains that share
 // the same route_config_name.
@@ -1155,6 +1201,7 @@ func cloneRouteConfig(rc *model.RouteConfig) *model.RouteConfig {
 				rw := *r.Rewrite
 				cloneRoute.Rewrite = &rw
 			}
+			cloneRoute.Action = cloneAction(r.Action)
 			cloneRoute.TypedPerFilterConfig = copyJSON(r.TypedPerFilterConfig)
 			cloneRoute.Metadata = copyJSON(r.Metadata)
 			cloneVH.Routes[j] = cloneRoute

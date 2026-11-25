@@ -225,13 +225,17 @@ func otherNetworkFilters(fc model.NetworkFilterChain) bool {
 func networkFilters(fc model.NetworkFilterChain) string {
 	var names []string
 	for _, nf := range fc.NetworkFilters {
-		s := nf.Name
-		if nf.Type != "" {
-			s += " (" + nf.Type[strings.LastIndex(nf.Type, ".")+1:] + ")"
-		}
-		names = append(names, s)
+		names = append(names, nf.Name+shortType(nf.Type))
 	}
 	return "network filters: " + clean(strings.Join(names, ", "))
+}
+
+// shortType writes a type URL's message name, e.g. " (TcpProxy)"; "" when unset.
+func shortType(typeURL string) string {
+	if typeURL == "" {
+		return ""
+	}
+	return " (" + typeURL[strings.LastIndex(typeURL, ".")+1:] + ")"
 }
 
 func (p *printer) chainBody(fc model.NetworkFilterChain, indent string) {
@@ -437,6 +441,16 @@ func (p *printer) routeActions(r model.Route, row Row, body string) {
 	}
 	if r.Cluster != "" {
 		p.line(body + "backend: " + p.style(ClassBackend, row, r.Cluster))
+	}
+	a := r.Action
+	switch {
+	case a.ClusterHeader != "":
+		p.line(body + "backend: from request header " + p.style(ClassBackend, row, a.ClusterHeader))
+	case a.ClusterSpecifierPlugin != "":
+		p.line(body + "backend: from cluster specifier plugin " + p.style(ClassBackend, row, a.ClusterSpecifierPlugin))
+	case a.InlineClusterSpecifierPlugin != nil:
+		x := a.InlineClusterSpecifierPlugin
+		p.line(body + "backend: from inline cluster specifier plugin " + p.style(ClassBackend, row, x.Name) + clean(shortType(x.Type)))
 	}
 	if len(r.WeightedClusters) > 0 {
 		var parts []string

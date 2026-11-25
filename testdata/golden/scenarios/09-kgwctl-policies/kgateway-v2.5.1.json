@@ -153,6 +153,9 @@
                         "match": {
                           "prefix": "/"
                         },
+                        "action": {
+                          "kind": "route"
+                        },
                         "cluster": "kube_proxy_backend_8080",
                         "origin": {
                           "certainty": "ambiguous",
@@ -256,6 +259,9 @@
                         "name": "listener~8080~orders_kgwctl_example-route-0-httproute-orders-kgwctl-proxy-0-0-matcher-0",
                         "match": {
                           "prefix": "/"
+                        },
+                        "action": {
+                          "kind": "route"
                         },
                         "cluster": "kube_kgwctl-proxy_backend_8080",
                         "typedPerFilterConfig": {
@@ -450,6 +456,9 @@
                         "name": "listener~8080~public_kgwctl_example-route-0-httproute-public-kgwctl-proxy-0-0-matcher-0",
                         "match": {
                           "prefix": "/"
+                        },
+                        "action": {
+                          "kind": "route"
                         },
                         "cluster": "kube_kgwctl-proxy_backend_8080",
                         "typedPerFilterConfig": {
@@ -664,6 +673,9 @@
                             }
                           ]
                         },
+                        "action": {
+                          "kind": "route"
+                        },
                         "cluster": "admin_port_cluster",
                         "effectiveChain": {
                           "filters": [
@@ -763,6 +775,9 @@
                             }
                           ]
                         },
+                        "action": {
+                          "kind": "route"
+                        },
                         "cluster": "admin_port_cluster",
                         "effectiveChain": {
                           "filters": [
@@ -791,6 +806,9 @@
                               "kind": "exact"
                             }
                           ]
+                        },
+                        "action": {
+                          "kind": "route"
                         },
                         "cluster": "admin_port_cluster",
                         "rewrite": {
@@ -825,6 +843,9 @@
                               "kind": "exact"
                             }
                           ]
+                        },
+                        "action": {
+                          "kind": "route"
                         },
                         "cluster": "admin_port_cluster",
                         "rewrite": {

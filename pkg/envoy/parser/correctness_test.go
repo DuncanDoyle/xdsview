@@ -276,6 +276,25 @@ func TestMatchers(t *testing.T) {
 	}
 }
 
+// TestClusterSelectors: cluster_header and both cluster specifier plugins are
+// read into Action, with no cluster name (route_components.proto,
+// RouteAction.cluster_specifier).
+func TestClusterSelectors(t *testing.T) {
+	snap := parseFile(t, fixtures+"cluster-selectors/envoy/config_dump.json")
+	routes := snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes
+	want := []model.RouteAction{
+		{Kind: model.ActionRoute, ClusterHeader: "x-target-cluster"},
+		{Kind: model.ActionRoute, ClusterSpecifierPlugin: "picker"},
+		{Kind: model.ActionRoute, InlineClusterSpecifierPlugin: &model.Extension{Name: "inline-picker", Type: "type.googleapis.com/example.InlinePicker"}},
+		{Kind: model.ActionRoute},
+	}
+	for i, r := range routes {
+		if !reflect.DeepEqual(r.Action, want[i]) || (r.Cluster != "") != (i == 3) {
+			t.Errorf("%s: action %+v, cluster %q; want %+v", r.Name, r.Action, r.Cluster, want[i])
+		}
+	}
+}
+
 // TestDefaultFilterChain: default_filter_chain is parsed as the listener's
 // last chain, with ID L<n>/Cd, and its routes get IDs under it.
 func TestDefaultFilterChain(t *testing.T) {

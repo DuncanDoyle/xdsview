@@ -178,6 +178,19 @@ func TestDump_Matchers(t *testing.T) {
 		[]string{`"kind": "suffix"`, `"invert": true`, `"ignoreCase": true`, `"caseSensitive": false`, `"connect": true`, `"unparsed": [`, `"path_match_policy"`})
 }
 
+// TestDump_ClusterSelectors: a route that picks its cluster per request says
+// how, instead of showing no backend.
+func TestDump_ClusterSelectors(t *testing.T) {
+	wantOutput(t, []string{"--file", fixture("cluster-selectors")},
+		[]string{
+			"backend: from request header x-target-cluster",
+			"backend: from cluster specifier plugin picker",
+			"backend: from inline cluster specifier plugin inline-picker (InlinePicker)",
+			"backend: web_backend",
+		},
+		[]string{`"kind": "route"`, `"clusterHeader": "x-target-cluster"`, `"clusterSpecifierPlugin": "picker"`, `"inlineClusterSpecifierPlugin"`})
+}
+
 // TestDump_DefaultFilterChain: the default chain is shown last, labelled,
 // with its routes and their chains.
 func TestDump_DefaultFilterChain(t *testing.T) {
