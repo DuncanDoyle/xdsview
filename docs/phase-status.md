@@ -24,7 +24,11 @@ Status: design; owner said start (2026-11-24).
 - [ ] phase-9-complete.md written, roadmap updated, tracked items closed
 
 ## Sub-phase
-none
+Sub-phase: 9.1 — Snapshot and occurrence IDs
+Kind: planned
+Base: 8d381f6
+Brief: docs/phases/phase-9/phase-9.1-brief.md
+Branch: duncandoyle/phase9 (local; nothing merges to main before the consumer review)
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `70fda55`)
