@@ -288,6 +288,7 @@ type Row struct{ Subject, Route, Slot model.ID }
 
 Style func(c Class, r Row, s string) string
 Notes func(r Row) []string // lines under the row; kgwctl's narrowing note is a route-row note
+Labels func(r Row) []string // text on the row itself, e.g. today's "(policy TrafficPolicy ns/name, inferred)" (9.2 complete, deviation 2)
 ```
 
 `provenance.Notes(ix)` returns a `Notes` function with today's origin, policy and contribution lines, so krp and kgwctl print the same text. A test puts one slot under two routes with different per-filter config and links, and checks each row gets its own.
