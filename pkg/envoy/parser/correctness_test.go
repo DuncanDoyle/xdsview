@@ -181,7 +181,45 @@ func moveState(s map[string]any, field string) {
 	}
 }
 
-// TestDefaultFilterChain:default_filter_chain is parsed as the listener's
+// TestECDS: a filter with config_discovery takes the ECDS config whose name is
+// the filter's name and whose type is in type_urls (http_connection_manager.proto,
+// HttpFilter.name: "also serves as a resource name in ExtensionConfigDS"). With
+// none, an active listener runs default_config, whether or not it waits
+// (config_source.proto, ExtensionConfigSource); otherwise it is unresolved.
+func TestECDS(t *testing.T) {
+	snap := parseFile(t, fixtures+"ecds/envoy/config_dump.json")
+	const lua = "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+	want := map[string][2]string{ // name: source, type
+		"ecds.found":              {model.ConfigECDS, lua},
+		"ecds.wrong_type":         {"", ""},
+		"ecds.default":            {model.ConfigECDSDefault, lua},
+		"ecds.default_no_warming": {model.ConfigECDSDefault, lua},
+		"ecds.none":               {"", ""},
+		"ecds.matched":            {model.ConfigECDS, lua},
+	}
+	for _, f := range snap.Listeners[0].FilterChains[0].HCM.HTTPFilters {
+		w, ok := want[f.Name]
+		if !ok {
+			if f.Discovery != nil {
+				t.Errorf("%s: discovery %+v on an inline filter", f.Name, f.Discovery)
+			}
+			continue
+		}
+		delete(want, f.Name)
+		if f.Discovery == nil || f.Discovery.Source != w[0] || f.Type != w[1] || (w[0] == "") != (f.TypedConfig == nil) {
+			t.Errorf("%s: discovery %+v, type %q, config %v; want source %q, type %q", f.Name, f.Discovery, f.Type, f.TypedConfig, w[0], w[1])
+		}
+	}
+	if len(want) != 0 {
+		t.Errorf("filters not seen: %v", want)
+	}
+	// A warming listener isn't running its default yet.
+	if f := snap.Listeners[1].FilterChains[0].HCM.HTTPFilters[0]; f.Discovery == nil || f.Discovery.Source != "" || !f.Discovery.DefaultConfig {
+		t.Errorf("warming listener's ecds.default = %+v, want unresolved with a default", f.Discovery)
+	}
+}
+
+// TestDefaultFilterChain: default_filter_chain is parsed as the listener's
 // last chain, with ID L<n>/Cd, and its routes get IDs under it.
 func TestDefaultFilterChain(t *testing.T) {
 	snap := parseFile(t, fixtures+"default-chain/envoy/config_dump.json")

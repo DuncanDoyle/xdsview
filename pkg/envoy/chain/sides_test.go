@@ -53,6 +53,9 @@ func TestSides_CoverCorpus(t *testing.T) {
 				}
 				for _, hf := range append(append([]model.HTTPFilter(nil), fc.HCM.HTTPFilters...), fc.HCM.UpstreamFilters...) {
 					typ := typeName(installedType(hf))
+					if hf.Discovery != nil && hf.Discovery.Source == "" {
+						continue // an unresolved ECDS filter has no type
+					}
 					if _, ok := sides[typ]; ok {
 						continue
 					}

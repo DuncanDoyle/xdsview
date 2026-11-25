@@ -33,6 +33,7 @@ import (
 	"io"
 	"reflect"
 	"slices"
+	"strings"
 
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 )
@@ -64,7 +65,7 @@ func Parse(r io.Reader, opts Options) (*model.Snapshot, error) {
 	}
 
 	// Parse each config section by @type, collecting warnings for any that fail.
-	p := &parse{dynamic: map[string][]*routeEntry{}}
+	p := &parse{dynamic: map[string][]*routeEntry{}, ecds: map[string][]ecdsEntry{}}
 	var listeners []rawListener
 	var statics []rawStaticListener
 	listenersAt := -1 // section index of the listeners, where inline sources go
@@ -106,6 +107,9 @@ func Parse(r io.Reader, opts Options) (*model.Snapshot, error) {
 				continue
 			}
 			p.routeSection(pos, rd)
+
+		case "type.googleapis.com/envoy.admin.v3.EcdsConfigDump":
+			p.ecdsSection(raw)
 		}
 	}
 	// Missing RDS needs every dynamic route config: a complete capture, read in full.
@@ -139,6 +143,7 @@ func Parse(r io.Reader, opts Options) (*model.Snapshot, error) {
 // parse holds the state of one [Parse] call.
 type parse struct {
 	dynamic  map[string][]*routeEntry // dynamic sources by name, the only ones RDS resolves to
+	ecds     map[string][]ecdsEntry   // ECDS configs by name
 	static   []*routeEntry
 	inline   []*routeEntry
 	batches  []batch // sources per dump section, for dump order
@@ -193,6 +198,39 @@ func (p *parse) routeSection(pos int, rd routesConfigDump) {
 		}
 	}
 	p.batches = append(p.batches, b)
+}
+
+// ecdsSection adds the entries of one EcdsConfigDump section. Envoy writes one
+// section per filter category, so a name can recur; type_urls tells them apart.
+func (p *parse) ecdsSection(raw json.RawMessage) {
+	var section struct {
+		Filters []json.RawMessage `json:"ecds_filters"`
+	}
+	if err := json.Unmarshal(raw, &section); err != nil {
+		p.warn("", model.WarnSectionSkipped, "skipped EcdsConfigDump: %v", err)
+		return
+	}
+	for _, f := range section.Filters {
+		var entry struct {
+			Filter *struct {
+				Name        string          `json:"name"`
+				TypedConfig json.RawMessage `json:"typed_config"`
+			} `json:"ecds_filter"`
+		}
+		var typed typedConfig
+		err := json.Unmarshal(f, &entry)
+		if err == nil && entry.Filter != nil {
+			err = json.Unmarshal(entry.Filter.TypedConfig, &typed)
+		}
+		if err != nil {
+			p.warn("", model.WarnECDSSkipped, "skipped an ECDS config: %v", err)
+			continue
+		}
+		if entry.Filter == nil || entry.Filter.Name == "" {
+			continue // only an error_state: Envoy has no config for it
+		}
+		p.ecds[entry.Filter.Name] = append(p.ecds[entry.Filter.Name], ecdsEntry{typ: typed.Type, config: entry.Filter.TypedConfig})
+	}
 }
 
 // routeEntries splits a RoutesConfigDump field into its entries, or warns and
@@ -337,13 +375,15 @@ func (p *parse) filterChain(l *model.Listener, id model.ID, chain string, rfc ra
 			continue
 		}
 		label := fmt.Sprintf("listener %q filter chain %s", l.Name, chain)
-		hcm, inline, err := parseHCM(nf.TypedConfig)
+		active := l.State.Status == model.ListenerActive
+		hcmID := model.ID(fmt.Sprintf("%s/N%d", nfc.ID, n))
+		hcm, inline, err := p.parseHCM(hcmID, nf.TypedConfig, active)
 		if err != nil {
 			p.warn(nfc.ID, model.WarnHCMSkipped, "%s: skipped HTTP connection manager: %v", label, err)
 			continue
 		}
-		hcm.ID = model.ID(fmt.Sprintf("%s/N%d", nfc.ID, n))
-		p.join(hcm, inline, label, l.State.Status == model.ListenerActive)
+		hcm.ID = hcmID
+		p.join(hcm, inline, label, active)
 		assignIDs(hcm)
 		nfc.HCM = hcm
 	}
@@ -446,8 +486,9 @@ func chainLabel(i int, name string) string {
 }
 
 // parseHCM extracts the HCM config and its raw inline route_config from the
-// raw `typed_config` JSON, or returns the decode error.
-func parseHCM(raw json.RawMessage) (*model.HCMConfig, json.RawMessage, error) {
+// raw `typed_config` JSON, or returns the decode error. id names the HCM in
+// warnings; active says whether its listener version is the active one.
+func (p *parse) parseHCM(id model.ID, raw json.RawMessage, active bool) (*model.HCMConfig, json.RawMessage, error) {
 	if len(raw) == 0 || string(raw) == "null" {
 		return nil, nil, errors.New("no typed_config")
 	}
@@ -460,14 +501,15 @@ func parseHCM(raw json.RawMessage) (*model.HCMConfig, json.RawMessage, error) {
 		RouteConfigName: hcm.RDS.RouteConfigName,
 	}
 
-	for _, hf := range hcm.HTTPFilters {
-		filter := parseHTTPFilter(hf)
+	for i, hf := range hcm.HTTPFilters {
+		filter := p.httpFilter(model.ID(fmt.Sprintf("%s/F%d", id, i)), hf, active)
 		result.HTTPFilters = append(result.HTTPFilters, filter)
 		if filter.Type == routerType {
 			var router rawRouter
 			if err := json.Unmarshal(hf.TypedConfig, &router); err == nil {
 				for _, uf := range router.UpstreamHTTPFilters {
-					result.UpstreamFilters = append(result.UpstreamFilters, parseHTTPFilter(uf))
+					uid := model.ID(fmt.Sprintf("%s/U%d", id, len(result.UpstreamFilters)))
+					result.UpstreamFilters = append(result.UpstreamFilters, p.httpFilter(uid, uf, active))
 				}
 			}
 		}
@@ -475,6 +517,44 @@ func parseHCM(raw json.RawMessage) (*model.HCMConfig, json.RawMessage, error) {
 
 	return result, hcm.RouteConfig, nil
 }
+
+// httpFilter converts one http_filters entry, id. A filter with
+// config_discovery takes the ECDS config whose name is the filter's name
+// (http_connection_manager.proto, HttpFilter.name) and whose type is in
+// type_urls; with none, an active listener runs default_config
+// (config_source.proto, ExtensionConfigSource). Otherwise it has no config.
+func (p *parse) httpFilter(id model.ID, hf rawHTTPFilter, active bool) model.HTTPFilter {
+	d := hf.ConfigDiscovery
+	if d == nil {
+		return parseHTTPFilter(hf)
+	}
+	disc := &model.Discovery{TypeURLs: d.TypeURLs, DefaultConfig: present(d.DefaultConfig), ApplyDefaultWithoutWarming: d.ApplyDefaultConfigWithoutWarming}
+	var found []json.RawMessage
+	for _, e := range p.ecds[hf.Name] {
+		if slices.ContainsFunc(d.TypeURLs, func(u string) bool { return typeName(u) == typeName(e.typ) }) {
+			found = append(found, e.config)
+		}
+	}
+	hf.TypedConfig = nil
+	switch {
+	case len(found) == 1:
+		hf.TypedConfig, disc.Source = found[0], model.ConfigECDS
+	case len(found) > 1:
+		p.warn(id, model.WarnECDSAmbiguous, "filter %q: %d ECDS configs have its name and an allowed type", hf.Name, len(found))
+	case disc.DefaultConfig && active:
+		hf.TypedConfig, disc.Source = d.DefaultConfig, model.ConfigECDSDefault
+	}
+	filter := parseHTTPFilter(hf)
+	filter.Discovery = disc
+	return filter
+}
+
+// present reports whether raw holds a JSON value other than null.
+func present(raw json.RawMessage) bool { return len(raw) > 0 && string(raw) != "null" }
+
+// typeName strips the type URL prefix: "type.googleapis.com/a.B" → "a.B".
+// Envoy compares ECDS types by this name (config_discovery_impl.h).
+func typeName(typeURL string) string { return typeURL[strings.LastIndex(typeURL, "/")+1:] }
 
 const (
 	hcmType           = "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
@@ -741,9 +821,23 @@ type rawHCM struct {
 
 // rawHTTPFilter is a single entry in the HCM `http_filters` list.
 type rawHTTPFilter struct {
-	Name        string          `json:"name"`
-	TypedConfig json.RawMessage `json:"typed_config"`
-	Disabled    bool            `json:"disabled"`
+	Name            string              `json:"name"`
+	TypedConfig     json.RawMessage     `json:"typed_config"`
+	ConfigDiscovery *rawConfigDiscovery `json:"config_discovery"`
+	Disabled        bool                `json:"disabled"`
+}
+
+// rawConfigDiscovery is an ExtensionConfigSource.
+type rawConfigDiscovery struct {
+	DefaultConfig                    json.RawMessage `json:"default_config"`
+	ApplyDefaultConfigWithoutWarming bool            `json:"apply_default_config_without_warming"`
+	TypeURLs                         []string        `json:"type_urls"`
+}
+
+// ecdsEntry is one EcdsConfigDump ecds_filter: a TypedExtensionConfig.
+type ecdsEntry struct {
+	typ    string          // the typed_config @type
+	config json.RawMessage // the typed_config
 }
 
 // compositeDelegate returns the filter type every ExecuteFilterAction in v

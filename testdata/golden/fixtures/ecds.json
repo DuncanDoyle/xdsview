@@ -1,0 +1,370 @@
+{
+  "schemaVersion": "v1alpha1",
+  "snapshot": {
+    "capture": "unverified",
+    "listeners": [
+      {
+        "id": "L0",
+        "name": "web",
+        "address": "0.0.0.0:8080",
+        "filterChains": [
+          {
+            "id": "L0/C0",
+            "name": "",
+            "networkFilters": [
+              {
+                "id": "L0/C0/N0",
+                "name": "envoy.filters.network.http_connection_manager",
+                "type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+              }
+            ],
+            "hcm": {
+              "id": "L0/C0/N0",
+              "routeConfigName": "",
+              "httpFilters": [
+                {
+                  "id": "L0/C0/N0/F0",
+                  "name": "ecds.found",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua",
+                    "default_source_code": {
+                      "inline_string": "-- found"
+                    }
+                  },
+                  "discovery": {
+                    "typeUrls": [
+                      "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+                    ],
+                    "source": "ecds"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "lua"
+                  }
+                },
+                {
+                  "id": "L0/C0/N0/F1",
+                  "name": "ecds.wrong_type",
+                  "discovery": {
+                    "typeUrls": [
+                      "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+                    ]
+                  }
+                },
+                {
+                  "id": "L0/C0/N0/F2",
+                  "name": "ecds.default",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua",
+                    "default_source_code": {
+                      "inline_string": "-- default"
+                    }
+                  },
+                  "discovery": {
+                    "typeUrls": [
+                      "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+                    ],
+                    "defaultConfig": true,
+                    "source": "ecdsDefault"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "lua"
+                  }
+                },
+                {
+                  "id": "L0/C0/N0/F3",
+                  "name": "ecds.default_no_warming",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua",
+                    "default_source_code": {
+                      "inline_string": "-- default"
+                    }
+                  },
+                  "discovery": {
+                    "typeUrls": [
+                      "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+                    ],
+                    "defaultConfig": true,
+                    "applyDefaultWithoutWarming": true,
+                    "source": "ecdsDefault"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "lua"
+                  }
+                },
+                {
+                  "id": "L0/C0/N0/F4",
+                  "name": "ecds.none",
+                  "discovery": {
+                    "typeUrls": [
+                      "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+                    ]
+                  }
+                },
+                {
+                  "id": "L0/C0/N0/F5",
+                  "name": "ecds.matched",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.common.matching.v3.ExtensionWithMatcher",
+                    "extension_config": {
+                      "name": "lua",
+                      "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua",
+                        "default_source_code": {
+                          "inline_string": "-- matched"
+                        }
+                      }
+                    }
+                  },
+                  "discovery": {
+                    "typeUrls": [
+                      "type.googleapis.com/envoy.extensions.common.matching.v3.ExtensionWithMatcher"
+                    ],
+                    "source": "ecds"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "lua"
+                  }
+                },
+                {
+                  "id": "L0/C0/N0/F6",
+                  "name": "envoy.filters.http.router",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "router"
+                  }
+                }
+              ],
+              "routeConfigUse": {
+                "id": "L0/C0/N0/RC",
+                "source": "L0/C0/N0/RCI",
+                "state": "found"
+              },
+              "routeConfig": {
+                "name": "web_route",
+                "virtualHosts": [
+                  {
+                    "id": "L0/C0/N0/RC/V0",
+                    "name": "any",
+                    "domains": [
+                      "*"
+                    ],
+                    "routes": [
+                      {
+                        "id": "L0/C0/N0/RC/V0/R0",
+                        "name": "",
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "cluster": "web_backend",
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "slot": "L0/C0/N0/F0",
+                              "name": "ecds.found",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "yes",
+                              "configSource": "ecds"
+                            },
+                            {
+                              "slot": "L0/C0/N0/F1",
+                              "name": "ecds.wrong_type",
+                              "runs": "unknown",
+                              "state": "unresolved",
+                              "request": "unknown",
+                              "response": "unknown"
+                            },
+                            {
+                              "slot": "L0/C0/N0/F2",
+                              "name": "ecds.default",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "yes",
+                              "configSource": "ecdsDefault"
+                            },
+                            {
+                              "slot": "L0/C0/N0/F3",
+                              "name": "ecds.default_no_warming",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "yes",
+                              "configSource": "ecdsDefault"
+                            },
+                            {
+                              "slot": "L0/C0/N0/F4",
+                              "name": "ecds.none",
+                              "runs": "unknown",
+                              "state": "unresolved",
+                              "request": "unknown",
+                              "response": "unknown"
+                            },
+                            {
+                              "slot": "L0/C0/N0/F5",
+                              "name": "ecds.matched",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "yes",
+                              "wrapper": "extensionWithMatcher",
+                              "conditional": true,
+                              "configSource": "ecds"
+                            },
+                            {
+                              "slot": "L0/C0/N0/F6",
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no",
+                              "configSource": "inline"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "state": {
+          "status": "active",
+          "lastUpdated": "2026-01-01T00:00:00Z"
+        }
+      },
+      {
+        "id": "L1",
+        "name": "pending",
+        "address": "0.0.0.0:8081",
+        "filterChains": [
+          {
+            "id": "L1/C0",
+            "name": "",
+            "networkFilters": [
+              {
+                "id": "L1/C0/N0",
+                "name": "envoy.filters.network.http_connection_manager",
+                "type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+              }
+            ],
+            "hcm": {
+              "id": "L1/C0/N0",
+              "routeConfigName": "",
+              "httpFilters": [
+                {
+                  "id": "L1/C0/N0/F0",
+                  "name": "ecds.default",
+                  "discovery": {
+                    "typeUrls": [
+                      "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+                    ],
+                    "defaultConfig": true
+                  }
+                },
+                {
+                  "id": "L1/C0/N0/F1",
+                  "name": "envoy.filters.http.router",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "router"
+                  }
+                }
+              ],
+              "routeConfigUse": {
+                "id": "L1/C0/N0/RC",
+                "source": "L1/C0/N0/RCI",
+                "state": "found"
+              },
+              "routeConfig": {
+                "name": "pending_route",
+                "virtualHosts": [
+                  {
+                    "id": "L1/C0/N0/RC/V0",
+                    "name": "any",
+                    "domains": [
+                      "*"
+                    ],
+                    "routes": [
+                      {
+                        "id": "L1/C0/N0/RC/V0/R0",
+                        "name": "",
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "cluster": "web_backend",
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "slot": "L1/C0/N0/F0",
+                              "name": "ecds.default",
+                              "runs": "unknown",
+                              "state": "unresolved",
+                              "request": "unknown",
+                              "response": "unknown"
+                            },
+                            {
+                              "slot": "L1/C0/N0/F1",
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no",
+                              "configSource": "inline"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "state": {
+          "status": "warming",
+          "lastUpdated": "2026-01-01T00:00:00Z"
+        }
+      }
+    ],
+    "routeConfigs": [
+      {
+        "id": "L0/C0/N0/RCI",
+        "kind": "inline",
+        "name": "web_route"
+      },
+      {
+        "id": "L1/C0/N0/RCI",
+        "kind": "inline",
+        "name": "pending_route"
+      }
+    ]
+  },
+  "warnings": []
+}

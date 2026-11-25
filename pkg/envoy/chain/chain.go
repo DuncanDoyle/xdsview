@@ -75,6 +75,14 @@ func resolve(filters []model.HTTPFilter, levels []level, backends []model.Weight
 				break
 			}
 		}
+		// An ECDS filter with no config in the dump: whether it runs, and as
+		// what, is unknown unless the route doesn't run it at all.
+		if d := f.Discovery; d != nil {
+			e.ConfigSource = d.Source
+			if d.Source == "" && e.Runs != model.TriNo {
+				e.Runs, e.State = model.TriUnknown, model.FilterUnresolved
+			}
+		}
 		c.Filters = append(c.Filters, e)
 	}
 	for _, wc := range backends {

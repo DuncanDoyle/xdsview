@@ -119,7 +119,46 @@ func TestDump_MissingRDS(t *testing.T) {
 	}
 }
 
-// TestDump_DefaultFilterChain:the default chain is shown last, labelled,
+// lineWith returns the first line of out that contains s.
+func lineWith(out, s string) string {
+	for _, l := range strings.Split(out, "\n") {
+		if strings.Contains(l, s) {
+			return l
+		}
+	}
+	return ""
+}
+
+// TestDump_ECDS: ECDS filters say where their config comes from; an
+// unresolved one is in position, marked "?" and labelled, never as running.
+func TestDump_ECDS(t *testing.T) {
+	out, _, err := runKrp(t, "dump", "--file", fixture("ecds"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string]string{
+		"ecds.found ":             "on · ECDS",
+		"ecds.wrong_type ":        "unresolved: no ECDS config in this dump",
+		"ecds.default ":           "on · ECDS default config",
+		"ecds.default_no_warming": "on · ECDS default config",
+		"ecds.none ":              "unresolved: no ECDS config in this dump",
+	} {
+		l := lineWith(out, name)
+		if !strings.Contains(l, want) {
+			t.Errorf("%s line = %q, want %q", name, l, want)
+		}
+		if strings.HasPrefix(want, "unresolved") && !strings.Contains(l, "?") {
+			t.Errorf("%s line = %q, want a ? mark", name, l)
+		}
+	}
+	if strings.Contains(out, "not run:") {
+		t.Errorf("an unresolved filter is listed as not run:\n%s", out)
+	}
+	wantOutput(t, []string{"--file", fixture("ecds")}, nil,
+		[]string{`"state": "unresolved"`, `"configSource": "ecdsDefault"`, `"source": "ecds"`, `"typeUrls"`})
+}
+
+// TestDump_DefaultFilterChain: the default chain is shown last, labelled,
 // with its routes and their chains.
 func TestDump_DefaultFilterChain(t *testing.T) {
 	wantOutput(t, []string{"--file", fixture("default-chain")},

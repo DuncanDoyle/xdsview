@@ -56,6 +56,9 @@ const (
 	FilterEnabled  FilterState = "enabled"  // disabled in the HCM, enabled for the route
 	FilterDisabled FilterState = "disabled" // enabled in the HCM, disabled for the route
 	FilterUnknown  FilterState = "unknown"  // the deciding per-filter config is one Envoy would reject
+	// FilterUnresolved: the filter takes its config from ECDS and the dump
+	// has neither a matching config nor a default in use.
+	FilterUnresolved FilterState = "unresolved"
 )
 
 // ConfigLevel is where a per-filter config entry sits.

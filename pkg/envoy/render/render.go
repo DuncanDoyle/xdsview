@@ -453,10 +453,23 @@ var levelWords = map[model.ConfigLevel]string{
 	model.LevelRouteConfig: "route config",
 }
 
-// describeState says why an entry runs or not, e.g. "enabled by route".
+// describeState says why an entry runs or not, e.g. "enabled by route", and
+// where an ECDS filter's config comes from.
 func describeState(e model.ChainEntry) string {
+	switch e.ConfigSource {
+	case model.ConfigECDS:
+		return state(e) + " · ECDS"
+	case model.ConfigECDSDefault:
+		return state(e) + " · ECDS default config"
+	}
+	return state(e)
+}
+
+func state(e model.ChainEntry) string {
 	at := levelWords[e.Level]
 	switch e.State {
+	case model.FilterUnresolved:
+		return "unresolved: no ECDS config in this dump"
 	case model.FilterEnabled:
 		return "enabled by " + at
 	case model.FilterDisabled:

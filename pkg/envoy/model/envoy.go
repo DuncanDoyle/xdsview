@@ -97,7 +97,17 @@ type HTTPFilter struct {
 	Type        string         `json:"type,omitempty"`        // typed_config @type; the inner type for an ExtensionWithMatcher
 	TypedConfig map[string]any `json:"typedConfig,omitempty"` // raw typed config; displayed in interactive mode (Phase 3)
 	Disabled    bool           `json:"disabled,omitempty"`    // filter disabled at HCM level, enabled per-route
+	Discovery   *Discovery     `json:"discovery,omitempty"`   // set when the config comes from ECDS; TypedConfig is then the resolved config
 	Origin      *FilterOrigin  `json:"origin,omitempty"`      // set by origin.Annotate
+}
+
+// Discovery is a filter's config_discovery: its config comes from extension
+// config discovery (ECDS), not from the filter entry.
+type Discovery struct {
+	TypeURLs                   []string `json:"typeUrls"`                             // the types an ECDS config may have
+	DefaultConfig              bool     `json:"defaultConfig,omitempty"`              // a default_config is set
+	ApplyDefaultWithoutWarming bool     `json:"applyDefaultWithoutWarming,omitempty"` // the default applies before the first ECDS response
+	Source                     string   `json:"source,omitempty"`                     // ConfigECDS or ConfigECDSDefault; empty when unresolved
 }
 
 // RouteConfig is an Envoy route configuration (from RDS).
