@@ -219,6 +219,63 @@ func TestECDS(t *testing.T) {
 	}
 }
 
+// TestMatchers: every header and query matcher form is read
+// (route_components.proto HeaderMatcher, QueryParameterMatcher; string.proto
+// StringMatcher). A header matcher with no specifier is a presence match
+// (header_utility.cc, HEADER_MATCH_SPECIFIER_NOT_SET); so is a query matcher
+// (config_utility.cc). Unmodelled match fields are listed in Unparsed.
+func TestMatchers(t *testing.T) {
+	snap := parseFile(t, fixtures+"matchers/envoy/config_dump.json")
+	routes := snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes
+	f := false
+	h := func(name, value string, kind model.MatchKind) model.HeaderMatch {
+		return model.HeaderMatch{Name: name, Value: value, Kind: kind, Regex: kind == model.MatchRegex}
+	}
+	not := h("x-not", "f", model.MatchExact)
+	not.Invert = true
+	want := model.RouteMatch{Prefix: "/top", CaseSensitive: &f, Headers: []model.HeaderMatch{
+		h("x-exact", "a", model.MatchExact), h("x-prefix", "b", model.MatchPrefix), h("x-suffix", "c", model.MatchSuffix),
+		h("x-contains", "d", model.MatchContains), h("x-regex", "e+", model.MatchRegex), h("x-present", "", model.MatchPresent),
+		h("x-absent", "", model.MatchAbsent), h("x-range", "[1,5)", model.MatchRange), h("x-bare", "", model.MatchPresent), not,
+	}}
+	if !reflect.DeepEqual(routes[0].Match, want) {
+		t.Errorf("top-level =\n%+v\nwant\n%+v", routes[0].Match, want)
+	}
+
+	exact := h("x-exact", "A", model.MatchExact)
+	exact.IgnoreCase = true
+	empty := h("x-empty", "", model.MatchExact)
+	empty.MissingAsEmpty = true
+	want = model.RouteMatch{Path: "/string", Headers: []model.HeaderMatch{
+		exact, h("x-prefix", "b", model.MatchPrefix), h("x-suffix", "c", model.MatchSuffix), h("x-contains", "d", model.MatchContains),
+		h("x-regex", "e+", model.MatchRegex), h("x-custom", "type.googleapis.com/example.CustomMatcher", model.MatchCustom), empty,
+	}}
+	if !reflect.DeepEqual(routes[1].Match, want) {
+		t.Errorf("string_match =\n%+v\nwant\n%+v", routes[1].Match, want)
+	}
+
+	q := func(name, value string, kind model.MatchKind, ignore bool) model.QueryParamMatch {
+		return model.QueryParamMatch{Name: name, Value: value, Kind: kind, Regex: kind == model.MatchRegex, IgnoreCase: ignore}
+	}
+	want = model.RouteMatch{Path: "/query", QueryParams: []model.QueryParamMatch{
+		q("exact", "1", model.MatchExact, false), q("prefix", "Ab", model.MatchPrefix, true), q("regex", "[0-9]+", model.MatchRegex, false),
+		q("present", "", model.MatchPresent, false), q("absent", "", model.MatchAbsent, false), q("bare", "", model.MatchPresent, false),
+	}}
+	if !reflect.DeepEqual(routes[2].Match, want) {
+		t.Errorf("query =\n%+v\nwant\n%+v", routes[2].Match, want)
+	}
+
+	if want := (model.RouteMatch{Connect: true}); !reflect.DeepEqual(routes[3].Match, want) {
+		t.Errorf("connect = %+v, want %+v", routes[3].Match, want)
+	}
+	if want := []string{"cookies", "dynamic_metadata", "grpc", "runtime_fraction", "tls_context"}; !reflect.DeepEqual(routes[4].Match.Unparsed, want) {
+		t.Errorf("unparsed = %v, want %v", routes[4].Match.Unparsed, want)
+	}
+	if want := []string{"path_match_policy"}; !reflect.DeepEqual(routes[5].Match.Unparsed, want) {
+		t.Errorf("unparsed = %v, want %v", routes[5].Match.Unparsed, want)
+	}
+}
+
 // TestDefaultFilterChain: default_filter_chain is parsed as the listener's
 // last chain, with ID L<n>/Cd, and its routes get IDs under it.
 func TestDefaultFilterChain(t *testing.T) {

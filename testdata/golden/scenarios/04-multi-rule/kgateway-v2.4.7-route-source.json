@@ -150,7 +150,8 @@
                           "headers": [
                             {
                               "name": "x-version",
-                              "value": "v2"
+                              "value": "v2",
+                              "kind": "exact"
                             }
                           ]
                         },
@@ -340,7 +341,8 @@
                           "headers": [
                             {
                               "name": ":method",
-                              "value": "GET"
+                              "value": "GET",
+                              "kind": "exact"
                             }
                           ]
                         },
@@ -438,7 +440,8 @@
                           "headers": [
                             {
                               "name": ":method",
-                              "value": "GET"
+                              "value": "GET",
+                              "kind": "exact"
                             }
                           ]
                         },
@@ -466,7 +469,8 @@
                           "headers": [
                             {
                               "name": ":method",
-                              "value": "GET"
+                              "value": "GET",
+                              "kind": "exact"
                             }
                           ]
                         },
@@ -499,7 +503,8 @@
                           "headers": [
                             {
                               "name": ":method",
-                              "value": "GET"
+                              "value": "GET",
+                              "kind": "exact"
                             }
                           ]
                         },

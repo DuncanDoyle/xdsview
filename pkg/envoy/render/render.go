@@ -570,22 +570,61 @@ func formatMatch(m model.RouteMatch) string {
 	if m.Regex != "" {
 		parts = append(parts, m.Regex+" (regex)")
 	}
+	if m.Connect {
+		parts = append(parts, "CONNECT")
+	}
+	if m.CaseSensitive != nil && !*m.CaseSensitive {
+		parts = append(parts, "case-insensitive")
+	}
 	for _, h := range m.Headers {
-		op := "="
-		if h.Regex {
-			op = "~"
+		var mods []string
+		if h.IgnoreCase {
+			mods = append(mods, "ignore case")
 		}
-		parts = append(parts, fmt.Sprintf("header(%s%s%s)", h.Name, op, h.Value))
+		if h.MissingAsEmpty {
+			mods = append(mods, "missing as empty")
+		}
+		s := "header(" + condition(h.Name, h.Value, h.Kind, h.Regex, mods) + ")"
+		if h.Invert {
+			s = "not " + s
+		}
+		parts = append(parts, s)
 	}
 	for _, q := range m.QueryParams {
-		op := "="
-		if q.Regex {
-			op = "~"
+		var mods []string
+		if q.IgnoreCase {
+			mods = append(mods, "ignore case")
 		}
-		parts = append(parts, fmt.Sprintf("query(%s%s%s)", q.Name, op, q.Value))
+		parts = append(parts, "query("+condition(q.Name, q.Value, q.Kind, q.Regex, mods)+")")
+	}
+	if len(m.Unparsed) > 0 {
+		parts = append(parts, "unparsed: "+strings.Join(m.Unparsed, ", "))
 	}
 	if len(parts) == 0 {
 		return "/"
 	}
 	return strings.Join(parts, " + ")
+}
+
+// condition writes one header or query condition, e.g. "x=a", "x~a+",
+// "x prefix a" or "x present", then its modifiers. An empty kind is exact,
+// or regex when regex is set (snapshots built by hand).
+func condition(name, value string, kind model.MatchKind, regex bool, mods []string) string {
+	var s string
+	switch {
+	case kind == model.MatchRegex || kind == "" && regex:
+		s = name + "~" + value
+	case kind == model.MatchExact || kind == "":
+		s = name + "=" + value
+	case kind == model.MatchPresent || kind == model.MatchAbsent:
+		s = name + " " + string(kind)
+	case kind == model.MatchRange:
+		s = name + " in " + value
+	default:
+		s = name + " " + string(kind) + " " + value
+	}
+	if len(mods) > 0 {
+		s += ", " + strings.Join(mods, ", ")
+	}
+	return s
 }

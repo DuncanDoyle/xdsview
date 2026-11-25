@@ -158,6 +158,26 @@ func TestDump_ECDS(t *testing.T) {
 		[]string{`"state": "unresolved"`, `"configSource": "ecdsDefault"`, `"source": "ecds"`, `"typeUrls"`})
 }
 
+// TestDump_Matchers: every matcher form prints; unmodelled predicates show
+// in text and JSON, so a route never looks wider than it is.
+func TestDump_Matchers(t *testing.T) {
+	wantOutput(t, []string{"--file", fixture("matchers")},
+		[]string{
+			"route /top (prefix) + case-insensitive + header(x-exact=a) + header(x-prefix prefix b) + header(x-suffix suffix c) + " +
+				"header(x-contains contains d) + header(x-regex~e+) + header(x-present present) + header(x-absent absent) + " +
+				"header(x-range in [1,5)) + header(x-bare present) + not header(x-not=f)",
+			"route /string (exact) + header(x-exact=A, ignore case) + header(x-prefix prefix b) + header(x-suffix suffix c) + " +
+				"header(x-contains contains d) + header(x-regex~e+) + header(x-custom custom type.googleapis.com/example.CustomMatcher) + " +
+				"header(x-empty=, missing as empty)",
+			"route /query (exact) + query(exact=1) + query(prefix prefix Ab, ignore case) + query(regex~[0-9]+) + " +
+				"query(present present) + query(absent absent) + query(bare present)",
+			"route CONNECT",
+			"route /other (prefix) + unparsed: cookies, dynamic_metadata, grpc, runtime_fraction, tls_context",
+			"route unparsed: path_match_policy",
+		},
+		[]string{`"kind": "suffix"`, `"invert": true`, `"ignoreCase": true`, `"caseSensitive": false`, `"connect": true`, `"unparsed": [`, `"path_match_policy"`})
+}
+
 // TestDump_DefaultFilterChain: the default chain is shown last, labelled,
 // with its routes and their chains.
 func TestDump_DefaultFilterChain(t *testing.T) {

@@ -58,11 +58,13 @@
                           "headers": [
                             {
                               "name": "x-api-version",
-                              "value": "v2"
+                              "value": "v2",
+                              "kind": "exact"
                             },
                             {
                               "name": "x-tenant-id",
-                              "value": "acme"
+                              "value": "acme",
+                              "kind": "exact"
                             }
                           ]
                         },
@@ -231,7 +233,8 @@
                           "headers": [
                             {
                               "name": ":method",
-                              "value": "GET"
+                              "value": "GET",
+                              "kind": "exact"
                             }
                           ]
                         },
@@ -329,7 +332,8 @@
                           "headers": [
                             {
                               "name": ":method",
-                              "value": "GET"
+                              "value": "GET",
+                              "kind": "exact"
                             }
                           ]
                         },
@@ -357,7 +361,8 @@
                           "headers": [
                             {
                               "name": ":method",
-                              "value": "GET"
+                              "value": "GET",
+                              "kind": "exact"
                             }
                           ]
                         },
@@ -390,7 +395,8 @@
                           "headers": [
                             {
                               "name": ":method",
-                              "value": "GET"
+                              "value": "GET",
+                              "kind": "exact"
                             }
                           ]
                         },

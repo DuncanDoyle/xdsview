@@ -173,21 +173,50 @@ type RouteMatch struct {
 	Prefix              string            `json:"prefix,omitempty"`
 	PathSeparatedPrefix string            `json:"pathSeparatedPrefix,omitempty"` // path_separated_prefix in Envoy
 	Path                string            `json:"path,omitempty"`
-	Regex               string            `json:"regex,omitempty"` // safe_regex in Envoy
+	Regex               string            `json:"regex,omitempty"`         // safe_regex in Envoy
+	Connect             bool              `json:"connect,omitempty"`       // connect_matcher: CONNECT requests
+	CaseSensitive       *bool             `json:"caseSensitive,omitempty"` // case_sensitive as the dump sets it; Envoy's default is true
 	Headers             []HeaderMatch     `json:"headers,omitempty"`
 	QueryParams         []QueryParamMatch `json:"queryParams,omitempty"`
+	// Unparsed lists the match fields the parser doesn't model, by their
+	// Envoy name (e.g. "grpc", "runtime_fraction"). The route matches less
+	// than the other fields say.
+	Unparsed []string `json:"unparsed,omitempty"`
 }
+
+// MatchKind is how a header or query parameter matcher compares.
+type MatchKind string
+
+// Match kinds (route_components.proto HeaderMatcher and QueryParameterMatcher,
+// string.proto StringMatcher).
+const (
+	MatchExact    MatchKind = "exact"
+	MatchPrefix   MatchKind = "prefix"
+	MatchSuffix   MatchKind = "suffix"
+	MatchContains MatchKind = "contains"
+	MatchRegex    MatchKind = "regex"
+	MatchPresent  MatchKind = "present" // also a matcher with no match specifier
+	MatchAbsent   MatchKind = "absent"  // present_match: false
+	MatchRange    MatchKind = "range"   // Value is "[start,end)"
+	MatchCustom   MatchKind = "custom"  // a custom StringMatcher extension; Value is its type
+)
 
 // HeaderMatch is a header-based match condition on a route.
 type HeaderMatch struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
-	Regex bool   `json:"regex,omitempty"` // true when value is a safe_regex pattern
+	Name           string    `json:"name"`
+	Value          string    `json:"value"`
+	Regex          bool      `json:"regex,omitempty"` // true when Kind is MatchRegex
+	Kind           MatchKind `json:"kind"`
+	IgnoreCase     bool      `json:"ignoreCase,omitempty"`
+	Invert         bool      `json:"invert,omitempty"`         // invert_match
+	MissingAsEmpty bool      `json:"missingAsEmpty,omitempty"` // treat_missing_header_as_empty
 }
 
 // QueryParamMatch is a query parameter match condition on a route.
 type QueryParamMatch struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
-	Regex bool   `json:"regex,omitempty"` // true when value is a safe_regex pattern
+	Name       string    `json:"name"`
+	Value      string    `json:"value"`
+	Regex      bool      `json:"regex,omitempty"` // true when Kind is MatchRegex
+	Kind       MatchKind `json:"kind"`
+	IgnoreCase bool      `json:"ignoreCase,omitempty"`
 }

@@ -447,7 +447,8 @@
                           "headers": [
                             {
                               "name": ":method",
-                              "value": "GET"
+                              "value": "GET",
+                              "kind": "exact"
                             }
                           ]
                         },
@@ -545,7 +546,8 @@
                           "headers": [
                             {
                               "name": ":method",
-                              "value": "GET"
+                              "value": "GET",
+                              "kind": "exact"
                             }
                           ]
                         },
@@ -573,7 +575,8 @@
                           "headers": [
                             {
                               "name": ":method",
-                              "value": "GET"
+                              "value": "GET",
+                              "kind": "exact"
                             }
                           ]
                         },
@@ -606,7 +609,8 @@
                           "headers": [
                             {
                               "name": ":method",
-                              "value": "GET"
+                              "value": "GET",
+                              "kind": "exact"
                             }
                           ]
                         },

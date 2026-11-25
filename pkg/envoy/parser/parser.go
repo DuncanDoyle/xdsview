@@ -31,6 +31,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"reflect"
 	"slices"
 	"strings"
@@ -606,15 +607,7 @@ func parseRouteConfig(raw rawRouteConfig) *model.RouteConfig {
 		}
 
 		for _, rr := range rvh.Routes {
-			route := model.Route{
-				Name: rr.Name,
-				Match: model.RouteMatch{
-					Prefix:              rr.Match.Prefix,
-					PathSeparatedPrefix: rr.Match.PathSeparatedPrefix,
-					Path:                rr.Match.Path,
-					Regex:               rr.Match.SafeRegex.Regex,
-				},
-			}
+			route := model.Route{Name: rr.Name, Match: parseMatch(rr.Match)}
 
 			// Extract cluster from the route action
 			if rr.Route.Cluster != "" {
@@ -660,38 +653,6 @@ func parseRouteConfig(raw rawRouteConfig) *model.RouteConfig {
 
 			// Extract response headers to remove
 			route.ResponseHeadersToRemove = rr.ResponseHeadersToRemove
-
-			// Extract header matches (Exact and RegularExpression)
-			for _, hm := range rr.Match.Headers {
-				if hm.StringMatch.SafeRegex.Regex != "" {
-					route.Match.Headers = append(route.Match.Headers, model.HeaderMatch{
-						Name:  hm.Name,
-						Value: hm.StringMatch.SafeRegex.Regex,
-						Regex: true,
-					})
-				} else {
-					route.Match.Headers = append(route.Match.Headers, model.HeaderMatch{
-						Name:  hm.Name,
-						Value: hm.StringMatch.Exact,
-					})
-				}
-			}
-
-			// Extract query parameter matches (Exact and RegularExpression)
-			for _, qp := range rr.Match.QueryParameters {
-				if qp.StringMatch.SafeRegex.Regex != "" {
-					route.Match.QueryParams = append(route.Match.QueryParams, model.QueryParamMatch{
-						Name:  qp.Name,
-						Value: qp.StringMatch.SafeRegex.Regex,
-						Regex: true,
-					})
-				} else {
-					route.Match.QueryParams = append(route.Match.QueryParams, model.QueryParamMatch{
-						Name:  qp.Name,
-						Value: qp.StringMatch.Exact,
-					})
-				}
-			}
 
 			route.TypedPerFilterConfig = decodeAll(rr.TypedPerFilterConfig)
 			if rr.Metadata != nil {
@@ -921,35 +882,8 @@ type rawVirtualHost struct {
 
 // rawRoute is a single route entry within a virtual host.
 type rawRoute struct {
-	Name  string `json:"name"`
-	Match struct {
-		Prefix              string `json:"prefix"`
-		PathSeparatedPrefix string `json:"path_separated_prefix"`
-		Path                string `json:"path"`
-		// safe_regex is used for RegularExpression path matchers from the K8S Gateway API
-		SafeRegex struct {
-			Regex string `json:"regex"`
-		} `json:"safe_regex"`
-		Headers []struct {
-			Name        string `json:"name"`
-			StringMatch struct {
-				Exact     string `json:"exact"`
-				SafeRegex struct {
-					Regex string `json:"regex"`
-				} `json:"safe_regex"`
-			} `json:"string_match"`
-		} `json:"headers"`
-		// query_parameters captures K8S Gateway API QueryParam matchers
-		QueryParameters []struct {
-			Name        string `json:"name"`
-			StringMatch struct {
-				Exact     string `json:"exact"`
-				SafeRegex struct {
-					Regex string `json:"regex"`
-				} `json:"safe_regex"`
-			} `json:"string_match"`
-		} `json:"query_parameters"`
-	} `json:"match"`
+	Name  string        `json:"name"`
+	Match rawRouteMatch `json:"match"`
 	Route struct {
 		Cluster          string `json:"cluster"`
 		WeightedClusters struct {
@@ -987,6 +921,168 @@ type rawRoute struct {
 	ResponseHeadersToRemove []string                   `json:"response_headers_to_remove"`
 	TypedPerFilterConfig    map[string]json.RawMessage `json:"typed_per_filter_config"`
 	Metadata                *rawRouteMetadata          `json:"metadata"`
+}
+
+// rawRouteMatch is a RouteMatch. fields lists every field the dump sets.
+type rawRouteMatch struct {
+	Prefix              string             `json:"prefix"`
+	PathSeparatedPrefix string             `json:"path_separated_prefix"`
+	Path                string             `json:"path"`
+	SafeRegex           rawRegex           `json:"safe_regex"`
+	ConnectMatcher      json.RawMessage    `json:"connect_matcher"`
+	CaseSensitive       *bool              `json:"case_sensitive"`
+	Headers             []rawHeaderMatcher `json:"headers"`
+	QueryParameters     []rawQueryMatcher  `json:"query_parameters"`
+	fields              []string
+}
+
+// UnmarshalJSON decodes the match and records which fields it sets.
+func (m *rawRouteMatch) UnmarshalJSON(b []byte) error {
+	type plain rawRouteMatch
+	if err := json.Unmarshal(b, (*plain)(m)); err != nil {
+		return err
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(b, &fields); err != nil {
+		return err
+	}
+	m.fields = slices.Sorted(maps.Keys(fields))
+	return nil
+}
+
+// modelledMatch are the RouteMatch fields parseMatch reads.
+var modelledMatch = []string{"prefix", "path", "safe_regex", "path_separated_prefix", "connect_matcher", "case_sensitive", "headers", "query_parameters"}
+
+type rawRegex struct {
+	Regex string `json:"regex"`
+}
+
+// rawHeaderMatcher is a HeaderMatcher, with the deprecated top-level forms.
+type rawHeaderMatcher struct {
+	Name           string            `json:"name"`
+	ExactMatch     *string           `json:"exact_match"`
+	SafeRegexMatch *rawRegex         `json:"safe_regex_match"`
+	RangeMatch     *rawRange         `json:"range_match"`
+	PresentMatch   *bool             `json:"present_match"`
+	PrefixMatch    *string           `json:"prefix_match"`
+	SuffixMatch    *string           `json:"suffix_match"`
+	ContainsMatch  *string           `json:"contains_match"`
+	StringMatch    *rawStringMatcher `json:"string_match"`
+	InvertMatch    bool              `json:"invert_match"`
+	MissingAsEmpty bool              `json:"treat_missing_header_as_empty"`
+}
+
+// rawRange is an Int64Range; ProtoJSON writes int64 as a string.
+type rawRange struct {
+	Start json.RawMessage `json:"start"`
+	End   json.RawMessage `json:"end"`
+}
+
+// rawQueryMatcher is a QueryParameterMatcher.
+type rawQueryMatcher struct {
+	Name         string            `json:"name"`
+	StringMatch  *rawStringMatcher `json:"string_match"`
+	PresentMatch *bool             `json:"present_match"`
+}
+
+// rawStringMatcher is a StringMatcher.
+type rawStringMatcher struct {
+	Exact     *string   `json:"exact"`
+	Prefix    *string   `json:"prefix"`
+	Suffix    *string   `json:"suffix"`
+	Contains  *string   `json:"contains"`
+	SafeRegex *rawRegex `json:"safe_regex"`
+	Custom    *struct {
+		TypedConfig typedConfig `json:"typed_config"`
+	} `json:"custom"`
+	IgnoreCase bool `json:"ignore_case"`
+}
+
+// parseMatch converts a route match. Fields it doesn't model go to Unparsed.
+func parseMatch(m rawRouteMatch) model.RouteMatch {
+	out := model.RouteMatch{
+		Prefix:              m.Prefix,
+		PathSeparatedPrefix: m.PathSeparatedPrefix,
+		Path:                m.Path,
+		Regex:               m.SafeRegex.Regex,
+		Connect:             present(m.ConnectMatcher),
+		CaseSensitive:       m.CaseSensitive,
+	}
+	for _, h := range m.Headers {
+		out.Headers = append(out.Headers, headerMatch(h))
+	}
+	for _, q := range m.QueryParameters {
+		qm := model.QueryParamMatch{Name: q.Name, Kind: model.MatchPresent}
+		switch {
+		case q.StringMatch != nil:
+			qm.Kind, qm.Value, qm.IgnoreCase = stringMatch(*q.StringMatch)
+		case q.PresentMatch != nil && !*q.PresentMatch:
+			qm.Kind = model.MatchAbsent
+		}
+		qm.Regex = qm.Kind == model.MatchRegex
+		out.QueryParams = append(out.QueryParams, qm)
+	}
+	for _, f := range m.fields {
+		if !slices.Contains(modelledMatch, f) {
+			out.Unparsed = append(out.Unparsed, f)
+		}
+	}
+	return out
+}
+
+// headerMatch converts a header matcher. With no match specifier, Envoy
+// matches on presence (source/common/http/header_utility.cc).
+func headerMatch(h rawHeaderMatcher) model.HeaderMatch {
+	out := model.HeaderMatch{Name: h.Name, Kind: model.MatchPresent, Invert: h.InvertMatch, MissingAsEmpty: h.MissingAsEmpty}
+	str := func(k model.MatchKind, v *string) { out.Kind, out.Value = k, *v }
+	switch {
+	case h.StringMatch != nil:
+		out.Kind, out.Value, out.IgnoreCase = stringMatch(*h.StringMatch)
+	case h.ExactMatch != nil:
+		str(model.MatchExact, h.ExactMatch)
+	case h.PrefixMatch != nil:
+		str(model.MatchPrefix, h.PrefixMatch)
+	case h.SuffixMatch != nil:
+		str(model.MatchSuffix, h.SuffixMatch)
+	case h.ContainsMatch != nil:
+		str(model.MatchContains, h.ContainsMatch)
+	case h.SafeRegexMatch != nil:
+		out.Kind, out.Value = model.MatchRegex, h.SafeRegexMatch.Regex
+	case h.RangeMatch != nil:
+		out.Kind, out.Value = model.MatchRange, "["+int64Text(h.RangeMatch.Start)+","+int64Text(h.RangeMatch.End)+")"
+	case h.PresentMatch != nil && !*h.PresentMatch:
+		out.Kind = model.MatchAbsent
+	}
+	out.Regex = out.Kind == model.MatchRegex
+	return out
+}
+
+// stringMatch returns a StringMatcher's kind, value and ignore_case. One with
+// no form set compares exactly with the empty string.
+func stringMatch(s rawStringMatcher) (model.MatchKind, string, bool) {
+	switch {
+	case s.Prefix != nil:
+		return model.MatchPrefix, *s.Prefix, s.IgnoreCase
+	case s.Suffix != nil:
+		return model.MatchSuffix, *s.Suffix, s.IgnoreCase
+	case s.Contains != nil:
+		return model.MatchContains, *s.Contains, s.IgnoreCase
+	case s.SafeRegex != nil:
+		return model.MatchRegex, s.SafeRegex.Regex, false // ignore_case has no effect on safe_regex
+	case s.Custom != nil:
+		return model.MatchCustom, s.Custom.TypedConfig.Type, false
+	case s.Exact != nil:
+		return model.MatchExact, *s.Exact, s.IgnoreCase
+	}
+	return model.MatchExact, "", s.IgnoreCase
+}
+
+// int64Text writes a ProtoJSON int64, a string or a number, as digits; unset is 0.
+func int64Text(raw json.RawMessage) string {
+	if !present(raw) {
+		return "0"
+	}
+	return strings.Trim(string(raw), `"`)
 }
 
 // rawRouteMetadata holds the `metadata` object on a route, used for EKTP policy cross-references.
@@ -1049,6 +1145,11 @@ func cloneRouteConfig(rc *model.RouteConfig) *model.RouteConfig {
 			cloneRoute.ResponseHeadersToRemove = append([]string(nil), r.ResponseHeadersToRemove...)
 			cloneRoute.Match.Headers = append([]model.HeaderMatch(nil), r.Match.Headers...)
 			cloneRoute.Match.QueryParams = append([]model.QueryParamMatch(nil), r.Match.QueryParams...)
+			cloneRoute.Match.Unparsed = append([]string(nil), r.Match.Unparsed...)
+			if r.Match.CaseSensitive != nil {
+				cs := *r.Match.CaseSensitive
+				cloneRoute.Match.CaseSensitive = &cs
+			}
 			// Rewrite is a pointer — copy the struct value if set
 			if r.Rewrite != nil {
 				rw := *r.Rewrite

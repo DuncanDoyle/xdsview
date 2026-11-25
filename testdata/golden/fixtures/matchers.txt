@@ -1,0 +1,26 @@
+web 0.0.0.0:8080 · active
+└─ vhost any [*]
+   ├─ route /top (prefix) + case-insensitive + header(x-exact=a) + header(x-prefix prefix b) + header(x-suffix suffix c) + header(x-contains contains d) + header(x-regex~e+) + header(x-present present) + header(x-absent absent) + header(x-range in [1,5)) + header(x-bare present) + not header(x-not=f)
+   │  filters (request order):
+   │    1 envoy.filters.http.router  on
+   │  backend: web_backend
+   ├─ route /string (exact) + header(x-exact=A, ignore case) + header(x-prefix prefix b) + header(x-suffix suffix c) + header(x-contains contains d) + header(x-regex~e+) + header(x-custom custom type.googleapis.com/example.CustomMatcher) + header(x-empty=, missing as empty)
+   │  filters (request order):
+   │    1 envoy.filters.http.router  on
+   │  backend: web_backend
+   ├─ route /query (exact) + query(exact=1) + query(prefix prefix Ab, ignore case) + query(regex~[0-9]+) + query(present present) + query(absent absent) + query(bare present)
+   │  filters (request order):
+   │    1 envoy.filters.http.router  on
+   │  backend: web_backend
+   ├─ route CONNECT
+   │  filters (request order):
+   │    1 envoy.filters.http.router  on
+   │  backend: tunnel_backend
+   ├─ route /other (prefix) + unparsed: cookies, dynamic_metadata, grpc, runtime_fraction, tls_context
+   │  filters (request order):
+   │    1 envoy.filters.http.router  on
+   │  backend: web_backend
+   └─ route unparsed: path_match_policy
+      filters (request order):
+        1 envoy.filters.http.router  on
+      backend: web_backend
