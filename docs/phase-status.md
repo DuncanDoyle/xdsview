@@ -29,6 +29,7 @@ Kind: planned
 Base: 8d381f6
 Brief: docs/phases/phase-9/phase-9.1-brief.md
 Branch: duncandoyle/phase9 (local; nothing merges to main before the consumer review)
+Status: done (2026-11-25), `4c1f12e`; record in phase-9.1-complete.md. Next: 9.2.
 
 ## Program
 Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `70fda55`)
@@ -45,6 +46,7 @@ Consumers: E6 (kgwctl move into kgateway): `v0.6.0` released. E13 available (`v0
 - Phase 9 (P-010, E15), after P-009: one contract break, design reviewed by kgwctl and Snellius before approval. File `cross-repo` review requests in both when the design is ready (ask first).
 
 ## Notes
+- 2026-11-25: 9.1 done: IDs, sources and uses, typed warnings, `Capture`, `model.Prune`. Text goldens unchanged; JSON goldens additive. Six deviations listed in phase-9.1-complete.md (scenario 00 `main_route` waits for 9.4 static listeners).
 - 2026-11-25: program adopted P-011 and P-012 ("Architecture guidelines", kgateway-tooling `dbf7140`). Review prompts link that section from now on (protocol step 7).
 - 2026-11-25: owner chose API option 1 (D-020). Design draft `phases/phase-9/design.md` written; waiting on owner review before the plan.
 - 2026-11-24: Phase 9 started at 40822d0 (owner: yes).

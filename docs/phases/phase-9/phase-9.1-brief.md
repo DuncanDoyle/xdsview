@@ -36,7 +36,7 @@ Out: `chain.Effective` changes, render hooks (9.2); provenance and the module (9
 none
 
 ## Definition of done
-- [ ] acceptance tests fail before, pass after (report both)
-- [ ] full test suite and vet pass
-- [ ] krp text goldens unchanged except duplicate-RDS cases (listed); JSON goldens gain IDs, `routeConfigs`, capture, typed warnings
-- [ ] phase-9.1-complete.md written; phase-status.md updated
+- [x] acceptance tests fail before, pass after (report both)
+- [x] full test suite and vet pass
+- [x] krp text goldens unchanged except duplicate-RDS cases (listed); JSON goldens gain IDs, `routeConfigs`, capture, typed warnings
+- [x] phase-9.1-complete.md written; phase-status.md updated
