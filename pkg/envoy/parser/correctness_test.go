@@ -2,6 +2,7 @@ package parser_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"reflect"
 	"strings"
@@ -168,6 +169,46 @@ func TestMissingRDS(t *testing.T) {
 			if wantWarn := c.want == model.RouteConfigMissing; (len(missing) == 1) != wantWarn ||
 				wantWarn && missing[0].Subject != hcm.RouteConfigUse.ID {
 				t.Errorf("rds-missing warnings = %+v, want one on %s: %v", missing, hcm.RouteConfigUse.ID, wantWarn)
+			}
+		})
+	}
+}
+
+// TestMissingRDS_Static: Envoy dumps static listeners before its workers start
+// (listener_manager_impl.cc, dumpListenerConfigs), so a static HCM's RDS name
+// is missing only when an active dynamic listener proves they have started.
+func TestMissingRDS_Static(t *testing.T) {
+	static := `{"listener": {"name": "boot", "filter_chains": [{"filters": [
+ {"name": "envoy.filters.network.http_connection_manager", "typed_config": {"rds": {"route_config_name": "boot_route"}, "http_filters": [
+  {"name": "envoy.filters.http.router", "typed_config": {"@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"}}]}}]}]}}`
+	dynamic := `{"name": "d", "%s": {"listener": {"name": "d", "filter_chains": [{"filters": [
+ {"name": "envoy.filters.network.http_connection_manager", "typed_config": {"rds": {"route_config_name": "d_route"}, "http_filters": []}}]}]}}}`
+	cases := []struct {
+		name     string
+		dynamics string
+		want     model.RouteConfigState
+	}{
+		{"no dynamic listener", ``, model.RouteConfigUnknown},
+		{"only warming", fmt.Sprintf(dynamic, "warming_state"), model.RouteConfigUnknown},
+		{"active dynamic", fmt.Sprintf(dynamic, "active_state"), model.RouteConfigMissing},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			dump := `{"configs": [
+ {"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump", "static_listeners": [` + static + `], "dynamic_listeners": [` + c.dynamics + `]},
+ {"@type": "` + routesType + `", "dynamic_route_configs": [{"route_config": {"name": "d_route"}}]}]}`
+			snap, err := parser.Parse(strings.NewReader(dump), parser.Options{Capture: model.CaptureComplete})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var boot *model.HCMConfig
+			for _, l := range snap.Listeners {
+				if l.Static {
+					boot = l.FilterChains[0].HCM
+				}
+			}
+			if got := boot.RouteConfigUse.State; got != c.want {
+				t.Errorf("static HCM state = %s, want %s", got, c.want)
 			}
 		})
 	}

@@ -127,6 +127,8 @@ func Parse(r io.Reader, opts Options) (*model.Snapshot, error) {
 		}
 	}
 	p.at = listenersAt // later skips are in the listeners section
+	// Envoy dumps dynamic listeners as active only once its workers have started.
+	p.workersStarted = slices.ContainsFunc(listeners, func(rl rawListener) bool { return rl.ActiveState != nil })
 	// Missing RDS needs every dynamic route config: a complete capture, read in full.
 	p.rdsComplete = capture == model.CaptureComplete && p.routesRead && !p.routesSkipped
 
@@ -175,6 +177,8 @@ type parse struct {
 	routesRead    bool // a RoutesConfigDump section was read
 	routesSkipped bool // a route config, or a section that may hold one, was skipped
 	rdsComplete   bool // an unmatched RDS name is missing, not unknown
+
+	workersStarted bool // a dynamic listener is active, so static listeners serve
 
 	sections []model.SectionCoverage // one per dump section
 	at       int                     // the section being parsed; -1 for none
@@ -347,8 +351,8 @@ func (p *parse) listener(i int, rl rawListener) model.Listener {
 	return l
 }
 
-// staticListener converts static listener entry i. Envoy serves a static
-// listener from startup, so it is active.
+// staticListener converts static listener entry i. Its status is active, but
+// verdicts that need a serving listener also need p.workersStarted.
 func (p *parse) staticListener(i int, sl rawStaticListener) model.Listener {
 	l := model.Listener{
 		ID:     model.ID(fmt.Sprintf("L%d", i)),
@@ -408,7 +412,8 @@ func (p *parse) filterChain(l *model.Listener, id model.ID, chain string, rfc ra
 			continue
 		}
 		label := fmt.Sprintf("listener %q filter chain %s", l.Name, chain)
-		active := l.State.Status == model.ListenerActive
+		// A static listener is dumped before Envoy's workers start (listener_manager_impl.cc).
+		active := l.State.Status == model.ListenerActive && (!l.Static || p.workersStarted)
 		hcmID := model.ID(fmt.Sprintf("%s/N%d", nfc.ID, n))
 		hcm, inline, err := p.parseHCM(hcmID, nf.TypedConfig, active)
 		if err != nil {

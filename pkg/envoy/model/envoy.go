@@ -46,7 +46,7 @@ type Listener struct {
 	Address      string               `json:"address"` // e.g. "0.0.0.0:80"
 	FilterChains []NetworkFilterChain `json:"filterChains"`
 	State        ListenerState        `json:"state"`
-	Static       bool                 `json:"static,omitempty"` // a static_listeners entry (bootstrap); always active
+	Static       bool                 `json:"static,omitempty"` // a static_listeners entry (bootstrap); status active, though Envoy also dumps it before its workers start
 	Origin       *ListenerOrigin      `json:"origin,omitempty"` // set by origin.Annotate
 }
 
