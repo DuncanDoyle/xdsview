@@ -1,5 +1,7 @@
 package model
 
+import "slices"
+
 // Prune returns a copy of snap that keeps the routes for which keep returns
 // true, and their ancestors. IDs are unchanged, so results computed on snap
 // still join.
@@ -13,7 +15,7 @@ package model
 //     draining beside it, or Envoy rejected its last update.
 //
 // Route config sources stay when a retained HCM uses them. Warnings stay when
-// they are dump-wide or their subject lies in a retained listener or source.
+// they are dump-wide or their subject is itself retained.
 // The copy shares maps and unpruned slices with snap; treat both as read-only.
 func Prune(snap *Snapshot, keep func(ID) bool) *Snapshot {
 	out := *snap
@@ -38,12 +40,43 @@ func Prune(snap *Snapshot, keep func(ID) bool) *Snapshot {
 			out.RouteConfigs = append(out.RouteConfigs, s)
 		}
 	}
+	dropped := prunedBlocks(snap, &out)
 	for _, w := range snap.Warnings {
-		if w.Subject == "" || retained(&out, w.Subject) {
+		if w.Subject == "" || retained(&out, w.Subject) && !slices.ContainsFunc(dropped, w.Subject.Within) {
 			out.Warnings = append(out.Warnings, w)
 		}
 	}
 	return &out
+}
+
+// prunedBlocks returns the vhosts and routes of snap that out no longer holds.
+func prunedBlocks(snap, out *Snapshot) []ID {
+	kept := map[ID]bool{}
+	walkRoutes(out, func(id ID) { kept[id] = true })
+	var dropped []ID
+	walkRoutes(snap, func(id ID) {
+		if !kept[id] {
+			dropped = append(dropped, id)
+		}
+	})
+	return dropped
+}
+
+// walkRoutes calls fn with the ID of every virtual host and route in snap.
+func walkRoutes(snap *Snapshot, fn func(ID)) {
+	for _, l := range snap.Listeners {
+		for _, fc := range l.FilterChains {
+			if fc.HCM == nil || fc.HCM.RouteConfig == nil {
+				continue
+			}
+			for _, vh := range fc.HCM.RouteConfig.VirtualHosts {
+				fn(vh.ID)
+				for _, r := range vh.Routes {
+					fn(r.ID)
+				}
+			}
+		}
+	}
 }
 
 // pruneListener returns l with only the kept routes, and whether any was kept.

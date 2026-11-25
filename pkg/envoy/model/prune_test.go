@@ -118,6 +118,26 @@ func TestPrune_RoutesAndAncestors(t *testing.T) {
 	}
 }
 
+// TestPrune_WarningSubjects: a warning stays only when its own subject is
+// retained, not merely its listener (design §7).
+func TestPrune_WarningSubjects(t *testing.T) {
+	snap := &model.Snapshot{
+		Listeners: []model.Listener{listenerWith(0, active, [][]string{{"a", "b"}, {"c"}})},
+		Warnings: []model.Warning{
+			{Subject: "L0/C0/N0/RC/V0/R1", Message: "kept route"},
+			{Subject: "L0/C0/N0/RC/V0", Message: "kept vhost"},
+			{Subject: "L0/C0/N0/F0", Message: "kept filter"},
+			{Subject: "L0/C0/N0/RC/V0/R0", Message: "pruned route"},
+			{Subject: "L0/C0/N0/RC/V1", Message: "pruned vhost"},
+			{Subject: "L0/C0/N0/RC/V1/R0", Message: "route of pruned vhost"},
+		},
+	}
+	got := model.Prune(snap, keepNames(snap, "b"))
+	if want := snap.Warnings[:3]; !reflect.DeepEqual(got.Warnings, want) {
+		t.Errorf("warnings = %+v\nwant %+v", got.Warnings, want)
+	}
+}
+
 // TestPrune_ListenersThatExplain: listeners that may explain a missing route
 // stay, with their state, when no route of theirs is selected (ported from filter).
 func TestPrune_ListenersThatExplain(t *testing.T) {
