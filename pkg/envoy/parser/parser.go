@@ -73,6 +73,7 @@ func Parse(r io.Reader, opts Options) (*model.Snapshot, error) {
 		var typed typedConfig
 		if err := json.Unmarshal(raw, &typed); err != nil {
 			p.warn("", model.WarnSectionSkipped, "skipped config section: cannot read @type: %v", err)
+			p.routesSkipped = true // it may have held route configs
 			continue
 		}
 
@@ -101,11 +102,14 @@ func Parse(r io.Reader, opts Options) (*model.Snapshot, error) {
 			var rd routesConfigDump
 			if err := json.Unmarshal(raw, &rd); err != nil {
 				p.warn("", model.WarnSectionSkipped, "skipped RoutesConfigDump: %v", err)
+				p.routesSkipped = true
 				continue
 			}
 			p.routeSection(pos, rd)
 		}
 	}
+	// Missing RDS needs every dynamic route config: a complete capture, read in full.
+	p.rdsComplete = capture == model.CaptureComplete && p.routesRead && !p.routesSkipped
 
 	// Build the Snapshot by joining listeners with route configs.
 	snapshot := &model.Snapshot{Capture: capture}
@@ -141,6 +145,10 @@ type parse struct {
 	nDynamic int
 	nStatic  int
 	warnings []model.Warning
+
+	routesRead    bool // a RoutesConfigDump section was read
+	routesSkipped bool // a route config, or a section that may hold one, was skipped
+	rdsComplete   bool // an unmatched RDS name is missing, not unknown
 }
 
 // routeEntry is one route config source with its parsed and raw content.
@@ -166,6 +174,7 @@ func (p *parse) warn(subject model.ID, code, format string, args ...any) {
 // section. Each field and entry is decoded on its own, so a bad one costs only
 // itself.
 func (p *parse) routeSection(pos int, rd routesConfigDump) {
+	p.routesRead = true
 	b := batch{pos: pos}
 	for _, raw := range p.routeEntries("static_route_configs", rd.StaticRouteConfigs) {
 		id := model.ID(fmt.Sprintf("RS%d", p.nStatic))
@@ -195,6 +204,7 @@ func (p *parse) routeEntries(field string, raw json.RawMessage) []json.RawMessag
 	var entries []json.RawMessage
 	if err := json.Unmarshal(raw, &entries); err != nil {
 		p.warn("", model.WarnSectionSkipped, "skipped RoutesConfigDump %s: %v", field, err)
+		p.routesSkipped = true
 		return nil
 	}
 	return entries
@@ -214,11 +224,13 @@ func (p *parse) routeEntry(id model.ID, kind model.RouteConfigSourceKind, raw js
 		}
 		_ = json.Unmarshal(raw, &named) // best effort, for the warning
 		p.warn("", model.WarnRouteConfigSkipped, "skipped route config %q: %v", named.RouteConfig.Name, err)
+		p.routesSkipped = true
 		return nil
 	}
 	// A null or nameless entry would join any HCM without an RDS name.
 	if entry.RouteConfig.Name == "" {
 		p.warn("", model.WarnRouteConfigSkipped, "skipped a route config with no name")
+		p.routesSkipped = true
 		return nil
 	}
 	var content struct {
@@ -331,7 +343,7 @@ func (p *parse) filterChain(l *model.Listener, id model.ID, chain string, rfc ra
 			continue
 		}
 		hcm.ID = model.ID(fmt.Sprintf("%s/N%d", nfc.ID, n))
-		p.join(hcm, inline, label)
+		p.join(hcm, inline, label, l.State.Status == model.ListenerActive)
 		assignIDs(hcm)
 		nfc.HCM = hcm
 	}
@@ -340,7 +352,8 @@ func (p *parse) filterChain(l *model.Listener, id model.ID, chain string, rfc ra
 
 // join resolves hcm's route config use: its inline config, else its RDS name
 // against the dynamic sources. Each use gets its own copy of the content.
-func (p *parse) join(hcm *model.HCMConfig, inline json.RawMessage, label string) {
+// active says whether the HCM's listener version is the active one.
+func (p *parse) join(hcm *model.HCMConfig, inline json.RawMessage, label string, active bool) {
 	use := &hcm.RouteConfigUse
 	use.ID = hcm.ID + "/RC"
 	use.State = model.RouteConfigUnknown
@@ -359,7 +372,12 @@ func (p *parse) join(hcm *model.HCMConfig, inline json.RawMessage, label string)
 	case hcm.RouteConfigName != "":
 		switch found := p.dynamic[hcm.RouteConfigName]; len(found) {
 		case 0:
-			// Missing needs a complete capture; until then it is unknown.
+			// A warming or draining listener may wait on RDS that never came; leave it unknown.
+			if p.rdsComplete && active {
+				use.State = model.RouteConfigMissing
+				p.warn(use.ID, model.WarnRDSMissing, "%s: route config %q is missing: no dynamic route config has that name in a complete dump",
+					label, hcm.RouteConfigName)
+			}
 		case 1:
 			use.Source, use.State = found[0].source.ID, model.RouteConfigFound
 			hcm.RouteConfig = cloneRouteConfig(found[0].config)

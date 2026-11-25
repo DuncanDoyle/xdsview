@@ -1,10 +1,14 @@
 package parser_test
 
 import (
+	"encoding/json"
+	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/parser"
 )
 
 const fixtures = "../../../testdata/fixtures/"
@@ -82,7 +86,102 @@ func TestNetworkFilters(t *testing.T) {
 	}
 }
 
-// TestDefaultFilterChain: default_filter_chain is parsed as the listener's
+// scenario00 returns scenario 00 decoded, with edit applied to each section.
+func scenario00(t *testing.T, edit func(section map[string]any)) string {
+	t.Helper()
+	data, err := os.ReadFile("../../../testdata/scenarios/00-simple/envoy/kgateway-v2.5.0/config_dump.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dump struct {
+		Configs []map[string]any `json:"configs"`
+	}
+	if err := json.Unmarshal(data, &dump); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range dump.Configs {
+		edit(s)
+	}
+	out, err := json.Marshal(dump)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(out)
+}
+
+const routesType = "type.googleapis.com/envoy.admin.v3.RoutesConfigDump"
+
+// TestMissingRDS: an active listener's RDS name with no dynamic source is
+// missing, with a warning, only in a complete capture whose route configs
+// were all read. Otherwise it is unknown (design §4 row 1, E14).
+func TestMissingRDS(t *testing.T) {
+	noRDS := func(s map[string]any) {
+		if s["@type"] == routesType {
+			delete(s, "dynamic_route_configs")
+		}
+	}
+	cases := []struct {
+		name    string
+		capture model.Capture
+		edit    func(map[string]any)
+		want    model.RouteConfigState
+	}{
+		{"complete", model.CaptureComplete, noRDS, model.RouteConfigMissing},
+		{"unverified", model.CaptureUnverified, noRDS, model.RouteConfigUnknown},
+		{"no RoutesConfigDump", model.CaptureComplete, func(s map[string]any) {
+			if s["@type"] == routesType {
+				s["@type"] = "type.googleapis.com/example.Unknown"
+			}
+		}, model.RouteConfigUnknown},
+		{"skipped entry", model.CaptureComplete, func(s map[string]any) {
+			if s["@type"] == routesType {
+				s["dynamic_route_configs"] = []any{map[string]any{"route_config": map[string]any{"name": "listener~80", "virtual_hosts": 1}}}
+			}
+		}, model.RouteConfigUnknown},
+		{"draining", model.CaptureComplete, func(s map[string]any) {
+			noRDS(s)
+			moveState(s, "draining_state")
+		}, model.RouteConfigUnknown},
+		{"warming", model.CaptureComplete, func(s map[string]any) {
+			noRDS(s)
+			moveState(s, "warming_state")
+		}, model.RouteConfigUnknown},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			snap, err := parser.Parse(strings.NewReader(scenario00(t, c.edit)), parser.Options{Capture: c.capture})
+			if err != nil {
+				t.Fatal(err)
+			}
+			hcm := snap.Listeners[0].FilterChains[0].HCM
+			if got := hcm.RouteConfigUse.State; got != c.want {
+				t.Errorf("state = %s, want %s", got, c.want)
+			}
+			var missing []model.Warning
+			for _, w := range snap.Warnings {
+				if w.Code == model.WarnRDSMissing {
+					missing = append(missing, w)
+				}
+			}
+			if wantWarn := c.want == model.RouteConfigMissing; (len(missing) == 1) != wantWarn ||
+				wantWarn && missing[0].Subject != hcm.RouteConfigUse.ID {
+				t.Errorf("rds-missing warnings = %+v, want one on %s: %v", missing, hcm.RouteConfigUse.ID, wantWarn)
+			}
+		})
+	}
+}
+
+// moveState moves the dynamic listeners' active_state to field.
+func moveState(s map[string]any, field string) {
+	ls, _ := s["dynamic_listeners"].([]any)
+	for _, l := range ls {
+		m := l.(map[string]any)
+		m[field] = m["active_state"]
+		delete(m, "active_state")
+	}
+}
+
+// TestDefaultFilterChain:default_filter_chain is parsed as the listener's
 // last chain, with ID L<n>/Cd, and its routes get IDs under it.
 func TestDefaultFilterChain(t *testing.T) {
 	snap := parseFile(t, fixtures+"default-chain/envoy/config_dump.json")

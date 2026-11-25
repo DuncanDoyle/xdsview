@@ -39,6 +39,7 @@ const (
 	WarnRouteConfigSkipped = "route-config-skipped" // a route config entry could not be read
 	WarnHCMSkipped         = "hcm-skipped"          // an HTTP connection manager could not be read
 	WarnRDSAmbiguous       = "rds-ambiguous"        // several dynamic route configs share the RDS name
+	WarnRDSMissing         = "rds-missing"          // an active HCM's RDS name has no route config in a complete capture
 )
 
 // RouteConfigSourceKind says where in the dump a route configuration sits.

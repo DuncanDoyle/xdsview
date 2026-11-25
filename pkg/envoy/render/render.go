@@ -248,8 +248,11 @@ func (p *printer) chainBody(fc model.NetworkFilterChain, indent string) {
 	if hcm.RouteConfig == nil {
 		prefix, body := node(indent, true)
 		status := " not found"
-		if hcm.RouteConfigUse.State == model.RouteConfigAmbiguous {
+		switch hcm.RouteConfigUse.State {
+		case model.RouteConfigAmbiguous:
 			status = " ambiguous: several route configs have this name"
+		case model.RouteConfigMissing:
+			status = " missing: no route config has this name in a complete dump"
 		}
 		p.line(prefix + p.style(ClassWarning, Row{Subject: hcm.RouteConfigUse.ID}, "route config "+hcm.RouteConfigName+status))
 		p.filters(p.chains[hcm.RouteConfigUse.ID], "", body)
