@@ -162,7 +162,9 @@ func TestDumpJSON_Projection(t *testing.T) {
 		{"--route", "orders", "--route-ns", "kgwctl-proxy"},
 		{"--route", "does-not-exist", "--route-ns", "kgateway-system"},
 	}
-	var projected, named, selected, narrowedSelected int
+	extraModules = []provenance.Module{farEvidence{}}
+	defer func() { extraModules = nil }()
+	var projected, named, selected, narrowedSelected, links int
 	for _, dump := range allDumps(t) {
 		for _, q := range queries {
 			out, _, err := runKrp(t, append([]string{"dump", "--file", dump, "-o", "json"}, q...)...)
@@ -201,6 +203,12 @@ func TestDumpJSON_Projection(t *testing.T) {
 					check("chain entry", e.Slot)
 				}
 			}
+			records := map[[2]string]bool{}
+			for _, c := range env.Claims {
+				if _, ok := c.Assertion.(provenance.PolicyRecord); ok {
+					records[[2]string{c.Module, c.Ref}] = true
+				}
+			}
 			for _, c := range env.Claims {
 				check("claim subject", c.Subject)
 				for _, e := range c.Evidence {
@@ -208,6 +216,10 @@ func TestDumpJSON_Projection(t *testing.T) {
 				}
 				if l, ok := c.Assertion.(provenance.FilterLink); ok {
 					check("filter link slot", l.Slot)
+					if !records[[2]string{c.Module, l.Record}] {
+						t.Errorf("%s %v: link %s names record %s/%s, absent from claims", dump, q, c.ID, c.Module, l.Record)
+					}
+					links++
 				}
 			}
 			for _, w := range env.Warnings {
@@ -240,9 +252,55 @@ func TestDumpJSON_Projection(t *testing.T) {
 			}
 		}
 	}
-	if projected == 0 || named == 0 || selected == 0 || narrowedSelected == 0 {
-		t.Errorf("projected %d claims, checked %d named entries, %d selected routes, %d by D-022: the test checks nothing", projected, named, selected, narrowedSelected)
+	if projected == 0 || named == 0 || selected == 0 || narrowedSelected == 0 || links == 0 {
+		t.Errorf("projected %d claims, checked %d named entries, %d selected routes, %d by D-022, %d links: the test checks nothing",
+			projected, named, selected, narrowedSelected, links)
 	}
+}
+
+// farEvidence records a policy on every route with per-filter config, citing
+// evidence on the snapshot's last route, and links it to the configured slot.
+// Under --route the record's evidence is often pruned while the link's is not.
+type farEvidence struct{}
+
+func (farEvidence) Name() string { return "far" }
+
+func (farEvidence) Claims(snap *model.Snapshot) []provenance.Claim {
+	var routes []model.Route
+	var slots []model.ID
+	for _, l := range snap.Listeners {
+		for _, fc := range l.FilterChains {
+			if fc.HCM == nil || fc.HCM.RouteConfig == nil {
+				continue
+			}
+			for _, vh := range fc.HCM.RouteConfig.VirtualHosts {
+				for _, r := range vh.Routes {
+					slot := model.ID("")
+					for _, f := range fc.HCM.HTTPFilters {
+						if _, ok := r.TypedPerFilterConfig[f.Name]; ok {
+							slot = f.ID
+						}
+					}
+					routes, slots = append(routes, r), append(slots, slot)
+				}
+			}
+		}
+	}
+	var out []provenance.Claim
+	for i, r := range routes {
+		far := routes[len(routes)-1].ID
+		if slots[i] == "" || far == r.ID {
+			continue
+		}
+		p := model.Ref{Group: "far.example", Kind: "Policy", Namespace: "ns", Name: "p"}
+		ref := "rec/" + string(r.ID)
+		out = append(out,
+			provenance.Claim{Ref: ref, Subject: r.ID, Certainty: model.Exact, Assertion: provenance.PolicyRecord{Policy: p, Field: "f", Level: provenance.LevelRoute},
+				Evidence: []provenance.Evidence{{Kind: provenance.EvidenceMetadata, Subject: far, Field: "test", Object: &p}}},
+			provenance.Claim{Subject: r.ID, Certainty: model.Inferred, Assertion: provenance.FilterLink{Record: ref, Slot: slots[i]},
+				Evidence: []provenance.Evidence{{Kind: provenance.EvidenceTable, Subject: slots[i], Field: "test"}}})
+	}
+	return out
 }
 
 // TestDumpJSON_Warnings verifies that skipped sections reach both the JSON and stderr.

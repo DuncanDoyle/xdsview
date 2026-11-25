@@ -143,7 +143,8 @@ func writeJSON(w io.Writer, res result) error {
 }
 
 // envelope projects res onto the subjects its snapshot retains: chains,
-// claims and warnings of pruned subjects are left out. Warnings move from the
+// claims and warnings of pruned subjects are left out, and so is a filter link
+// whose record is. Warnings move from the
 // snapshot to the envelope, beside the index's.
 func envelope(res result) jsonEnvelope {
 	snap := *res.snap
@@ -161,7 +162,8 @@ func envelope(res result) jsonEnvelope {
 		}
 	}
 	for _, c := range res.ix.Claims() {
-		if projected(c, present) {
+		// A link stays only with the record it names.
+		if rec, ok := res.ix.Record(c); projected(c, present) && (!ok || projected(rec, present)) {
 			env.Claims = append(env.Claims, c)
 		}
 	}
