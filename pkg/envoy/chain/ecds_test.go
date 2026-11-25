@@ -1,18 +1,29 @@
 package chain_test
 
 import (
+	"bytes"
+	"os"
 	"reflect"
 	"testing"
 
 	"github.com/DuncanDoyle/xdsview/internal/snaptest"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/chain"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/parser"
 )
 
 // TestEffective_ECDS: an ECDS filter runs its ECDS or default config; one
 // with neither stays in position with Runs unknown and State unresolved.
 func TestEffective_ECDS(t *testing.T) {
-	snap := parseFile(t, "../../../testdata/fixtures/ecds/envoy/config_dump.json")
+	// A complete capture, so a filter with no ECDS entry runs its default.
+	data, err := os.ReadFile("../../../testdata/fixtures/ecds/envoy/config_dump.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	snap, err := parser.Parse(bytes.NewReader(data), parser.Options{Capture: model.CaptureComplete})
+	if err != nil {
+		t.Fatal(err)
+	}
 	route := snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes[0].ID
 	c := chain.Effective(snap)[route]
 	type row struct {

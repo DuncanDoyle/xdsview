@@ -224,13 +224,28 @@ func moveState(s map[string]any, field string) {
 	}
 }
 
+// parseFixture parses a fixture dump with the given capture.
+func parseFixture(t *testing.T, name string, capture model.Capture) *model.Snapshot {
+	t.Helper()
+	data, err := os.ReadFile(fixtures + name + "/envoy/config_dump.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	snap, err := parser.Parse(strings.NewReader(string(data)), parser.Options{Capture: capture})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return snap
+}
+
 // TestECDS: a filter with config_discovery takes the ECDS config whose name is
 // the filter's name and whose type is in type_urls (http_connection_manager.proto,
 // HttpFilter.name: "also serves as a resource name in ExtensionConfigDS"). With
-// none, an active listener runs default_config, whether or not it waits
-// (config_source.proto, ExtensionConfigSource); otherwise it is unresolved.
+// none, an active listener in a complete capture runs default_config, whether
+// or not it waits (config_source.proto, ExtensionConfigSource); otherwise it is
+// unresolved.
 func TestECDS(t *testing.T) {
-	snap := parseFile(t, fixtures+"ecds/envoy/config_dump.json")
+	snap := parseFixture(t, "ecds", model.CaptureComplete)
 	const lua = "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
 	want := map[string][2]string{ // name: source, type
 		"ecds.found":              {model.ConfigECDS, lua},
@@ -259,6 +274,40 @@ func TestECDS(t *testing.T) {
 	// A warming listener isn't running its default yet.
 	if f := snap.Listeners[1].FilterChains[0].HCM.HTTPFilters[0]; f.Discovery == nil || f.Discovery.Source != "" || !f.Discovery.DefaultConfig {
 		t.Errorf("warming listener's ecds.default = %+v, want unresolved with a default", f.Discovery)
+	}
+}
+
+// TestECDS_DefaultNeedsFullCapture: a missing ECDS entry proves the default
+// runs only when the capture is complete and no ECDS entry was skipped; else
+// the installed config is unknown (P-010 rule 3).
+func TestECDS_DefaultNeedsFullCapture(t *testing.T) {
+	data, err := os.ReadFile(fixtures + "ecds/envoy/config_dump.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A malformed entry: it may be the installed config of any ECDS filter.
+	skipped := strings.Replace(string(data), `"ecds_filters": [`, `"ecds_filters": [{"ecds_filter": {"name": 1}},`, 1)
+	cases := []struct {
+		name, dump string
+		capture    model.Capture
+		want       string
+	}{
+		{"complete", string(data), model.CaptureComplete, model.ConfigECDSDefault},
+		{"unverified", string(data), model.CaptureUnverified, ""},
+		{"skipped entry", skipped, model.CaptureComplete, ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			snap, err := parser.Parse(strings.NewReader(c.dump), parser.Options{Capture: c.capture})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, f := range snap.Listeners[0].FilterChains[0].HCM.HTTPFilters {
+				if strings.HasPrefix(f.Name, "ecds.default") && (f.Discovery.Source != c.want || (c.want == "") != (f.TypedConfig == nil)) {
+					t.Errorf("%s: source %q, config %v; want source %q", f.Name, f.Discovery.Source, f.TypedConfig, c.want)
+				}
+			}
+		})
 	}
 }
 

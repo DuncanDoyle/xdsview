@@ -4,8 +4,8 @@ web 0.0.0.0:8080 · active
       filters (request order):
         1  ecds.found                 on · ECDS
         2? ecds.wrong_type            unresolved: no ECDS config in this dump
-        3  ecds.default               on · ECDS default config
-        4  ecds.default_no_warming    on · ECDS default config
+        3? ecds.default               unresolved: no ECDS config in this dump
+        4? ecds.default_no_warming    unresolved: no ECDS config in this dump
         5? ecds.none                  unresolved: no ECDS config in this dump
         6  ecds.matched               on · ECDS
         7  envoy.filters.http.router  on

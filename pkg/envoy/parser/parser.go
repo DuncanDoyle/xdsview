@@ -83,7 +83,7 @@ func Parse(r io.Reader, opts Options) (*model.Snapshot, error) {
 		if err := json.Unmarshal(raw, &typed); err != nil {
 			p.sections = append(p.sections, model.SectionCoverage{Status: model.CoverageIgnored})
 			p.warn("", model.WarnSectionSkipped, "skipped config section: cannot read @type: %v", err)
-			p.routesSkipped = true // it may have held route configs
+			p.routesSkipped, p.ecdsSkipped = true, true // it may have held route or ECDS configs
 			continue
 		}
 		p.sections = append(p.sections, model.SectionCoverage{Type: typed.Type, Status: model.CoverageIgnored})
@@ -131,6 +131,8 @@ func Parse(r io.Reader, opts Options) (*model.Snapshot, error) {
 	p.workersStarted = slices.ContainsFunc(listeners, func(rl rawListener) bool { return rl.ActiveState != nil })
 	// Missing RDS needs every dynamic route config: a complete capture, read in full.
 	p.rdsComplete = capture == model.CaptureComplete && p.routesRead && !p.routesSkipped
+	// An ECDS default runs only if no entry the filter may own is missing from the dump.
+	p.ecdsComplete = capture == model.CaptureComplete && !p.ecdsSkipped
 
 	// Build the Snapshot by joining listeners with route configs.
 	snapshot := &model.Snapshot{Capture: capture}
@@ -179,6 +181,8 @@ type parse struct {
 	rdsComplete   bool // an unmatched RDS name is missing, not unknown
 
 	workersStarted bool // a dynamic listener is active, so static listeners serve
+	ecdsSkipped    bool // an ECDS entry, or a section that may hold one, was skipped
+	ecdsComplete   bool // a filter with no ECDS entry has none in Envoy
 
 	sections []model.SectionCoverage // one per dump section
 	at       int                     // the section being parsed; -1 for none
@@ -244,6 +248,7 @@ func (p *parse) ecdsSection(raw json.RawMessage) {
 	}
 	if err := json.Unmarshal(raw, &section); err != nil {
 		p.warn("", model.WarnSectionSkipped, "skipped EcdsConfigDump: %v", err)
+		p.ecdsSkipped = true
 		return
 	}
 	for _, f := range section.Filters {
@@ -260,6 +265,7 @@ func (p *parse) ecdsSection(raw json.RawMessage) {
 		}
 		if err != nil {
 			p.warn("", model.WarnECDSSkipped, "skipped an ECDS config: %v", err)
+			p.ecdsSkipped = true
 			continue
 		}
 		if entry.Filter == nil || entry.Filter.Name == "" {
@@ -560,8 +566,9 @@ func (p *parse) parseHCM(id model.ID, raw json.RawMessage, active bool) (*model.
 // httpFilter converts one http_filters entry, id. A filter with
 // config_discovery takes the ECDS config whose name is the filter's name
 // (http_connection_manager.proto, HttpFilter.name) and whose type is in
-// type_urls; with none, an active listener runs default_config
-// (config_source.proto, ExtensionConfigSource). Otherwise it has no config.
+// type_urls; with none, an active listener in a complete capture with no
+// skipped ECDS entry runs default_config (config_source.proto,
+// ExtensionConfigSource). Otherwise it has no config.
 func (p *parse) httpFilter(id model.ID, hf rawHTTPFilter, active bool) model.HTTPFilter {
 	d := hf.ConfigDiscovery
 	if d == nil {
@@ -580,7 +587,7 @@ func (p *parse) httpFilter(id model.ID, hf rawHTTPFilter, active bool) model.HTT
 		hf.TypedConfig, disc.Source = found[0], model.ConfigECDS
 	case len(found) > 1:
 		p.warn(id, model.WarnECDSAmbiguous, "filter %q: %d ECDS configs have its name and an allowed type", hf.Name, len(found))
-	case disc.DefaultConfig && active:
+	case disc.DefaultConfig && active && p.ecdsComplete:
 		hf.TypedConfig, disc.Source = d.DefaultConfig, model.ConfigECDSDefault
 	}
 	filter := parseHTTPFilter(hf)

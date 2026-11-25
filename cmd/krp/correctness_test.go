@@ -129,33 +129,53 @@ func lineWith(out, s string) string {
 	return ""
 }
 
+// asComplete makes krp's live mode (--gateway gw -n ns) read path as a
+// complete capture, as Admin does, until the test ends.
+func asComplete(t *testing.T, path string) {
+	g, h := kubeGateway, kubeHTTPRoutes
+	t.Cleanup(func() { kubeGateway, kubeHTTPRoutes = g, h })
+	kubeGateway = func(string, string, kube.Options) source.Source { return complete{source.File(path)} }
+	kubeHTTPRoutes = func(context.Context, kube.Options) ([]model.Ref, error) { return nil, nil }
+}
+
 // TestDump_ECDS: ECDS filters say where their config comes from; an
 // unresolved one is in position, marked "?" and labelled, never as running.
+// A default config counts as running only in a complete capture.
 func TestDump_ECDS(t *testing.T) {
-	out, _, err := runKrp(t, "dump", "--file", fixture("ecds"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for name, want := range map[string]string{
-		"ecds.found ":             "on · ECDS",
-		"ecds.wrong_type ":        "unresolved: no ECDS config in this dump",
-		"ecds.default ":           "on · ECDS default config",
-		"ecds.default_no_warming": "on · ECDS default config",
-		"ecds.none ":              "unresolved: no ECDS config in this dump",
+	asComplete(t, fixture("ecds"))
+	unresolved := "unresolved: no ECDS config in this dump"
+	for _, c := range []struct {
+		args    []string
+		dflt    string
+		jsonHas string
+	}{
+		{[]string{"--gateway", "gw", "-n", "ns"}, "on · ECDS default config", `"configSource": "ecdsDefault"`},
+		{[]string{"--file", fixture("ecds")}, unresolved, `"state": "unresolved"`},
 	} {
-		l := lineWith(out, name)
-		if !strings.Contains(l, want) {
-			t.Errorf("%s line = %q, want %q", name, l, want)
+		out, _, err := runKrp(t, append([]string{"dump"}, c.args...)...)
+		if err != nil {
+			t.Fatal(err)
 		}
-		if strings.HasPrefix(want, "unresolved") && !strings.Contains(l, "?") {
-			t.Errorf("%s line = %q, want a ? mark", name, l)
+		for name, want := range map[string]string{
+			"ecds.found ":             "on · ECDS",
+			"ecds.wrong_type ":        unresolved,
+			"ecds.default ":           c.dflt,
+			"ecds.default_no_warming": c.dflt,
+			"ecds.none ":              unresolved,
+		} {
+			l := lineWith(out, name)
+			if !strings.Contains(l, want) {
+				t.Errorf("%v: %s line = %q, want %q", c.args, name, l, want)
+			}
+			if strings.HasPrefix(want, "unresolved") && !strings.Contains(l, "?") {
+				t.Errorf("%v: %s line = %q, want a ? mark", c.args, name, l)
+			}
 		}
+		if strings.Contains(out, "not run:") {
+			t.Errorf("an unresolved filter is listed as not run:\n%s", out)
+		}
+		wantOutput(t, c.args, nil, []string{`"state": "unresolved"`, c.jsonHas, `"source": "ecds"`, `"typeUrls"`})
 	}
-	if strings.Contains(out, "not run:") {
-		t.Errorf("an unresolved filter is listed as not run:\n%s", out)
-	}
-	wantOutput(t, []string{"--file", fixture("ecds")}, nil,
-		[]string{`"state": "unresolved"`, `"configSource": "ecdsDefault"`, `"source": "ecds"`, `"typeUrls"`})
 }
 
 // TestDump_Matchers: every matcher form prints; unmodelled predicates show

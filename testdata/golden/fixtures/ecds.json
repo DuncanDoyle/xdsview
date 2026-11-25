@@ -55,46 +55,22 @@
                 {
                   "id": "L0/C0/N0/F2",
                   "name": "ecds.default",
-                  "type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua",
-                  "typedConfig": {
-                    "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua",
-                    "default_source_code": {
-                      "inline_string": "-- default"
-                    }
-                  },
                   "discovery": {
                     "typeUrls": [
                       "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
                     ],
-                    "defaultConfig": true,
-                    "source": "ecdsDefault"
-                  },
-                  "origin": {
-                    "certainty": "inferred",
-                    "kind": "lua"
+                    "defaultConfig": true
                   }
                 },
                 {
                   "id": "L0/C0/N0/F3",
                   "name": "ecds.default_no_warming",
-                  "type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua",
-                  "typedConfig": {
-                    "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua",
-                    "default_source_code": {
-                      "inline_string": "-- default"
-                    }
-                  },
                   "discovery": {
                     "typeUrls": [
                       "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
                     ],
                     "defaultConfig": true,
-                    "applyDefaultWithoutWarming": true,
-                    "source": "ecdsDefault"
-                  },
-                  "origin": {
-                    "certainty": "inferred",
-                    "kind": "lua"
+                    "applyDefaultWithoutWarming": true
                   }
                 },
                 {
@@ -194,22 +170,18 @@
                             {
                               "slot": "L0/C0/N0/F2",
                               "name": "ecds.default",
-                              "type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua",
-                              "runs": "yes",
-                              "state": "on",
-                              "request": "yes",
-                              "response": "yes",
-                              "configSource": "ecdsDefault"
+                              "runs": "unknown",
+                              "state": "unresolved",
+                              "request": "unknown",
+                              "response": "unknown"
                             },
                             {
                               "slot": "L0/C0/N0/F3",
                               "name": "ecds.default_no_warming",
-                              "type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua",
-                              "runs": "yes",
-                              "state": "on",
-                              "request": "yes",
-                              "response": "yes",
-                              "configSource": "ecdsDefault"
+                              "runs": "unknown",
+                              "state": "unresolved",
+                              "request": "unknown",
+                              "response": "unknown"
                             },
                             {
                               "slot": "L0/C0/N0/F4",
