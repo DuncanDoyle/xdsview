@@ -210,17 +210,38 @@ type Dependencies struct {
 type Gap struct {
 	Subject model.ID
 	Kind    string   // the assertion kind expected, e.g. "routeSource"
-	Slot    model.ID // policyRecord only: the HTTP filter slot
-	Level   Level    // policyRecord only: the level the record is missing at
+	Slot    model.ID // policyRecord only: the HTTP filter slot, empty when none is installed
+	Level   Level    // policyRecord only: the level the record is missing at, empty for a weighted backend
 }
 ```
 
-`Dependencies(block)` covers everything the block shows and relies on (design review #1):
-1. Claims on the block and its descendants.
-2. Claims on its ancestors up to the listener, and on the route config source of every use in or above the block, including a source shared with HCMs outside it. Inherited policy records count.
-3. Claims on the HTTP filter slots of the HCM that serves it, or for a route config source block, of every HCM whose use resolves to it.
+`Dependencies(block)` is fail-closed (design review #1, Codex phase re-reviews 1–4). It first enumerates every input the block shows or relies on, then checks each input against the claim kinds that can cover it. Every uncovered input is a gap; there is no per-case gap rule.
 
-A gap is recorded per expected kind, not per subject: a route without `RouteSource`, a slot with per-filter config and no `ExtensionSource`, a route or backend with a cluster and no `BackendSource`, each below inferred or ambiguous. A policy claim on a route doesn't hide a missing `RouteSource`.
+**1. Inputs.**
+- Every listener, filter chain, virtual host, route and weighted backend in or above the block.
+- Every HTTP filter slot, downstream and router upstream, of every HCM serving the block: the HCM in or above it, or for a route config source block, every HCM whose use resolves to it.
+- Every per-filter config entry at route config level (the source a use in or above the block resolves to, inline or RDS, or the source block itself), and at virtual host, route and weighted backend level in or above the block. An entry with no matching installed slot is an input too.
+- A static source that an inline source records as `Reported` is the same source as that inline config: its block has the inline source's inputs, not those of an unused source. A source with no use is its own block of inputs: its per-filter config entries.
+
+**2. Cover.** An input is covered only by claims at inferred or exact. A filter link covers only on the route being checked; the routes checked are the block's routes beneath the input, or all of them when the block holds none.
+
+| Input | Covered by |
+|---|---|
+| listener | `GatewaySource` |
+| filter chain, HCM, use | nothing expected |
+| virtual host | `HostSource` |
+| route | `RouteSource` |
+| route or weighted backend with a cluster | `BackendSource` |
+| HTTP filter slot, downstream or upstream, other than the router | `ExtensionSource` |
+| downstream slot that runs by default, not the router, not marked a helper | also: for each route checked, a kept `FilterLink` on that route placing a listener-level `PolicyRecord` on the slot |
+| per-filter config entry for slot S at level X (route, virtual host, route config) | for each route checked, a kept `FilterLink` on that route placing a level-X `PolicyRecord` on S |
+| per-filter config entry on a weighted backend, or with no installed downstream slot | nothing: always a gap |
+
+Alternatives kinds cover when they resolve at inferred or exact (`Resolve`), so ambiguous readings are gaps. A policy gap names the slot and level (`Gap.Slot`, `Gap.Level`). A readable record for one filter never covers another filter's entry. A default-on slot whose routes have no per-filter config keeps its listener-level gap in Phase 9; a listener-scoped link is the additive fix later (rule 7). Without `merge.*` at a level (U1), a hidden policy could add config there; the gap makes that visible. Router upstream slots need only `ExtensionSource`: rule 4 admits no link to them.
+
+**3. Objects.** `Objects` holds the evidence objects of every claim on an input's subject, on the route config sources in scope and on the serving HCMs' slots, inherited policy records included. Every claim that covers an input adds its evidence objects too, wherever its subject lives.
+
+**4. Cost.** The index builds its per-HCM structure and the link placements once, on the first call. A route block's inputs are its lineage and its HCM's slots, so checking every route block is linear in routes.
 
 kgwctl's route lookup is `Resolve[RouteSource](ix, routeID)`. Snellius withholds a block when the viewer can't read every object in `Dependencies(block).Objects`, or when `Gaps` is not empty (R6).
 
@@ -231,10 +252,11 @@ type Dependent struct {
 }
 ```
 
-**Expected gaps** (Snellius review, snellius#70). An empty `Gaps` means every expected input is attributed. Besides the per-kind gaps above:
-1. `policyRecord`: per-filter config for slot S at level X (route, virtual host or route config) is covered for a route only when a surviving `FilterLink` on that route places a level-X `PolicyRecord` on S, the link and the record both at inferred or exact. A sibling route's link never covers it, and neither does an ambiguous or unknown one. The routes checked are the block's routes beneath X, or all of them when the block holds none (a route config source block). Otherwise a `policyRecord` gap names that slot and level (`Gap.Slot`, `Gap.Level`). A readable record for one filter never clears another filter's gap. Also a gap: an HCM slot that runs by default, is not the router, and has no `ExtensionSource` marking it a helper, unless evidence attributes listener-level config to that exact slot occurrence: for each route checked, a surviving `FilterLink` on that route placing a listener-level `PolicyRecord` on it, both at inferred or exact. That link and record join `Dependencies.Objects`, even when the block doesn't hold the listener. A listener record for another filter, or one no link places, never closes it. A default-on slot whose routes have no per-filter config keeps its listener-level gap in Phase 9; a listener-scoped link is the additive fix later (rule 7). Without `merge.*` at a level (U1), a hidden policy could add config there; the gap makes that visible.
-2. `dropped`: a claim in scope that Compose rule 3 dropped. Its subject gets a gap of the dropped claim's kind.
-3. `gatewaySource`: a listener with no `GatewaySource` above unknown. A consumer that knows the Gateway it captured may close this gap itself, as its own context. Listeners from a ListenerSet are not attributed in Phase 9: they show this gap.
+**Gaps** (Snellius review, snellius#70). An empty `Gaps` means every input is covered. Two notes on the rule above:
+1. `dropped`: a claim in scope that Compose rule 3 dropped also gives its subject a gap of the dropped claim's kind.
+2. `gatewaySource`: a consumer that knows the Gateway it captured may close a listener's gap itself, as its own context. Listeners from a ListenerSet are not attributed in Phase 9: they show this gap.
+
+A test checks the rule on the corpus: for every dump and fixture and every route block, removing any single claim that covers an input from the kgateway module's output adds a gap.
 
 ### 6. kgateway module (R5, R8, R9, R13)
 
