@@ -1,0 +1,344 @@
+package provenance
+
+import (
+	"reflect"
+	"slices"
+	"strings"
+
+	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
+)
+
+// Index holds the claims [Compose] kept, ordered by subject ([model.CompareID]),
+// then module order, then emission order. It is read-only and safe for
+// concurrent use.
+type Index struct {
+	snap      *model.Snapshot
+	st        *structure
+	claims    []Claim
+	bySubject map[model.ID][]int
+	byRef     map[[2]string]int
+	dropped   []Claim
+	warnings  []model.Warning
+}
+
+// Claims returns every claim in the index, in index order.
+func (ix *Index) Claims() []Claim { return slices.Clone(ix.claims) }
+
+// About returns the claims whose subject is id, in index order.
+func (ix *Index) About(id model.ID) []Claim {
+	var out []Claim
+	for _, i := range ix.bySubject[id] {
+		out = append(out, ix.claims[i])
+	}
+	return out
+}
+
+// Warnings returns why claims were dropped, in the order Compose dropped them.
+func (ix *Index) Warnings() []model.Warning { return slices.Clone(ix.warnings) }
+
+// Record returns the policy record claim a [FilterLink] claim names.
+func (ix *Index) Record(link Claim) (Claim, bool) {
+	l, ok := link.Assertion.(FilterLink)
+	if !ok {
+		return Claim{}, false
+	}
+	i, ok := ix.byRef[[2]string{link.Module, l.Record}]
+	if !ok {
+		return Claim{}, false
+	}
+	return ix.claims[i], true
+}
+
+// Resolution is what the index says about one kind of assertion on one subject.
+//
+// For an alternatives kind, Candidates are the distinct assertions at the
+// highest certainty, in claim order; Certainty is that certainty, or
+// [model.Ambiguous] when they disagree. For a cumulative kind ([PolicyRecord],
+// [FilterLink]) every assertion is a candidate and Certainty is the highest.
+// Claims lists every claim of the kind, the outranked ones too.
+type Resolution[T Assertion] struct {
+	Certainty  model.Certainty
+	Candidates []T
+	Claims     []Claim
+}
+
+// Resolve resolves the assertions of kind T about id.
+func Resolve[T Assertion](ix *Index, id model.ID) Resolution[T] {
+	var res Resolution[T]
+	for _, c := range ix.About(id) {
+		if _, ok := c.Assertion.(T); ok {
+			res.Claims = append(res.Claims, c)
+			res.Certainty = max(res.Certainty, c.Certainty)
+		}
+	}
+	if len(res.Claims) == 0 {
+		return res
+	}
+	var zero T
+	cumulative := any(zero) != nil && zero.spec().cumulative // T may be Assertion itself
+	for _, c := range res.Claims {
+		a := c.Assertion.(T)
+		if cumulative {
+			res.Candidates = append(res.Candidates, a)
+			continue
+		}
+		if c.Certainty == res.Certainty && !slices.ContainsFunc(res.Candidates, func(b T) bool { return reflect.DeepEqual(a, b) }) {
+			res.Candidates = append(res.Candidates, a)
+		}
+	}
+	if !cumulative && len(res.Candidates) > 1 {
+		res.Certainty = model.Ambiguous
+	}
+	return res
+}
+
+// Dependencies is the evidence scope of a block: what its view rests on.
+type Dependencies struct {
+	Objects []Dependent // every object the block's claims rest on, with the claim kind, sorted
+	Gaps    []Gap       // expected attribution that is missing or ambiguous, sorted
+}
+
+// Dependent is one object a block's claims rest on.
+type Dependent struct {
+	Object model.Ref
+	Kind   string // the claim's assertion kind, e.g. "backendSource"
+}
+
+// Gap is an expected attribution that is missing or ambiguous.
+type Gap struct {
+	Subject model.ID
+	Kind    string // the assertion kind expected, e.g. "routeSource"
+}
+
+// Dependencies returns the evidence scope of block (any occurrence ID). Its
+// claims are those on:
+//  1. the block and everything in it;
+//  2. its ancestors up to the listener, and the route config source of every
+//     use in or above it, a source shared with other HCMs included;
+//  3. the HTTP filter slots of the HCM that serves it.
+//
+// Gaps, per expected kind:
+//   - routeSource: a route that doesn't resolve to one reading at inferred or exact;
+//   - backendSource: a route or weighted backend with a cluster name and no
+//     such BackendSource;
+//   - extensionSource: an HTTP filter slot with per-filter config on any route
+//     of its HCM and no such ExtensionSource;
+//   - policyRecord: per-filter config at route, virtual host or route config
+//     level with no PolicyRecord at that level; and an HTTP filter slot that
+//     runs by default, is not the router or a helper, with no listener-level
+//     PolicyRecord on its listener;
+//   - gatewaySource: a listener with no GatewaySource above unknown;
+//   - a dropped claim's kind on its subject (Compose rule 3).
+func (ix *Index) Dependencies(block model.ID) Dependencies {
+	scope := ix.scope(block)
+	var deps Dependencies
+	for _, c := range ix.claims {
+		if !scope[c.Subject] {
+			continue
+		}
+		for _, e := range c.Evidence {
+			if e.Object == nil {
+				continue
+			}
+			d := Dependent{Object: *e.Object, Kind: c.Assertion.Kind()}
+			if !slices.Contains(deps.Objects, d) {
+				deps.Objects = append(deps.Objects, d)
+			}
+		}
+	}
+	slices.SortFunc(deps.Objects, func(a, b Dependent) int {
+		return strings.Compare(refKey(a.Object)+"\x00"+a.Kind, refKey(b.Object)+"\x00"+b.Kind)
+	})
+	deps.Gaps = ix.gaps(scope)
+	return deps
+}
+
+func refKey(r model.Ref) string {
+	return r.Group + "\x00" + r.Kind + "\x00" + r.Namespace + "\x00" + r.Name
+}
+
+// scope returns the subjects whose claims count for block (rules 1–3 above).
+func (ix *Index) scope(block model.ID) map[model.ID]bool {
+	st := ix.st
+	out := map[model.ID]bool{}
+	for id := range st.kinds {
+		if id.Within(block) || block.Within(id) {
+			out[id] = true
+		}
+	}
+	for use, src := range st.useSource {
+		if use.Within(block) || block.Within(use) {
+			out[src] = true
+		}
+	}
+	if hcm := st.hcmOf(block); hcm != "" {
+		for _, s := range st.slots[hcm] {
+			out[s] = true
+		}
+	}
+	return out
+}
+
+// gaps returns the expected attributions missing in scope.
+func (ix *Index) gaps(scope map[model.ID]bool) []Gap {
+	var out []Gap
+	add := func(id model.ID, kind string) {
+		g := Gap{Subject: id, Kind: kind}
+		if !slices.Contains(out, g) {
+			out = append(out, g)
+		}
+	}
+	has := func(id model.ID, kind string, min model.Certainty) bool {
+		for _, c := range ix.About(id) {
+			if c.Assertion.Kind() == kind && c.Certainty >= min {
+				return true
+			}
+		}
+		return false
+	}
+	resolved := func(id model.ID, kind string) bool {
+		switch kind {
+		case KindRouteSource:
+			return Resolve[RouteSource](ix, id).Certainty >= model.Inferred
+		case KindBackendSource:
+			return Resolve[BackendSource](ix, id).Certainty >= model.Inferred
+		case KindExtensionSource:
+			return Resolve[ExtensionSource](ix, id).Certainty >= model.Inferred
+		}
+		return has(id, kind, model.Inferred)
+	}
+	configured := map[model.ID]bool{} // slots with per-filter config on any route
+	for route, c := range ix.st.chains {
+		if ix.st.kinds[route] != subjectRoute {
+			continue
+		}
+		for _, e := range c.Filters {
+			if ix.st.configured(route, e.Slot) {
+				configured[e.Slot] = true
+			}
+		}
+	}
+	for _, src := range ix.snap.RouteConfigs {
+		if scope[src.ID] && len(src.TypedPerFilterConfig) > 0 && !has(src.ID, KindPolicyRecord, model.Unknown+1) {
+			add(src.ID, KindPolicyRecord)
+		}
+	}
+	for _, l := range ix.snap.Listeners {
+		if scope[l.ID] && !has(l.ID, KindGatewaySource, model.Unknown+1) {
+			add(l.ID, KindGatewaySource)
+		}
+		listenerPolicy := has(l.ID, KindPolicyRecord, model.Unknown+1)
+		for _, fc := range l.FilterChains {
+			hcm := fc.HCM
+			if hcm == nil {
+				continue
+			}
+			for _, f := range hcm.HTTPFilters {
+				if !scope[f.ID] {
+					continue
+				}
+				if configured[f.ID] && !resolved(f.ID, KindExtensionSource) {
+					add(f.ID, KindExtensionSource)
+				}
+				if !f.Disabled && !isRouter(f) && !ix.helper(f.ID) && !listenerPolicy {
+					add(f.ID, KindPolicyRecord)
+				}
+			}
+			if hcm.RouteConfig == nil {
+				continue
+			}
+			for _, vh := range hcm.RouteConfig.VirtualHosts {
+				if scope[vh.ID] && len(vh.TypedPerFilterConfig) > 0 && !has(vh.ID, KindPolicyRecord, model.Unknown+1) {
+					add(vh.ID, KindPolicyRecord)
+				}
+				for _, r := range vh.Routes {
+					if scope[r.ID] {
+						if !resolved(r.ID, KindRouteSource) {
+							add(r.ID, KindRouteSource)
+						}
+						if r.Cluster != "" && !resolved(r.ID, KindBackendSource) {
+							add(r.ID, KindBackendSource)
+						}
+						if len(r.TypedPerFilterConfig) > 0 && !has(r.ID, KindPolicyRecord, model.Unknown+1) {
+							add(r.ID, KindPolicyRecord)
+						}
+					}
+					for _, w := range r.WeightedClusters {
+						if scope[w.ID] && w.Name != "" && !resolved(w.ID, KindBackendSource) {
+							add(w.ID, KindBackendSource)
+						}
+					}
+				}
+			}
+		}
+	}
+	for _, c := range ix.dropped {
+		if scope[c.Subject] && c.Assertion != nil {
+			add(c.Subject, c.Assertion.Kind())
+		}
+	}
+	slices.SortFunc(out, func(a, b Gap) int {
+		if c := model.CompareID(a.Subject, b.Subject); c != 0 {
+			return c
+		}
+		return strings.Compare(a.Kind, b.Kind)
+	})
+	return out
+}
+
+// helper reports whether an ExtensionSource marks slot as a helper.
+func (ix *Index) helper(slot model.ID) bool {
+	for _, e := range Resolve[ExtensionSource](ix, slot).Candidates {
+		if e.Helper {
+			return true
+		}
+	}
+	return false
+}
+
+// isRouter reports whether f is Envoy's router filter.
+func isRouter(f model.HTTPFilter) bool {
+	return strings.HasSuffix(f.Type, ".filters.http.router.v3.Router")
+}
+
+// Records returns the [PolicyRecord] claims that apply to a route: on the
+// route, its virtual host, the route config source its use resolves to, and
+// its listener, most specific first. Each record's Level says where it sits.
+func Records(ix *Index, snap *model.Snapshot, route model.ID) []Claim {
+	var subjects []model.ID
+	if r, ok := snap.Route(route); ok {
+		subjects = append(subjects, r.ID)
+	}
+	if hcm, ok := snap.HCM(route); ok && hcm.RouteConfig != nil {
+		for _, vh := range hcm.RouteConfig.VirtualHosts {
+			if route.Within(vh.ID) {
+				subjects = append(subjects, vh.ID)
+			}
+		}
+		if src := hcm.RouteConfigUse.Source; src != "" {
+			subjects = append(subjects, src)
+		}
+	}
+	for _, l := range snap.Listeners {
+		if route.Within(l.ID) {
+			subjects = append(subjects, l.ID)
+		}
+	}
+	var out []Claim
+	for _, s := range subjects {
+		for _, c := range ix.About(s) {
+			if _, ok := c.Assertion.(PolicyRecord); ok {
+				out = append(out, c)
+			}
+		}
+	}
+	return out
+}
+
+// Narrowing records how a consumer's list of known objects narrowed a
+// route's readings: the [RouteSource] claims it kept and those it removed.
+type Narrowing struct {
+	Route   model.ID
+	Kept    []Claim
+	Dropped []Claim
+}
