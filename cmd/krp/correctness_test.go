@@ -240,4 +240,11 @@ func TestDump_DefaultFilterChain(t *testing.T) {
 	wantOutput(t, []string{"--file", fixture("default-chain")},
 		[]string{"├─ chain known · TLS known.example.test", "└─ default chain fallback", "backend: fallback_backend", "1 envoy.filters.http.router  on"},
 		[]string{`"id": "L0/Cd"`, `"default": true`, `"L0/Cd/N0/RC/V0/R0"`})
+	// Envoy ignores the default chain's filter_chain_match (listener.proto).
+	for _, format := range []string{"text", "json"} {
+		out, _, err := runKrp(t, "dump", "--file", fixture("default-chain"), "-o", format)
+		if err != nil || strings.Contains(out, "ignored.example.test") {
+			t.Errorf("-o %s: err %v; output shows the default chain's SNI:\n%s", format, err, out)
+		}
+	}
 }

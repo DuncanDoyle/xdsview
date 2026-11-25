@@ -373,14 +373,15 @@ func (p *parse) listenerBody(l *model.Listener, body rawListenerBody) {
 	for i, rfc := range body.FilterChains {
 		l.FilterChains = append(l.FilterChains, p.filterChain(l, model.ID(fmt.Sprintf("%s/C%d", l.ID, i)), chainLabel(i, rfc.Name), rfc))
 	}
-	// Envoy uses the default chain when no other chain matches (listener.proto).
+	// Envoy uses the default chain when no other chain matches, and ignores
+	// its filter_chain_match (listener.proto).
 	if d := body.DefaultFilterChain; d != nil {
 		label := "default"
 		if d.Name != "" {
 			label = fmt.Sprintf("default %q", d.Name)
 		}
 		fc := p.filterChain(l, l.ID+"/Cd", label, *d)
-		fc.Default = true
+		fc.Default, fc.TLS = true, nil
 		l.FilterChains = append(l.FilterChains, fc)
 	}
 }

@@ -29,6 +29,7 @@
        ],
        "default_filter_chain": {
         "name": "fallback",
+        "filter_chain_match": {"server_names": ["ignored.example.test"]},
         "filters": [
          {
           "name": "envoy.filters.network.http_connection_manager",
