@@ -127,7 +127,7 @@ A weighted-cluster backend can override the route's entry when Envoy picks it. k
 krp dump --file config_dump.json -o json
 ```
 
-The document is `{"schemaVersion": "v1alpha1", "snapshot": {...}, "warnings": [...]}`. `warnings` and `snapshot.listeners` are always arrays, never `null`. `schemaVersion` changes only when a field is removed or renamed. `testdata/golden/` holds the expected output for every test dump. `-o json` can't be combined with `--interactive`.
+The document is `{"schemaVersion": "v1alpha1", "snapshot": {...}, "warnings": [...]}`. `warnings` and `snapshot.listeners` are always arrays, never `null`. Every occurrence in `snapshot` has an `id`, valid only within that document; `snapshot.routeConfigs` lists the route config sources each HCM's `routeConfigUse` points at, and `snapshot.warnings` holds the warnings with a code and subject. `schemaVersion` changes only when a field is removed or renamed. `testdata/golden/` holds the expected output for every test dump. `-o json` can't be combined with `--interactive`.
 
 ### Collecting a config dump manually
 
@@ -184,7 +184,7 @@ A listener that is warming, draining or rejected shows its state and Envoy's err
 ```
 cmd/krp/          CLI entrypoint (cobra)
 pkg/envoy/        Importable library (standard library only, except source/kube)
-  model/          EnvoySnapshot data model
+  model/          Snapshot data model
   parser/         Envoy config dump JSON parser (io.Reader)
   filter/         HTTPRoute snapshot filter
   origin/         Envoy object → Gateway API object mapping (kgateway OSS, pluggable)
@@ -206,17 +206,19 @@ testdata/
 
 ```go
 // Fetch, parse and narrow a config dump to one HTTPRoute.
-rc, err := kube.Gateway("gw", "kgateway-system", kube.Options{RESTConfig: cfg}).ConfigDump(ctx)
+src := kube.Gateway("gw", "kgateway-system", kube.Options{RESTConfig: cfg})
+rc, err := src.ConfigDump(ctx)
 if err != nil {
 	return err
 }
 defer rc.Close() // also closes the port-forward
 
-result, err := parser.Parse(rc)
+// Capture tells the parser whether the dump is known to be complete.
+parsed, err := parser.Parse(rc, parser.Options{Capture: src.Capture()})
 if err != nil {
 	return err
 }
-snap := filter.Filter(result.Snapshot, filter.Options{
+snap := filter.Filter(parsed, filter.Options{
 	HTTPRouteName: "api-example-com", HTTPRouteNamespace: "default", RuleIndex: filter.AllRules,
 })
 ```

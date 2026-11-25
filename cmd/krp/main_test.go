@@ -364,3 +364,39 @@ func TestDumpLive_RouteSkipsListing(t *testing.T) {
 		t.Errorf("missing route origin in:\n%s", out)
 	}
 }
+
+// TestDump_DuplicateRDSName: an RDS name two dynamic route configs share is
+// ambiguous in text and JSON, with a warning, and neither config is shown.
+func TestDump_DuplicateRDSName(t *testing.T) {
+	dump := filepath.Join(t.TempDir(), "config_dump.json")
+	const dup = `{"configs": [
+ {"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump", "dynamic_listeners": [{"name": "listener~80",
+  "active_state": {"listener": {"name": "listener~80", "filter_chains": [{"filters": [
+   {"name": "envoy.filters.network.http_connection_manager", "typed_config": {"rds": {"route_config_name": "dup"}, "http_filters": [
+    {"name": "envoy.filters.http.router", "typed_config": {"@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"}}]}}]}]}}}]},
+ {"@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump", "dynamic_route_configs": [
+  {"route_config": {"name": "dup", "virtual_hosts": [{"name": "first", "domains": ["*"]}]}},
+  {"route_config": {"name": "dup", "virtual_hosts": [{"name": "second", "domains": ["*"]}]}}]}]}`
+	if err := os.WriteFile(dump, []byte(dup), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, stderr, err := runKrp(t, "dump", "--file", dump)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "route config dup ambiguous: several route configs have this name") || strings.Contains(out, "vhost") {
+		t.Errorf("text output:\n%s", out)
+	}
+	if !strings.Contains(stderr, `warning: listener "listener~80" filter chain #0: route config "dup" is ambiguous`) {
+		t.Errorf("stderr = %q", stderr)
+	}
+	out, _, err = runKrp(t, "dump", "--file", dump, "-o", "json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`"state": "ambiguous"`, `"code": "rds-ambiguous"`, `"subject": "L0/C0/N0/RC"`, `"id": "RD1"`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("JSON lacks %s:\n%s", want, out)
+		}
+	}
+}
