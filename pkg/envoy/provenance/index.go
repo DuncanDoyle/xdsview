@@ -118,7 +118,8 @@ type Gap struct {
 //  1. the block and everything in it;
 //  2. its ancestors up to the listener, and the route config source of every
 //     use in or above it, a source shared with other HCMs included;
-//  3. the HTTP filter slots of the HCM that serves it.
+//  3. the HTTP filter slots of the HCM that serves it, or for a route config
+//     source, of every HCM whose use resolves to it.
 //
 // Gaps, per expected kind:
 //   - routeSource: a route that doesn't resolve to one reading at inferred or exact;
@@ -173,6 +174,11 @@ func (ix *Index) scope(block model.ID) map[model.ID]bool {
 	for use, src := range st.useSource {
 		if use.Within(block) || block.Within(use) {
 			out[src] = true
+		}
+		if src.Within(block) || block.Within(src) {
+			for _, s := range st.slots[st.hcmOf(use)] {
+				out[s] = true
+			}
 		}
 	}
 	if hcm := st.hcmOf(block); hcm != "" {

@@ -239,6 +239,33 @@ func TestDependencies_PlacementPerRoute(t *testing.T) {
 	}
 }
 
+// TestDependencies_SourceBlock (Codex r2 N1): a route config source block
+// keeps a policyRecord gap for its per-filter config until links on every
+// route it serves place a source-level record on the slot.
+func TestDependencies_SourceBlock(t *testing.T) {
+	snap := twoListeners()
+	// The parser sets per-filter config on both the source and its use's copy.
+	snap.RouteConfigs[0].TypedPerFilterConfig = map[string]any{"authz": map[string]any{}}
+	snap.Listeners[0].FilterChains[0].HCM.RouteConfig.TypedPerFilterConfig = snap.RouteConfigs[0].TypedPerFilterConfig
+	gap := provenance.Gap{Subject: "RD0", Kind: provenance.KindPolicyRecord, Slot: slot0, Level: provenance.LevelRouteConfig}
+	rec := record("src", "RD0", provenance.LevelRouteConfig, policyA)
+	for _, tc := range []struct {
+		name   string
+		claims []provenance.Claim
+		gap    bool
+	}{
+		{"no record", nil, true},
+		{"one route of two linked", []provenance.Claim{rec, link("src", route0, slot0)}, true},
+		{"every route linked", []provenance.Claim{rec, link("src", route0, slot0), link("src", route1, slot0)}, false},
+	} {
+		ix := compose(t, snap, fixed{"m", tc.claims})
+		d := ix.Dependencies("RD0")
+		if got := slices.Contains(d.Gaps, gap); got != tc.gap {
+			t.Errorf("%s: RD0 gap = %v, want %v (gaps %v)", tc.name, got, tc.gap, d.Gaps)
+		}
+	}
+}
+
 // TestRecords lists a route's records at every level, most specific first.
 func TestRecords(t *testing.T) {
 	snap, _ := parser.Parse(strings.NewReader(depsDump), parser.Options{})

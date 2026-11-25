@@ -218,7 +218,7 @@ type Gap struct {
 `Dependencies(block)` covers everything the block shows and relies on (design review #1):
 1. Claims on the block and its descendants.
 2. Claims on its ancestors up to the listener, and on the route config source of every use in or above the block, including a source shared with HCMs outside it. Inherited policy records count.
-3. Claims on the HTTP filter slots of the HCM that serves it.
+3. Claims on the HTTP filter slots of the HCM that serves it, or for a route config source block, of every HCM whose use resolves to it.
 
 A gap is recorded per expected kind, not per subject: a route without `RouteSource`, a slot with per-filter config and no `ExtensionSource`, a route or backend with a cluster and no `BackendSource`, each below inferred or ambiguous. A policy claim on a route doesn't hide a missing `RouteSource`.
 
