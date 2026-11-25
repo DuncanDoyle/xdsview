@@ -14,18 +14,28 @@ import (
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/render"
 )
 
-// TestText_Golden renders every OSS corpus dump the way krp does, with
-// origins and contribution labels from the kgateway mapper, and compares it
-// with testdata/golden/scenarios/<scenario>/<version>.txt.
+// TestText_Golden renders every OSS corpus dump and hand-built fixture the
+// way krp does, with origins and contribution labels from the kgateway
+// mapper, and compares it with testdata/golden/scenarios/<scenario>/<version>.txt
+// or testdata/golden/fixtures/<fixture>.txt.
 func TestText_Golden(t *testing.T) {
 	dumps, _ := filepath.Glob(filepath.Join(testdataDir, "scenarios/*/envoy/kgateway-*/config_dump.json"))
 	if len(dumps) == 0 {
 		t.Fatal("no corpus dumps")
 	}
+	golden := map[string]string{}
 	for _, dump := range dumps {
 		version := filepath.Base(filepath.Dir(dump))
 		scenario := filepath.Base(filepath.Dir(filepath.Dir(filepath.Dir(dump))))
-		t.Run(scenario+"/"+version, func(t *testing.T) {
+		golden[dump] = filepath.Join("scenarios", scenario, version)
+	}
+	fixtures, _ := filepath.Glob(filepath.Join(testdataDir, "fixtures/*/envoy/config_dump.json"))
+	for _, dump := range fixtures {
+		golden[dump] = filepath.Join("fixtures", filepath.Base(filepath.Dir(filepath.Dir(dump))))
+		dumps = append(dumps, dump)
+	}
+	for _, dump := range dumps {
+		t.Run(golden[dump], func(t *testing.T) {
 			f, err := os.Open(dump)
 			if err != nil {
 				t.Fatal(err)
@@ -67,7 +77,7 @@ func TestText_Golden(t *testing.T) {
 					t.Errorf("line %d has trailing whitespace: %q", i+1, l)
 				}
 			}
-			checkGolden(t, filepath.Join(testdataDir, "golden/scenarios", scenario, version+".txt"), out)
+			checkGolden(t, filepath.Join(testdataDir, "golden", golden[dump]+".txt"), out)
 		})
 	}
 }

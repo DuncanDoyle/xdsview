@@ -1,0 +1,6 @@
+health_listener [::]:9902 · active · static
+└─ vhost local_host [*]
+   └─ route /ready (exact)
+      filters (request order):
+        1 envoy.filters.http.router  on
+      backend: local_service

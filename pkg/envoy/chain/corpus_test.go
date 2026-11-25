@@ -49,10 +49,14 @@ func recordings(t *testing.T, scenario string) map[string]string {
 	return out
 }
 
-// routes returns every route in snap.
+// routes returns every route of snap's dynamic listeners; the corpus's static
+// listeners are the proxy's bootstrap.
 func routes(snap *model.Snapshot) []model.Route {
 	var out []model.Route
 	for _, l := range snap.Listeners {
+		if l.Static {
+			continue
+		}
 		for _, fc := range l.FilterChains {
 			if fc.HCM == nil || fc.HCM.RouteConfig == nil {
 				continue

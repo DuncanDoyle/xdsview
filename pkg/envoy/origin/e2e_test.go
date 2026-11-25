@@ -148,8 +148,13 @@ func dumps(t *testing.T, scenario string) map[string]string {
 	return out
 }
 
+// eachRoute calls fn for every route of snap's dynamic listeners; the
+// corpus's static listeners are the proxy's bootstrap.
 func eachRoute(snap *model.Snapshot, fn func(model.Route)) {
 	for _, l := range snap.Listeners {
+		if l.Static {
+			continue
+		}
 		for _, fc := range l.FilterChains {
 			if fc.HCM == nil || fc.HCM.RouteConfig == nil {
 				continue
@@ -277,6 +282,9 @@ func TestKgateway_VirtualHostsAndClusters(t *testing.T) {
 	for version, path := range dumps(t, "05-multi-listener") {
 		got := map[string]model.VirtualHostOrigin{}
 		for _, l := range parse(t, path).Listeners {
+			if l.Static {
+				continue // bootstrap listeners; their vhosts have no origin
+			}
 			for _, fc := range l.FilterChains {
 				if fc.HCM != nil && fc.HCM.RouteConfig != nil {
 					for _, vh := range fc.HCM.RouteConfig.VirtualHosts {

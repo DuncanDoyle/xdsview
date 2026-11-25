@@ -1,0 +1,97 @@
+{
+  "schemaVersion": "v1alpha1",
+  "snapshot": {
+    "capture": "unverified",
+    "listeners": [
+      {
+        "id": "L0",
+        "name": "health_listener",
+        "address": ":::9902",
+        "filterChains": [
+          {
+            "id": "L0/C0",
+            "name": "",
+            "hcm": {
+              "id": "L0/C0/N0",
+              "routeConfigName": "",
+              "httpFilters": [
+                {
+                  "id": "L0/C0/N0/F0",
+                  "name": "envoy.filters.http.router",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "router"
+                  }
+                }
+              ],
+              "routeConfigUse": {
+                "id": "L0/C0/N0/RC",
+                "source": "L0/C0/N0/RCI",
+                "state": "found"
+              },
+              "routeConfig": {
+                "name": "local_route",
+                "virtualHosts": [
+                  {
+                    "id": "L0/C0/N0/RC/V0",
+                    "name": "local_host",
+                    "domains": [
+                      "*"
+                    ],
+                    "routes": [
+                      {
+                        "id": "L0/C0/N0/RC/V0/R0",
+                        "name": "",
+                        "match": {
+                          "path": "/ready"
+                        },
+                        "cluster": "local_service",
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "slot": "L0/C0/N0/F0",
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no",
+                              "configSource": "inline"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "state": {
+          "status": "active",
+          "lastUpdated": "2026-01-01T00:00:00Z"
+        },
+        "static": true
+      }
+    ],
+    "routeConfigs": [
+      {
+        "id": "L0/C0/N0/RCI",
+        "kind": "inline",
+        "name": "local_route",
+        "reported": "RS0"
+      },
+      {
+        "id": "RS1",
+        "kind": "static",
+        "name": "spare_route"
+      }
+    ]
+  },
+  "warnings": []
+}

@@ -5,3 +5,26 @@ listener~80 [::]:80 · active · port 80 (inferred)
         1 envoy.filters.http.router  on
       rewrite: ^/api\/* → /
       backend: kube_httpbin_httpbin_8000
+readiness_listener [::]:8082 · active · static
+└─ vhost local_service [*]
+   └─ route /ready (exact) + header(:method=GET)
+      filters (request order):
+        1 envoy.filters.http.health_check  on
+        2 envoy.filters.http.router        on
+      backend: admin_port_cluster
+prometheus_listener [::]:9091 · active · static
+└─ vhost prometheus_host [*]
+   ├─ route /ready (exact) + header(:method=GET)
+   │  filters (request order):
+   │    1 envoy.filters.http.router  on
+   │  backend: admin_port_cluster
+   ├─ route /metrics (prefix) + header(:method=GET)
+   │  filters (request order):
+   │    1 envoy.filters.http.router  on
+   │  rewrite prefix: /stats/prometheus?usedonly
+   │  backend: admin_port_cluster
+   └─ route /stats (prefix) + header(:method=GET)
+      filters (request order):
+        1 envoy.filters.http.router  on
+      rewrite prefix: /stats
+      backend: admin_port_cluster

@@ -143,18 +143,279 @@
           "certainty": "inferred",
           "port": 80
         }
+      },
+      {
+        "id": "L1",
+        "name": "readiness_listener",
+        "address": ":::8082",
+        "filterChains": [
+          {
+            "id": "L1/C0",
+            "name": "",
+            "hcm": {
+              "id": "L1/C0/N0",
+              "routeConfigName": "",
+              "httpFilters": [
+                {
+                  "id": "L1/C0/N0/F0",
+                  "name": "envoy.filters.http.health_check",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck",
+                    "headers": [
+                      {
+                        "name": ":path",
+                        "string_match": {
+                          "exact": "/envoy-hc"
+                        }
+                      }
+                    ],
+                    "pass_through_mode": false
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "health_check"
+                  }
+                },
+                {
+                  "id": "L1/C0/N0/F1",
+                  "name": "envoy.filters.http.router",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "router"
+                  }
+                }
+              ],
+              "routeConfigUse": {
+                "id": "L1/C0/N0/RC",
+                "source": "L1/C0/N0/RCI",
+                "state": "found"
+              },
+              "routeConfig": {
+                "name": "main_route",
+                "virtualHosts": [
+                  {
+                    "id": "L1/C0/N0/RC/V0",
+                    "name": "local_service",
+                    "domains": [
+                      "*"
+                    ],
+                    "routes": [
+                      {
+                        "id": "L1/C0/N0/RC/V0/R0",
+                        "name": "",
+                        "match": {
+                          "path": "/ready",
+                          "headers": [
+                            {
+                              "name": ":method",
+                              "value": "GET"
+                            }
+                          ]
+                        },
+                        "cluster": "admin_port_cluster",
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "slot": "L1/C0/N0/F0",
+                              "name": "envoy.filters.http.health_check",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "yes",
+                              "configSource": "inline"
+                            },
+                            {
+                              "slot": "L1/C0/N0/F1",
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no",
+                              "configSource": "inline"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "state": {
+          "status": "active",
+          "lastUpdated": "2026-11-04T16:13:49.366Z"
+        },
+        "static": true
+      },
+      {
+        "id": "L2",
+        "name": "prometheus_listener",
+        "address": ":::9091",
+        "filterChains": [
+          {
+            "id": "L2/C0",
+            "name": "",
+            "hcm": {
+              "id": "L2/C0/N0",
+              "routeConfigName": "",
+              "httpFilters": [
+                {
+                  "id": "L2/C0/N0/F0",
+                  "name": "envoy.filters.http.router",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "router"
+                  }
+                }
+              ],
+              "routeConfigUse": {
+                "id": "L2/C0/N0/RC",
+                "source": "L2/C0/N0/RCI",
+                "state": "found"
+              },
+              "routeConfig": {
+                "name": "prometheus_route",
+                "virtualHosts": [
+                  {
+                    "id": "L2/C0/N0/RC/V0",
+                    "name": "prometheus_host",
+                    "domains": [
+                      "*"
+                    ],
+                    "routes": [
+                      {
+                        "id": "L2/C0/N0/RC/V0/R0",
+                        "name": "",
+                        "match": {
+                          "path": "/ready",
+                          "headers": [
+                            {
+                              "name": ":method",
+                              "value": "GET"
+                            }
+                          ]
+                        },
+                        "cluster": "admin_port_cluster",
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "slot": "L2/C0/N0/F0",
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no",
+                              "configSource": "inline"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "L2/C0/N0/RC/V0/R1",
+                        "name": "",
+                        "match": {
+                          "prefix": "/metrics",
+                          "headers": [
+                            {
+                              "name": ":method",
+                              "value": "GET"
+                            }
+                          ]
+                        },
+                        "cluster": "admin_port_cluster",
+                        "rewrite": {
+                          "regexPattern": "",
+                          "substitution": "",
+                          "prefix": "/stats/prometheus?usedonly"
+                        },
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "slot": "L2/C0/N0/F0",
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no",
+                              "configSource": "inline"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "L2/C0/N0/RC/V0/R2",
+                        "name": "",
+                        "match": {
+                          "prefix": "/stats",
+                          "headers": [
+                            {
+                              "name": ":method",
+                              "value": "GET"
+                            }
+                          ]
+                        },
+                        "cluster": "admin_port_cluster",
+                        "rewrite": {
+                          "regexPattern": "",
+                          "substitution": "",
+                          "prefix": "/stats"
+                        },
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "slot": "L2/C0/N0/F0",
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no",
+                              "configSource": "inline"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "state": {
+          "status": "active",
+          "lastUpdated": "2026-11-04T16:13:49.366Z"
+        },
+        "static": true
       }
     ],
     "routeConfigs": [
       {
-        "id": "RS0",
-        "kind": "static",
-        "name": "prometheus_route"
+        "id": "L1/C0/N0/RCI",
+        "kind": "inline",
+        "name": "main_route",
+        "reported": "RS1"
       },
       {
-        "id": "RS1",
-        "kind": "static",
-        "name": "main_route"
+        "id": "L2/C0/N0/RCI",
+        "kind": "inline",
+        "name": "prometheus_route",
+        "reported": "RS0"
       },
       {
         "id": "RD0",

@@ -1,0 +1,14 @@
+listener~8080 [::]:8080 · active · port 8080 (inferred)
+└─ vhost listener~8080~app_example [app.example] · port 8080 (inferred)
+   ├─ route /private (prefix) · HTTPRoute default/app · rule 0 · match 0 (inferred)
+   │  filters (request order):
+   │    1 envoy.filters.http.ext_proc  on · configured by route
+   │    2 envoy.filters.http.router    on
+   │  router upstream filters (as configured): envoy.filters.http.upstream_ext_proc, envoy.filters.http.upstream_codec
+   │  backend: kube_default_app_8080
+   └─ route / (prefix) · HTTPRoute default/app · rule 1 · match 0 (inferred)
+      filters (request order):
+        1 envoy.filters.http.ext_proc  on
+        2 envoy.filters.http.router    on
+      router upstream filters (as configured): envoy.filters.http.upstream_ext_proc, envoy.filters.http.upstream_codec
+      backend: kube_default_app_8080

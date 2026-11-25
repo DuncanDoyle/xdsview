@@ -5,14 +5,16 @@
     "listeners": [],
     "routeConfigs": [
       {
-        "id": "RS0",
-        "kind": "static",
-        "name": "main_route"
+        "id": "L1/C0/N0/RCI",
+        "kind": "inline",
+        "name": "main_route",
+        "reported": "RS0"
       },
       {
-        "id": "RS1",
-        "kind": "static",
-        "name": "prometheus_route"
+        "id": "L2/C0/N0/RCI",
+        "kind": "inline",
+        "name": "prometheus_route",
+        "reported": "RS1"
       },
       {
         "id": "RD0",

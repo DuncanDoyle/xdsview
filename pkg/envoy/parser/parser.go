@@ -66,6 +66,7 @@ func Parse(r io.Reader, opts Options) (*model.Snapshot, error) {
 	// Parse each config section by @type, collecting warnings for any that fail.
 	p := &parse{dynamic: map[string][]*routeEntry{}}
 	var listeners []rawListener
+	var statics []rawStaticListener
 	listenersAt := -1 // section index of the listeners, where inline sources go
 
 	for pos, raw := range dump.Configs {
@@ -82,7 +83,19 @@ func Parse(r io.Reader, opts Options) (*model.Snapshot, error) {
 				p.warn("", model.WarnSectionSkipped, "skipped ListenersConfigDump: %v", err)
 				continue
 			}
-			listeners, listenersAt = ld.DynamicListeners, pos
+			listeners, statics, listenersAt = nil, nil, pos
+			if len(ld.DynamicListeners) > 0 {
+				if err := json.Unmarshal(ld.DynamicListeners, &listeners); err != nil {
+					listeners = nil
+					p.warn("", model.WarnSectionSkipped, "skipped ListenersConfigDump: %v", err)
+				}
+			}
+			if len(ld.StaticListeners) > 0 {
+				if err := json.Unmarshal(ld.StaticListeners, &statics); err != nil {
+					statics = nil
+					p.warn("", model.WarnSectionSkipped, "skipped ListenersConfigDump static_listeners: %v", err)
+				}
+			}
 
 		case "type.googleapis.com/envoy.admin.v3.RoutesConfigDump":
 			var rd routesConfigDump
@@ -98,6 +111,11 @@ func Parse(r io.Reader, opts Options) (*model.Snapshot, error) {
 	snapshot := &model.Snapshot{Capture: capture}
 	for i, rl := range listeners {
 		snapshot.Listeners = append(snapshot.Listeners, p.listener(i, rl))
+	}
+	// Static listeners follow the dynamic ones, so dynamic listener IDs don't
+	// depend on the bootstrap.
+	for i, sl := range statics {
+		snapshot.Listeners = append(snapshot.Listeners, p.staticListener(len(listeners)+i, sl))
 	}
 	if listenersAt >= 0 {
 		p.batches = append(p.batches, batch{pos: listenersAt, entries: p.inline})
@@ -243,15 +261,33 @@ func (p *parse) listener(i int, rl rawListener) model.Listener {
 		return l
 	}
 	l.State.LastUpdated = shown.LastUpdated
+	p.listenerBody(&l, shown.Listener)
+	return l
+}
 
-	if shown.Listener.Address.SocketAddress.Address != "" {
+// staticListener converts static listener entry i. Envoy serves a static
+// listener from startup, so it is active.
+func (p *parse) staticListener(i int, sl rawStaticListener) model.Listener {
+	l := model.Listener{
+		ID:     model.ID(fmt.Sprintf("L%d", i)),
+		Name:   sl.Listener.Name,
+		Static: true,
+		State:  model.ListenerState{Status: model.ListenerActive, LastUpdated: sl.LastUpdated},
+	}
+	p.listenerBody(&l, sl.Listener)
+	return l
+}
+
+// listenerBody fills l's address and filter chains from the listener resource.
+func (p *parse) listenerBody(l *model.Listener, body rawListenerBody) {
+	if body.Address.SocketAddress.Address != "" {
 		l.Address = fmt.Sprintf("%s:%d",
-			shown.Listener.Address.SocketAddress.Address,
-			shown.Listener.Address.SocketAddress.PortValue,
+			body.Address.SocketAddress.Address,
+			body.Address.SocketAddress.PortValue,
 		)
 	}
 
-	for i, rfc := range shown.Listener.FilterChains {
+	for i, rfc := range body.FilterChains {
 		nfc := model.NetworkFilterChain{
 			ID:   model.ID(fmt.Sprintf("%s/C%d", l.ID, i)),
 			Name: rfc.Name,
@@ -283,8 +319,6 @@ func (p *parse) listener(i int, rl rawListener) model.Listener {
 
 		l.FilterChains = append(l.FilterChains, nfc)
 	}
-
-	return l
 }
 
 // join resolves hcm's route config use: its inline config, else its RDS name
@@ -594,10 +628,10 @@ type typedConfig struct {
 // Listeners
 
 // listenersConfigDump corresponds to type.googleapis.com/envoy.admin.v3.ListenersConfigDump.
-// Only `dynamic_listeners` are read; static listeners (bootstrap) are ignored because
-// kgateway does not use them.
+// Fields stay raw so each one is decoded on its own.
 type listenersConfigDump struct {
-	DynamicListeners []rawListener `json:"dynamic_listeners"`
+	StaticListeners  json.RawMessage `json:"static_listeners"`
+	DynamicListeners json.RawMessage `json:"dynamic_listeners"`
 }
 
 // rawListener is a single entry from `dynamic_listeners`. An entry without a
@@ -612,17 +646,26 @@ type rawListener struct {
 
 // rawListenerState is one version of a listener (DynamicListenerState).
 type rawListenerState struct {
-	LastUpdated string `json:"last_updated"`
-	Listener    struct {
-		Name    string `json:"name"`
-		Address struct {
-			SocketAddress struct {
-				Address   string `json:"address"`
-				PortValue int    `json:"port_value"`
-			} `json:"socket_address"`
-		} `json:"address"`
-		FilterChains []rawFilterChain `json:"filter_chains"`
-	} `json:"listener"`
+	LastUpdated string          `json:"last_updated"`
+	Listener    rawListenerBody `json:"listener"`
+}
+
+// rawStaticListener is a `static_listeners` entry: a bootstrap listener.
+type rawStaticListener struct {
+	LastUpdated string          `json:"last_updated"`
+	Listener    rawListenerBody `json:"listener"`
+}
+
+// rawListenerBody is one Listener resource.
+type rawListenerBody struct {
+	Name    string `json:"name"`
+	Address struct {
+		SocketAddress struct {
+			Address   string `json:"address"`
+			PortValue int    `json:"port_value"`
+		} `json:"socket_address"`
+	} `json:"address"`
+	FilterChains []rawFilterChain `json:"filter_chains"`
 }
 
 // rawUpdateFailure is a rejected update (UpdateFailureState).

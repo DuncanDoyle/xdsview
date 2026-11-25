@@ -257,18 +257,25 @@ func TestRouteConfigs_SourcesAndUses(t *testing.T) {
 	}
 }
 
-// TestRouteConfigs_Scenario00: main_route and prometheus_route are static
-// entries; with static listeners unparsed (9.4) they are sources with no use.
+// TestRouteConfigs_Scenario00: main_route and prometheus_route are inline
+// configs of static listeners, also listed in static_route_configs. Each is
+// one inline source that records the static ID as Reported; no HCM joins a
+// static source.
 func TestRouteConfigs_Scenario00(t *testing.T) {
 	snap := parseFile(t, "../../../testdata/scenarios/00-simple/envoy/kgateway-v2.5.0/config_dump.json")
-	static := map[string]model.ID{}
+	inline := map[string]model.RouteConfigSource{}
 	for _, s := range snap.RouteConfigs {
-		if s.Kind == model.SourceStatic {
-			static[s.Name] = s.ID
+		switch s.Kind {
+		case model.SourceInline:
+			inline[s.Name] = s
+		case model.SourceStatic:
+			t.Errorf("static source %s (%s) has no inline config reporting it", s.ID, s.Name)
 		}
 	}
-	if static["main_route"] == "" || static["prometheus_route"] == "" {
-		t.Errorf("static sources = %v, want main_route and prometheus_route", static)
+	for _, name := range []string{"main_route", "prometheus_route"} {
+		if s := inline[name]; s.ID == "" || !strings.HasPrefix(string(s.Reported), "RS") {
+			t.Errorf("%s: inline source = %+v, want one with a static Reported ID", name, s)
+		}
 	}
 	for _, l := range snap.Listeners {
 		for _, fc := range l.FilterChains {

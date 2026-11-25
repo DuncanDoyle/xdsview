@@ -171,6 +171,9 @@ func (p *printer) listener(l model.Listener) {
 		}
 		parts = append(parts, p.style(c, row, string(s.Status)))
 	}
+	if l.Static {
+		parts = append(parts, p.style(ClassListener, row, "static"))
+	}
 	if s.Updating {
 		parts = append(parts, p.style(ClassWarning, row, "updating"))
 	}

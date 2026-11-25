@@ -84,6 +84,9 @@ func pipeline(snap *model.Snapshot, m origin.Mapper) []attributed {
 	contribs := attribute(snap, chains, m)
 	var out []attributed
 	for _, l := range snap.Listeners {
+		if l.Static {
+			continue // the corpus's bootstrap listeners
+		}
 		for _, fc := range l.FilterChains {
 			if fc.HCM == nil || fc.HCM.RouteConfig == nil {
 				continue
