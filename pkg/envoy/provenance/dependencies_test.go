@@ -132,8 +132,8 @@ func TestDependencies_PolicyGaps(t *testing.T) {
 	snap := twoListeners()
 	snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].TypedPerFilterConfig = map[string]any{"authz": map[string]any{}}
 	snap.Listeners[0].FilterChains[0].HCM.HTTPFilters[0].Disabled = false
-	// No ordinary rule expects a hostSource, so only the drop can make this gap (Codex #9).
-	dropped := provenance.Claim{Subject: vhost0, Assertion: provenance.HostSource{Hostname: "*"}, Certainty: model.Inferred}
+	// No input expects a listenerSource, so only the drop can make this gap (Codex #9).
+	dropped := provenance.Claim{Subject: vhost0, Assertion: provenance.ListenerSource{Port: 80}, Certainty: model.Inferred}
 	ix := compose(t, snap, fixed{"m", []provenance.Claim{dropped}})
 	d := ix.Dependencies(route0)
 	for _, g := range []provenance.Gap{
@@ -148,10 +148,111 @@ func TestDependencies_PolicyGaps(t *testing.T) {
 	if hasGap(d, "L0/C0/N0/F1", provenance.KindPolicyRecord) {
 		t.Error("the router has a policyRecord gap")
 	}
-	if !hasGap(ix.Dependencies(route1), vhost0, provenance.KindHostSource) {
-		t.Error("the dropped claim's subject has no hostSource gap")
+	if !hasGap(ix.Dependencies(route1), vhost0, provenance.KindListenerSource) {
+		t.Error("the dropped claim's subject has no listenerSource gap")
 	}
+}
 
+// TestDependencies_UpstreamSlot (Codex r4 P1): a route block relies on its
+// HCM's router upstream filters. An upstream slot's ExtensionSource object
+// joins Objects, and an upstream slot without one is a gap.
+func TestDependencies_UpstreamSlot(t *testing.T) {
+	snap := twoListeners()
+	up := model.ID("L0/C0/N0/U0")
+	snap.Listeners[0].FilterChains[0].HCM.UpstreamFilters = []model.HTTPFilter{
+		{ID: up, Name: "ext_proc/ns/up", Type: "type.googleapis.com/envoy.extensions.filters.http.ext_proc.v3.ExternalProcessor"}}
+	ext := model.Ref{Group: "gateway.kgateway.dev", Kind: "GatewayExtension", Namespace: "ns", Name: "up"}
+	claim := provenance.Claim{Subject: up, Assertion: provenance.ExtensionSource{Extension: &ext, FilterKind: "ext_proc"},
+		Certainty: model.Inferred, Evidence: ev(up, &ext)}
+	gap := provenance.Gap{Subject: up, Kind: provenance.KindExtensionSource}
+
+	d := compose(t, snap, fixed{"m", []provenance.Claim{claim}}).Dependencies(route0)
+	if !hasObject(d, ext, provenance.KindExtensionSource) {
+		t.Errorf("objects %v lack the upstream slot's extension", d.Objects)
+	}
+	if slices.Contains(d.Gaps, gap) {
+		t.Errorf("claimed upstream slot has a gap: %v", d.Gaps)
+	}
+	if d := compose(t, snap, fixed{"m", nil}).Dependencies(route0); !slices.Contains(d.Gaps, gap) {
+		t.Errorf("gaps %v lack %+v", d.Gaps, gap)
+	}
+}
+
+// TestDependencies_BackendOverride (Codex r4 P1): a weighted backend's
+// per-filter config is a gap. No record level holds it, so a linked route
+// record doesn't cover it.
+func TestDependencies_BackendOverride(t *testing.T) {
+	snap := twoListeners()
+	r1 := &snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes[1]
+	w := route1 + "/W0"
+	r1.Cluster = ""
+	r1.WeightedClusters = []model.WeightedCluster{{ID: w, Name: "c", Weight: 1, TypedPerFilterConfig: map[string]any{"authz": map[string]any{}}}}
+	ix := compose(t, snap, fixed{"m", []provenance.Claim{record("r", route1, provenance.LevelRoute, policyA), link("r", route1, slot0)}})
+	if len(provenance.Resolve[provenance.FilterLink](ix, route1).Claims) != 1 {
+		t.Fatalf("the route's link was dropped: %v", ix.Warnings())
+	}
+	gap := provenance.Gap{Subject: w, Kind: provenance.KindPolicyRecord, Slot: slot0}
+	for _, block := range []model.ID{route1, w, vhost0} {
+		if d := ix.Dependencies(block); !slices.Contains(d.Gaps, gap) {
+			t.Errorf("%s gaps %v lack %+v", block, d.Gaps, gap)
+		}
+	}
+}
+
+// TestDependencies_EntryWithoutSlot (Codex r4 P1): per-filter config for a
+// filter the HCM doesn't install is a gap with no slot, at every level.
+func TestDependencies_EntryWithoutSlot(t *testing.T) {
+	snap := twoListeners()
+	ghost := map[string]any{"ghost": map[string]any{}}
+	hcm := snap.Listeners[0].FilterChains[0].HCM
+	snap.RouteConfigs[0].TypedPerFilterConfig = ghost
+	hcm.RouteConfig.TypedPerFilterConfig = ghost
+	hcm.RouteConfig.VirtualHosts[0].Routes[1].TypedPerFilterConfig = ghost
+	ix := compose(t, snap, fixed{"m", []provenance.Claim{record("src", "RD0", provenance.LevelRouteConfig, policyA)}})
+	rec := provenance.KindPolicyRecord
+	for block, want := range map[model.ID][]provenance.Gap{
+		route1: {{Subject: "RD0", Kind: rec, Level: provenance.LevelRouteConfig}, {Subject: route1, Kind: rec, Level: provenance.LevelRoute}},
+		route0: {{Subject: "RD0", Kind: rec, Level: provenance.LevelRouteConfig}},
+		"RD0":  {{Subject: "RD0", Kind: rec, Level: provenance.LevelRouteConfig}},
+	} {
+		d := ix.Dependencies(block)
+		for _, g := range want {
+			if !slices.Contains(d.Gaps, g) {
+				t.Errorf("%s gaps %v lack %+v", block, d.Gaps, g)
+			}
+		}
+	}
+}
+
+// TestDependencies_ReportedSource (Codex r4 P2): the static entry Envoy
+// reports for an inline config is that config, not an unused source. Its
+// block is covered by the inline source's placement evidence, and keeps the
+// inline source's gap without it.
+func TestDependencies_ReportedSource(t *testing.T) {
+	snap := twoListeners()
+	inline := model.ID("L0/C0/N0/RCI")
+	authz := map[string]any{"authz": map[string]any{}}
+	hcm := snap.Listeners[0].FilterChains[0].HCM
+	hcm.RouteConfigUse.Source = inline
+	hcm.RouteConfig.TypedPerFilterConfig = authz
+	snap.RouteConfigs[0] = model.RouteConfigSource{ID: inline, Kind: model.SourceInline, Name: "l0", Reported: "RS0", TypedPerFilterConfig: authz}
+	snap.RouteConfigs = append(snap.RouteConfigs, model.RouteConfigSource{ID: "RS0", Kind: model.SourceStatic, Name: "l0", TypedPerFilterConfig: authz})
+	rec := record("src", inline, provenance.LevelRouteConfig, policyA)
+
+	ix := compose(t, snap, fixed{"m", []provenance.Claim{rec, link("src", route0, slot0), link("src", route1, slot0)}})
+	for _, block := range []model.ID{"RS0", inline} {
+		d := ix.Dependencies(block)
+		if slices.ContainsFunc(d.Gaps, func(g provenance.Gap) bool { return g.Kind == provenance.KindPolicyRecord }) {
+			t.Errorf("%s has policyRecord gaps: %v", block, d.Gaps)
+		}
+		if !hasObject(d, policyA, provenance.KindPolicyRecord) {
+			t.Errorf("%s objects %v lack the inline source's record", block, d.Objects)
+		}
+	}
+	gap := provenance.Gap{Subject: inline, Kind: provenance.KindPolicyRecord, Slot: slot0, Level: provenance.LevelRouteConfig}
+	if d := compose(t, snap, fixed{"m", []provenance.Claim{rec}}).Dependencies("RS0"); !slices.Contains(d.Gaps, gap) {
+		t.Errorf("RS0 gaps %v lack %+v", d.Gaps, gap)
+	}
 }
 
 // TestDependencies_ListenerGap (Codex r2 listener-level gap, r3): a default-on

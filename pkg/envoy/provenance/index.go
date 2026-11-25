@@ -1,9 +1,11 @@
 package provenance
 
 import (
+	"maps"
 	"reflect"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 )
@@ -19,6 +21,9 @@ type Index struct {
 	byRef     map[[2]string]int
 	dropped   []Claim
 	warnings  []model.Warning
+
+	depOnce sync.Once
+	dep     *depIndex // built on the first Dependencies call
 }
 
 // Claims returns every claim in the index, in index order.
@@ -104,252 +109,83 @@ type Dependent struct {
 	Kind   string // the claim's assertion kind, e.g. "backendSource"
 }
 
-// Gap is an expected attribution that is missing or ambiguous. A policyRecord
-// gap also names the filter slot and the level its record is missing for.
+// Gap is an input of a block that no claim covers. A policyRecord gap also
+// names the filter slot and the level its record is missing at.
 type Gap struct {
 	Subject model.ID
 	Kind    string   // the assertion kind expected, e.g. "routeSource"
-	Slot    model.ID // policyRecord only: the HTTP filter slot, empty for an unused source
-	Level   Level    // policyRecord only: the level the record is missing at
+	Slot    model.ID // policyRecord only: the HTTP filter slot, empty when none is installed
+	Level   Level    // policyRecord only: the level the record is missing at, empty for a weighted backend
 }
 
-// Dependencies returns the evidence scope of block (any occurrence ID). Its
-// claims are those on:
-//  1. the block and everything in it;
-//  2. its ancestors up to the listener, and the route config source of every
-//     use in or above it, a source shared with other HCMs included;
-//  3. the HTTP filter slots of the HCM that serves it, or for a route config
-//     source, of every HCM whose use resolves to it.
+// Dependencies returns the evidence scope of block (any occurrence ID). It is
+// fail-closed (design §5): it enumerates every input the block shows or
+// relies on, and each input no claim covers is a [Gap].
 //
-// Gaps, per expected kind:
-//   - routeSource: a route that doesn't resolve to one reading at inferred or exact;
-//   - backendSource: a route or weighted backend with a cluster name and no
-//     such BackendSource;
-//   - extensionSource: an HTTP filter slot with per-filter config on any route
-//     of its HCM and no such ExtensionSource;
-//   - policyRecord: per-filter config for a slot at route, virtual host or
-//     route config level, unless for each route checked a kept [FilterLink]
-//     on that route places a record of that level on the slot, link and
-//     record both at inferred or exact; and an HTTP filter slot that runs by
-//     default and is not the router or a helper, unless for each route checked
-//     such a link on that route places a listener-level record on the slot.
-//     Every link and record that closes such a gap joins Objects. A route
-//     config source no HCM uses has one, with no Slot, while it has
-//     per-filter config;
-//   - gatewaySource: a listener with no GatewaySource above unknown;
-//   - a dropped claim's kind on its subject (Compose rule 3).
+// The inputs are:
+//   - each listener, virtual host, route and weighted backend in or above
+//     the block;
+//   - each HTTP filter slot, downstream and router upstream, of every HCM
+//     serving the block: the HCM in or above it, or for a route config
+//     source, each HCM whose use resolves to it;
+//   - each per-filter config entry on the route config source of a use in or
+//     above the block (or the source block itself), and on each virtual
+//     host, route and weighted backend in or above it, including entries no
+//     installed slot takes. A source no HCM uses is a block of its entries.
+//     A static source that an inline source reports counts as that source.
+//
+// An input is covered only by claims at inferred or exact:
+//   - listener: GatewaySource; virtual host: HostSource; route: RouteSource;
+//     route or weighted backend with a cluster: BackendSource;
+//   - a slot other than the router: ExtensionSource. A downstream slot that
+//     runs by default and is no helper also needs, for each route checked, a
+//     kept FilterLink on that route placing a listener-level PolicyRecord on it;
+//   - a per-filter config entry at level X for slot S: for each route
+//     checked, a kept FilterLink on that route placing a level-X PolicyRecord
+//     on S. An entry on a weighted backend, or for no installed downstream
+//     slot, has no cover.
+//
+// The routes checked are the block's routes beneath the input, or all of
+// them when the block holds none. A dropped claim's kind on a subject in
+// scope is also a gap (Compose rule 3).
+//
+// Objects holds the evidence objects of the claims on every subject above,
+// and of every claim that covers an input, wherever its subject lives.
 func (ix *Index) Dependencies(block model.ID) Dependencies {
-	scope := ix.scope(block)
-	var deps Dependencies
-	gaps, claims := ix.gaps(scope)
-	for _, c := range ix.claims {
-		if scope[c.Subject] {
-			claims = append(claims, c)
-		}
-	}
-	for _, c := range claims {
+	scope, inputs := ix.inputs(block)
+	objects := map[Dependent]bool{}
+	add := func(c Claim) {
 		for _, e := range c.Evidence {
-			if e.Object == nil {
-				continue
-			}
-			d := Dependent{Object: *e.Object, Kind: c.Assertion.Kind()}
-			if !slices.Contains(deps.Objects, d) {
-				deps.Objects = append(deps.Objects, d)
+			if e.Object != nil {
+				objects[Dependent{Object: *e.Object, Kind: c.Assertion.Kind()}] = true
 			}
 		}
 	}
-	slices.SortFunc(deps.Objects, func(a, b Dependent) int {
-		return strings.Compare(refKey(a.Object)+"\x00"+a.Kind, refKey(b.Object)+"\x00"+b.Kind)
-	})
-	deps.Gaps = gaps
-	return deps
-}
-
-func refKey(r model.Ref) string {
-	return r.Group + "\x00" + r.Kind + "\x00" + r.Namespace + "\x00" + r.Name
-}
-
-// scope returns the subjects whose claims count for block (rules 1–3 above).
-func (ix *Index) scope(block model.ID) map[model.ID]bool {
-	st := ix.st
-	out := map[model.ID]bool{}
-	for id := range st.kinds {
-		if id.Within(block) || block.Within(id) {
-			out[id] = true
+	for id := range scope {
+		for _, i := range ix.bySubject[id] {
+			add(ix.claims[i])
 		}
 	}
-	for use, src := range st.useSource {
-		if use.Within(block) || block.Within(use) {
-			out[src] = true
-		}
-		if src.Within(block) || block.Within(src) {
-			for _, s := range st.slots[st.hcmOf(use)] {
-				out[s] = true
-			}
-		}
-	}
-	if hcm := st.hcmOf(block); hcm != "" {
-		for _, s := range st.slots[hcm] {
-			out[s] = true
-		}
-	}
-	return out
-}
-
-// gaps returns the expected attributions missing in scope, and the links and
-// records that close a policyRecord gap, whose objects the block depends on.
-func (ix *Index) gaps(scope map[model.ID]bool) ([]Gap, []Claim) {
-	var out []Gap
-	addGap := func(g Gap) {
-		if !slices.Contains(out, g) {
-			out = append(out, g)
-		}
-	}
-	add := func(id model.ID, kind string) { addGap(Gap{Subject: id, Kind: kind}) }
-	has := func(id model.ID, kind string, min model.Certainty) bool {
-		for _, c := range ix.About(id) {
-			if c.Assertion.Kind() == kind && c.Certainty >= min {
-				return true
-			}
-		}
-		return false
-	}
-	resolved := func(id model.ID, kind string) bool {
-		switch kind {
-		case KindRouteSource:
-			return Resolve[RouteSource](ix, id).Certainty >= model.Inferred
-		case KindBackendSource:
-			return Resolve[BackendSource](ix, id).Certainty >= model.Inferred
-		case KindExtensionSource:
-			return Resolve[ExtensionSource](ix, id).Certainty >= model.Inferred
-		}
-		return has(id, kind, model.Inferred)
-	}
-	configured := map[model.ID]bool{} // slots with per-filter config on any route
-	for route, c := range ix.st.chains {
-		if ix.st.kinds[route] != subjectRoute {
+	gaps := map[Gap]bool{}
+	for _, in := range inputs {
+		if !in.covered {
+			gaps[in.gap] = true
 			continue
 		}
-		for _, e := range c.Filters {
-			if ix.st.configured(route, e.Slot) {
-				configured[e.Slot] = true
-			}
-		}
-	}
-	// placed holds, per (route, record subject, slot), the kept link and its
-	// record, both at inferred or exact.
-	placed := map[[3]model.ID][]Claim{}
-	for _, c := range ix.claims {
-		if l, ok := c.Assertion.(FilterLink); ok && c.Certainty >= model.Inferred {
-			if rec, ok := ix.Record(c); ok && rec.Certainty >= model.Inferred {
-				k := [3]model.ID{c.Subject, rec.Subject, l.Slot}
-				placed[k] = append(placed[k], c, rec)
-			}
-		}
-	}
-	var closers []Claim
-	// placing returns the links and records placing a record on `at` onto slot
-	// for every in-scope route of routes (all of them when none is in scope),
-	// or false when a checked route has none.
-	placing := func(at, slot model.ID, routes []model.ID) ([]Claim, bool) {
-		checked := slices.DeleteFunc(slices.Clone(routes), func(r model.ID) bool { return !scope[r] })
-		if len(checked) == 0 {
-			checked = routes
-		}
-		var out []Claim
-		for _, r := range checked {
-			c := placed[[3]model.ID{r, at, slot}]
-			if len(c) == 0 {
-				return nil, false
-			}
-			out = append(out, c...)
-		}
-		return out, len(checked) > 0
-	}
-	// unplaced checks config at `at` against the routes beneath it.
-	unplaced := func(at model.ID, level Level, pfc map[string]any, hcm *model.HCMConfig, routes []model.ID) {
-		for _, f := range hcm.HTTPFilters {
-			if _, ok := pfc[f.Name]; !ok || !scope[at] || !scope[f.ID] {
-				continue
-			}
-			if c, ok := placing(at, f.ID, routes); ok {
-				closers = append(closers, c...)
-			} else {
-				addGap(Gap{Subject: at, Kind: KindPolicyRecord, Slot: f.ID, Level: level})
-			}
-		}
-	}
-	sources := map[model.ID]model.RouteConfigSource{}
-	for _, src := range ix.snap.RouteConfigs {
-		sources[src.ID] = src
-	}
-	for _, l := range ix.snap.Listeners {
-		if scope[l.ID] && !has(l.ID, KindGatewaySource, model.Unknown+1) {
-			add(l.ID, KindGatewaySource)
-		}
-		for _, fc := range l.FilterChains {
-			hcm := fc.HCM
-			if hcm == nil {
-				continue
-			}
-			for _, f := range hcm.HTTPFilters {
-				if !scope[f.ID] {
-					continue
-				}
-				if configured[f.ID] && !resolved(f.ID, KindExtensionSource) {
-					add(f.ID, KindExtensionSource)
-				}
-				if !f.Disabled && !isRouter(f) && !ix.helper(f.ID) {
-					if c, ok := placing(l.ID, f.ID, routeIDs(hcm.RouteConfig, nil)); ok {
-						closers = append(closers, c...)
-					} else {
-						addGap(Gap{Subject: f.ID, Kind: KindPolicyRecord, Slot: f.ID, Level: LevelListener})
-					}
-				}
-			}
-			if src, ok := sources[hcm.RouteConfigUse.Source]; ok {
-				unplaced(src.ID, LevelRouteConfig, src.TypedPerFilterConfig, hcm, routeIDs(hcm.RouteConfig, nil))
-			}
-			if hcm.RouteConfig == nil {
-				continue
-			}
-			for _, vh := range hcm.RouteConfig.VirtualHosts {
-				unplaced(vh.ID, LevelVirtualHost, vh.TypedPerFilterConfig, hcm, routeIDs(nil, &vh))
-				for _, r := range vh.Routes {
-					unplaced(r.ID, LevelRoute, r.TypedPerFilterConfig, hcm, []model.ID{r.ID})
-					if scope[r.ID] {
-						if !resolved(r.ID, KindRouteSource) {
-							add(r.ID, KindRouteSource)
-						}
-						if r.Cluster != "" && !resolved(r.ID, KindBackendSource) {
-							add(r.ID, KindBackendSource)
-						}
-					}
-					for _, w := range r.WeightedClusters {
-						if scope[w.ID] && w.Name != "" && !resolved(w.ID, KindBackendSource) {
-							add(w.ID, KindBackendSource)
-						}
-					}
-				}
-			}
-		}
-	}
-	// A source no HCM uses has no slot to place its per-filter config on.
-	used := map[model.ID]bool{}
-	for _, src := range ix.st.useSource {
-		used[src] = true
-	}
-	for _, src := range ix.snap.RouteConfigs {
-		if scope[src.ID] && !used[src.ID] && len(src.TypedPerFilterConfig) > 0 {
-			addGap(Gap{Subject: src.ID, Kind: KindPolicyRecord, Level: LevelRouteConfig})
+		for _, i := range in.covers {
+			add(ix.claims[i])
 		}
 	}
 	for _, c := range ix.dropped {
 		if scope[c.Subject] && c.Assertion != nil {
-			add(c.Subject, kindOf(c.Assertion))
+			gaps[Gap{Subject: c.Subject, Kind: kindOf(c.Assertion)}] = true
 		}
 	}
-	slices.SortFunc(out, func(a, b Gap) int {
+	var deps Dependencies
+	deps.Objects = slices.SortedFunc(maps.Keys(objects), func(a, b Dependent) int {
+		return strings.Compare(refKey(a.Object)+"\x00"+a.Kind, refKey(b.Object)+"\x00"+b.Kind)
+	})
+	deps.Gaps = slices.SortedFunc(maps.Keys(gaps), func(a, b Gap) int {
 		if c := model.CompareID(a.Subject, b.Subject); c != 0 {
 			return c
 		}
@@ -361,25 +197,300 @@ func (ix *Index) gaps(scope map[model.ID]bool) ([]Gap, []Claim) {
 		}
 		return strings.Compare(string(a.Level), string(b.Level))
 	})
-	return out, closers
+	return deps
 }
 
-// routeIDs returns the IDs of vh's routes, or of every route in rc when vh is nil.
-func routeIDs(rc *model.RouteConfig, vh *model.VirtualHost) []model.ID {
-	var vhs []model.VirtualHost
-	switch {
-	case vh != nil:
-		vhs = []model.VirtualHost{*vh}
-	case rc != nil:
-		vhs = rc.VirtualHosts
+func refKey(r model.Ref) string {
+	return r.Group + "\x00" + r.Kind + "\x00" + r.Namespace + "\x00" + r.Name
+}
+
+// input is one thing a block shows or relies on, and the claims covering it.
+type input struct {
+	gap     Gap   // reported when not covered
+	covered bool  // claims at inferred or exact cover it
+	covers  []int // indices of the claims that can cover it
+}
+
+// depIndex is the snapshot's structure as Dependencies reads it.
+type depIndex struct {
+	parent   map[model.ID]model.ID
+	children map[model.ID][]model.ID
+	hcms     map[model.ID]*hcmInfo
+	owner    map[model.ID]*hcmInfo   // virtual host, route or weighted backend → its HCM
+	users    map[model.ID][]*hcmInfo // route config source → the HCMs whose use resolves to it
+	reports  map[model.ID][]model.ID // static source → the inline sources that report it
+	sources  map[model.ID]*model.RouteConfigSource
+	vhosts   map[model.ID]*model.VirtualHost
+	routes   map[model.ID]*model.Route
+	backends map[model.ID]*model.WeightedCluster
+	placed   map[[3]model.ID][]int // (route, record subject, slot) → kept link and record, both at inferred or exact
+}
+
+// hcmInfo is one HCM, its listener, its routes and its slots by filter name.
+type hcmInfo struct {
+	hcm        *model.HCMConfig
+	listener   model.ID
+	routes     []model.ID
+	slots      map[string][]model.ID
+	upstreamBy map[string]model.ID
+}
+
+// deps returns the index's depIndex, building it once.
+func (ix *Index) deps() *depIndex {
+	ix.depOnce.Do(func() { ix.dep = newDepIndex(ix) })
+	return ix.dep
+}
+
+func newDepIndex(ix *Index) *depIndex {
+	d := &depIndex{parent: map[model.ID]model.ID{}, children: map[model.ID][]model.ID{}, hcms: map[model.ID]*hcmInfo{},
+		owner: map[model.ID]*hcmInfo{}, users: map[model.ID][]*hcmInfo{}, reports: map[model.ID][]model.ID{},
+		sources: map[model.ID]*model.RouteConfigSource{}, vhosts: map[model.ID]*model.VirtualHost{}, routes: map[model.ID]*model.Route{},
+		backends: map[model.ID]*model.WeightedCluster{}, placed: map[[3]model.ID][]int{}}
+	tie := func(parent, child model.ID) {
+		d.parent[child] = parent
+		d.children[parent] = append(d.children[parent], child)
 	}
-	var out []model.ID
-	for _, v := range vhs {
-		for _, r := range v.Routes {
-			out = append(out, r.ID)
+	for i := range ix.snap.RouteConfigs {
+		s := &ix.snap.RouteConfigs[i]
+		d.sources[s.ID] = s
+		if s.Reported != "" {
+			d.reports[s.Reported] = append(d.reports[s.Reported], s.ID)
+		}
+	}
+	for li := range ix.snap.Listeners {
+		l := &ix.snap.Listeners[li]
+		for fi := range l.FilterChains {
+			fc := &l.FilterChains[fi]
+			tie(l.ID, fc.ID)
+			hcm := fc.HCM
+			if hcm == nil {
+				continue
+			}
+			h := &hcmInfo{hcm: hcm, listener: l.ID, slots: map[string][]model.ID{}, upstreamBy: map[string]model.ID{}}
+			d.hcms[hcm.ID] = h
+			tie(fc.ID, hcm.ID)
+			for _, f := range hcm.HTTPFilters {
+				tie(hcm.ID, f.ID)
+				h.slots[f.Name] = append(h.slots[f.Name], f.ID)
+			}
+			for _, f := range hcm.UpstreamFilters {
+				tie(hcm.ID, f.ID)
+				if _, ok := h.upstreamBy[f.Name]; !ok {
+					h.upstreamBy[f.Name] = f.ID
+				}
+			}
+			use := hcm.RouteConfigUse.ID
+			tie(hcm.ID, use)
+			if src := hcm.RouteConfigUse.Source; src != "" {
+				d.users[src] = append(d.users[src], h)
+			}
+			if hcm.RouteConfig == nil {
+				continue
+			}
+			for vi := range hcm.RouteConfig.VirtualHosts {
+				vh := &hcm.RouteConfig.VirtualHosts[vi]
+				d.vhosts[vh.ID], d.owner[vh.ID] = vh, h
+				tie(use, vh.ID)
+				for ri := range vh.Routes {
+					r := &vh.Routes[ri]
+					d.routes[r.ID], d.owner[r.ID] = r, h
+					h.routes = append(h.routes, r.ID)
+					tie(vh.ID, r.ID)
+					for wi := range r.WeightedClusters {
+						w := &r.WeightedClusters[wi]
+						d.backends[w.ID], d.owner[w.ID] = w, h
+						tie(r.ID, w.ID)
+					}
+				}
+			}
+		}
+	}
+	for i, c := range ix.claims {
+		if l, ok := c.Assertion.(FilterLink); ok && c.Certainty >= model.Inferred {
+			if j, ok := ix.byRef[[2]string{c.Module, l.Record}]; ok && ix.claims[j].Certainty >= model.Inferred {
+				k := [3]model.ID{c.Subject, ix.claims[j].Subject, l.Slot}
+				d.placed[k] = append(d.placed[k], i, j)
+			}
+		}
+	}
+	return d
+}
+
+// lineage returns block, its ancestors and its descendants in the listener
+// tree. A block outside the tree (a source, say) is matched by ID.
+func (ix *Index) lineage(block model.ID) map[model.ID]bool {
+	d := ix.deps()
+	out := map[model.ID]bool{}
+	if k := ix.st.kinds[block]; k != 0 && k != subjectSource {
+		for id, ok := block, true; ok; id, ok = d.parent[id] {
+			out[id] = true
+		}
+		var walk func(model.ID)
+		walk = func(id model.ID) {
+			for _, c := range d.children[id] {
+				out[c] = true
+				walk(c)
+			}
+		}
+		walk(block)
+		return out
+	}
+	for id, k := range ix.st.kinds {
+		if k != subjectSource && (id.Within(block) || block.Within(id)) {
+			out[id] = true
 		}
 	}
 	return out
+}
+
+// inputs enumerates block's inputs (see Dependencies), and returns the
+// subjects whose claims the block rests on.
+func (ix *Index) inputs(block model.ID) (map[model.ID]bool, []input) {
+	d := ix.deps()
+	in := ix.lineage(block)
+	scope := maps.Clone(in)
+	var out []input
+	srcIn := map[*hcmInfo]bool{} // the HCMs serving the block; true when its source is in scope
+	inRoutes := map[model.ID][]model.ID{}
+	for id := range in {
+		switch ix.st.kinds[id] {
+		case subjectListener:
+			out = append(out, ix.alternative(id, KindGatewaySource))
+		case subjectHCM:
+			h := d.hcms[id]
+			srcIn[h] = srcIn[h] || in[h.hcm.RouteConfigUse.ID]
+		case subjectUse:
+			if src := ix.st.useSource[id]; src != "" {
+				scope[src] = true
+			}
+		case subjectVirtualHost:
+			out = append(out, ix.alternative(id, KindHostSource))
+		case subjectRoute:
+			out = append(out, ix.alternative(id, KindRouteSource))
+			if d.routes[id].Cluster != "" {
+				out = append(out, ix.alternative(id, KindBackendSource))
+			}
+			inRoutes[d.owner[id].hcm.ID] = append(inRoutes[d.owner[id].hcm.ID], id)
+			inRoutes[d.parent[id]] = append(inRoutes[d.parent[id]], id)
+		case subjectBackend:
+			if d.backends[id].Name != "" {
+				out = append(out, ix.alternative(id, KindBackendSource))
+			}
+		}
+	}
+	// checked returns the block's routes under parent, or all of them when it holds none.
+	checked := func(parent model.ID, all []model.ID) []model.ID {
+		if r := inRoutes[parent]; len(r) > 0 {
+			return r
+		}
+		return all
+	}
+	if ix.st.kinds[block] == subjectSource {
+		used := false
+		for _, t := range append([]model.ID{block}, d.reports[block]...) {
+			scope[t] = true
+			for _, h := range d.users[t] {
+				srcIn[h], used = true, true
+			}
+		}
+		if !used {
+			for range d.sources[block].TypedPerFilterConfig {
+				out = append(out, input{gap: Gap{Subject: block, Kind: KindPolicyRecord, Level: LevelRouteConfig}})
+			}
+		}
+	}
+	// entries enumerates the per-filter config at `at` for h's slots.
+	entries := func(h *hcmInfo, at model.ID, level Level, pfc map[string]any, routes []model.ID) {
+		for name := range pfc {
+			slots := h.slots[name]
+			if len(slots) == 0 {
+				out = append(out, input{gap: Gap{Subject: at, Kind: KindPolicyRecord, Slot: h.upstreamBy[name], Level: level}})
+			}
+			for _, s := range slots {
+				out = append(out, ix.placement(Gap{Subject: at, Kind: KindPolicyRecord, Slot: s, Level: level}, at, s, routes))
+			}
+		}
+	}
+	for h, src := range srcIn {
+		hcm := h.hcm
+		all := checked(hcm.ID, h.routes)
+		for _, f := range hcm.HTTPFilters {
+			scope[f.ID] = true
+			if isRouter(f) {
+				continue
+			}
+			out = append(out, ix.alternative(f.ID, KindExtensionSource))
+			if !f.Disabled && !ix.helper(f.ID) {
+				out = append(out, ix.placement(Gap{Subject: f.ID, Kind: KindPolicyRecord, Slot: f.ID, Level: LevelListener}, h.listener, f.ID, all))
+			}
+		}
+		for _, f := range hcm.UpstreamFilters {
+			scope[f.ID] = true
+			if !isRouter(f) {
+				out = append(out, ix.alternative(f.ID, KindExtensionSource))
+			}
+		}
+		if s := d.sources[hcm.RouteConfigUse.Source]; src && s != nil {
+			entries(h, s.ID, LevelRouteConfig, s.TypedPerFilterConfig, all)
+		}
+	}
+	for id := range in {
+		switch ix.st.kinds[id] {
+		case subjectVirtualHost:
+			entries(d.owner[id], id, LevelVirtualHost, d.vhosts[id].TypedPerFilterConfig, checked(id, d.children[id]))
+		case subjectRoute:
+			entries(d.owner[id], id, LevelRoute, d.routes[id].TypedPerFilterConfig, []model.ID{id})
+		case subjectBackend:
+			h := d.owner[id]
+			for name := range d.backends[id].TypedPerFilterConfig {
+				slot := h.upstreamBy[name]
+				if s := h.slots[name]; len(s) > 0 {
+					slot = s[0]
+				}
+				out = append(out, input{gap: Gap{Subject: id, Kind: KindPolicyRecord, Slot: slot}})
+			}
+		}
+	}
+	return scope, out
+}
+
+// alternative is the input on id that an alternatives kind covers.
+func (ix *Index) alternative(id model.ID, kind string) input {
+	var c model.Certainty
+	switch kind {
+	case KindGatewaySource:
+		c = Resolve[GatewaySource](ix, id).Certainty
+	case KindHostSource:
+		c = Resolve[HostSource](ix, id).Certainty
+	case KindRouteSource:
+		c = Resolve[RouteSource](ix, id).Certainty
+	case KindExtensionSource:
+		c = Resolve[ExtensionSource](ix, id).Certainty
+	case KindBackendSource:
+		c = Resolve[BackendSource](ix, id).Certainty
+	}
+	in := input{gap: Gap{Subject: id, Kind: kind}, covered: c >= model.Inferred}
+	for _, i := range ix.bySubject[id] {
+		if ix.claims[i].Assertion.Kind() == kind && ix.claims[i].Certainty >= model.Inferred {
+			in.covers = append(in.covers, i)
+		}
+	}
+	return in
+}
+
+// placement is the input that links on each of routes cover by placing a
+// record on `at` onto slot. With no routes, nothing covers it.
+func (ix *Index) placement(gap Gap, at, slot model.ID, routes []model.ID) input {
+	d := ix.deps()
+	in := input{gap: gap, covered: len(routes) > 0}
+	for _, r := range routes {
+		c := d.placed[[3]model.ID{r, at, slot}]
+		if len(c) == 0 {
+			in.covered = false
+		}
+		in.covers = append(in.covers, c...)
+	}
+	return in
 }
 
 // helper reports whether an ExtensionSource marks slot as a helper.
