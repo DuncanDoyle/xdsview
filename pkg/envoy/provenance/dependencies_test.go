@@ -132,8 +132,8 @@ func TestDependencies_PolicyGaps(t *testing.T) {
 	snap := twoListeners()
 	snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].TypedPerFilterConfig = map[string]any{"authz": map[string]any{}}
 	snap.Listeners[0].FilterChains[0].HCM.HTTPFilters[0].Disabled = false
-	dropped := source(route1, routeA, model.Inferred)
-	dropped.Evidence = nil
+	// No ordinary rule expects a hostSource, so only the drop can make this gap (Codex #9).
+	dropped := provenance.Claim{Subject: vhost0, Assertion: provenance.HostSource{Hostname: "*"}, Certainty: model.Inferred}
 	ix := compose(t, snap, fixed{"m", []provenance.Claim{dropped}})
 	d := ix.Dependencies(route0)
 	for _, g := range []provenance.Gap{
@@ -148,8 +148,8 @@ func TestDependencies_PolicyGaps(t *testing.T) {
 	if hasGap(d, "L0/C0/N0/F1", provenance.KindPolicyRecord) {
 		t.Error("the router has a policyRecord gap")
 	}
-	if !hasGap(ix.Dependencies(route1), route1, provenance.KindRouteSource) {
-		t.Error("the dropped claim's subject has no routeSource gap")
+	if !hasGap(ix.Dependencies(route1), vhost0, provenance.KindHostSource) {
+		t.Error("the dropped claim's subject has no hostSource gap")
 	}
 
 	// A listener-level record closes the default-on slot's gap.
