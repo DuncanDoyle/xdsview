@@ -71,7 +71,7 @@ func Parse(r io.Reader, opts Options) (*model.Snapshot, error) {
 	}
 
 	// Parse each config section by @type, collecting warnings for any that fail.
-	p := &parse{dynamic: map[string][]*routeEntry{}, ecds: map[string][]ecdsEntry{}}
+	p := &parse{dynamic: map[string][]*routeEntry{}, subs: map[string]map[string]map[string]bool{}}
 	var listeners []rawListener
 	var statics []rawStaticListener
 	listenersAt := -1 // section index of the listeners, where inline sources go
@@ -83,7 +83,8 @@ func Parse(r io.Reader, opts Options) (*model.Snapshot, error) {
 		if err := json.Unmarshal(raw, &typed); err != nil {
 			p.sections = append(p.sections, model.SectionCoverage{Status: model.CoverageIgnored})
 			p.warn("", model.WarnSectionSkipped, "skipped config section: cannot read @type: %v", err)
-			p.routesSkipped, p.ecdsSkipped = true, true // it may have held route or ECDS configs
+			// It may have held route or ECDS configs.
+			p.routesSkipped, p.ecdsSkipped, p.ecdsLost = true, true, true
 			continue
 		}
 		p.sections = append(p.sections, model.SectionCoverage{Type: typed.Type, Status: model.CoverageIgnored})
@@ -133,6 +134,7 @@ func Parse(r io.Reader, opts Options) (*model.Snapshot, error) {
 	p.rdsComplete = capture == model.CaptureComplete && p.routesRead && !p.routesSkipped
 	// An ECDS default runs only if no entry the filter may own is missing from the dump.
 	p.ecdsComplete = capture == model.CaptureComplete && !p.ecdsSkipped
+	p.ecdsSubscriptions(listeners, statics)
 
 	// Build the Snapshot by joining listeners with route configs.
 	snapshot := &model.Snapshot{Capture: capture}
@@ -168,7 +170,6 @@ const (
 // parse holds the state of one [Parse] call.
 type parse struct {
 	dynamic  map[string][]*routeEntry // dynamic sources by name, the only ones RDS resolves to
-	ecds     map[string][]ecdsEntry   // ECDS configs by name
 	static   []*routeEntry
 	inline   []*routeEntry
 	batches  []batch // sources per dump section, for dump order
@@ -182,7 +183,12 @@ type parse struct {
 
 	workersStarted bool // a dynamic listener is active, so static listeners serve
 	ecdsSkipped    bool // an ECDS entry, or a section that may hold one, was skipped
+	ecdsLost       bool // a section that may be an EcdsConfigDump was skipped
 	ecdsComplete   bool // a filter with no ECDS entry has none in Envoy
+
+	ecdsSections [][]ecdsEntry                         // EcdsConfigDump entries, one slice per section in dump order
+	subs         map[string]map[string]map[string]bool // ECDS subscriptions: category, name, config source
+	ecdsAt       map[string]int                        // category to its section; nil when the dump can't say
 
 	sections []model.SectionCoverage // one per dump section
 	at       int                     // the section being parsed; -1 for none
@@ -241,16 +247,18 @@ func (p *parse) routeSection(pos int, rd routesConfigDump) {
 }
 
 // ecdsSection adds the entries of one EcdsConfigDump section. Envoy writes one
-// section per filter category, so a name can recur; type_urls tells them apart.
+// section per filter category, so a name can recur.
 func (p *parse) ecdsSection(raw json.RawMessage) {
 	var section struct {
 		Filters []json.RawMessage `json:"ecds_filters"`
 	}
 	if err := json.Unmarshal(raw, &section); err != nil {
 		p.warn("", model.WarnSectionSkipped, "skipped EcdsConfigDump: %v", err)
-		p.ecdsSkipped = true
+		p.ecdsSkipped, p.ecdsLost = true, true
 		return
 	}
+	p.ecdsSections = append(p.ecdsSections, nil)
+	at := len(p.ecdsSections) - 1
 	for _, f := range section.Filters {
 		var entry struct {
 			Filter *struct {
@@ -271,8 +279,126 @@ func (p *parse) ecdsSection(raw json.RawMessage) {
 		if entry.Filter == nil || entry.Filter.Name == "" {
 			continue // only an error_state: Envoy has no config for it
 		}
-		p.ecds[entry.Filter.Name] = append(p.ecds[entry.Filter.Name], ecdsEntry{typ: typed.Type, config: entry.Filter.TypedConfig})
+		p.ecdsSections[at] = append(p.ecdsSections[at], ecdsEntry{name: entry.Filter.Name, typ: typed.Type, config: entry.Filter.TypedConfig})
 	}
+}
+
+// ECDS filter categories, named by the config tracker key Envoy dumps each
+// under (config_discovery_impl.h, getConfigDumpType); sections follow key order.
+const (
+	ecdsHTTP         = "ecds_filter_http"
+	ecdsUpstreamHTTP = "ecds_filter_upstream_http"
+)
+
+// ecdsSubscriptions records every listener version's HTTP and upstream HTTP
+// ECDS subscriptions, then maps ECDS sections to categories. The map needs one
+// section per category seen and no subscription elsewhere (listener, network
+// or nested filters, clusters), since a section doesn't name its category.
+func (p *parse) ecdsSubscriptions(listeners []rawListener, statics []rawStaticListener) {
+	var bodies []rawListenerBody
+	for _, rl := range listeners {
+		for _, s := range []*rawListenerState{rl.ActiveState, rl.WarmingState, rl.DrainingState} {
+			if s != nil {
+				bodies = append(bodies, s.Listener)
+			}
+		}
+	}
+	for _, sl := range statics {
+		bodies = append(bodies, sl.Listener)
+	}
+	known := true
+	for _, b := range bodies {
+		if seen, ok := p.bodySubscriptions(b); !ok || seen != countDiscovery(b.raw) {
+			known = false
+		}
+	}
+	cats := slices.Sorted(maps.Keys(p.subs))
+	if !known || p.ecdsLost || len(cats) != len(p.ecdsSections) {
+		return
+	}
+	p.ecdsAt = map[string]int{}
+	for i, c := range cats {
+		p.ecdsAt[c] = i
+	}
+}
+
+// bodySubscriptions records the HCM and router upstream subscriptions of one
+// listener and returns how many it saw. ok is false when one hides others: a
+// router from ECDS carries its upstream filters in the ECDS entry.
+func (p *parse) bodySubscriptions(b rawListenerBody) (seen int, ok bool) {
+	ok = true
+	chains := b.FilterChains
+	if b.DefaultFilterChain != nil {
+		chains = append(slices.Clone(chains), *b.DefaultFilterChain)
+	}
+	for _, fc := range chains {
+		for _, nf := range fc.Filters {
+			var hcm rawHCM
+			if !isHCM(nf) || json.Unmarshal(nf.TypedConfig, &hcm) != nil {
+				continue
+			}
+			for _, hf := range hcm.HTTPFilters {
+				if d := hf.ConfigDiscovery; d != nil {
+					seen++
+					p.subscribe(ecdsHTTP, hf.Name, d.ConfigSource)
+					ok = ok && !slices.ContainsFunc(d.TypeURLs, func(u string) bool { return typeName(u) == typeName(routerType) })
+					continue
+				}
+				var router rawRouter
+				if json.Unmarshal(hf.TypedConfig, &router) != nil || router.Type != routerType {
+					continue
+				}
+				for _, uf := range router.UpstreamHTTPFilters {
+					if d := uf.ConfigDiscovery; d != nil {
+						seen++
+						p.subscribe(ecdsUpstreamHTTP, uf.Name, d.ConfigSource)
+					}
+				}
+			}
+		}
+	}
+	return seen, ok
+}
+
+// subscribe records a subscription; Envoy keys it by config source and name.
+func (p *parse) subscribe(category, name string, source json.RawMessage) {
+	var v any
+	_ = json.Unmarshal(source, &v)
+	key, _ := json.Marshal(v) // map keys sorted, so equal sources give equal keys
+	if p.subs[category] == nil {
+		p.subs[category] = map[string]map[string]bool{}
+	}
+	if p.subs[category][name] == nil {
+		p.subs[category][name] = map[string]bool{}
+	}
+	p.subs[category][name][string(key)] = true
+}
+
+// countDiscovery counts the config_discovery objects anywhere in raw.
+func countDiscovery(raw json.RawMessage) int {
+	var v any
+	if json.Unmarshal(raw, &v) != nil {
+		return 0
+	}
+	n := 0
+	var walk func(any)
+	walk = func(v any) {
+		switch v := v.(type) {
+		case map[string]any:
+			for k, child := range v {
+				if _, ok := child.(map[string]any); ok && k == "config_discovery" {
+					n++
+				}
+				walk(child)
+			}
+		case []any:
+			for _, child := range v {
+				walk(child)
+			}
+		}
+	}
+	walk(v)
+	return n
 }
 
 // routeEntries splits a RoutesConfigDump field into its entries, or warns and
@@ -413,8 +539,7 @@ func (p *parse) filterChain(l *model.Listener, id model.ID, chain string, rfc ra
 		nfc.NetworkFilters = append(nfc.NetworkFilters, model.NetworkFilter{
 			ID: model.ID(fmt.Sprintf("%s/N%d", nfc.ID, n)), Name: nf.Name, Type: typed.Type,
 		})
-		// Envoy picks the factory by typed_config type; the name is a label.
-		if nf.Name != "envoy.filters.network.http_connection_manager" && typed.Type != hcmType {
+		if !isHCM(nf) {
 			continue
 		}
 		label := fmt.Sprintf("listener %q filter chain %s", l.Name, chain)
@@ -432,6 +557,14 @@ func (p *parse) filterChain(l *model.Listener, id model.ID, chain string, rfc ra
 		nfc.HCM = hcm
 	}
 	return nfc
+}
+
+// isHCM reports whether nf is an HTTP connection manager. Envoy picks the
+// factory by typed_config type; the name is a label.
+func isHCM(nf rawNetworkFilter) bool {
+	var typed typedConfig
+	_ = json.Unmarshal(nf.TypedConfig, &typed)
+	return nf.Name == "envoy.filters.network.http_connection_manager" || typed.Type == hcmType
 }
 
 // join resolves hcm's route config use: its inline config, else its RDS name
@@ -547,14 +680,14 @@ func (p *parse) parseHCM(id model.ID, raw json.RawMessage, active bool) (*model.
 	}
 
 	for i, hf := range hcm.HTTPFilters {
-		filter := p.httpFilter(model.ID(fmt.Sprintf("%s/F%d", id, i)), hf, active)
+		filter := p.httpFilter(model.ID(fmt.Sprintf("%s/F%d", id, i)), hf, active, ecdsHTTP)
 		result.HTTPFilters = append(result.HTTPFilters, filter)
 		if filter.Type == routerType {
 			var router rawRouter
 			if err := json.Unmarshal(hf.TypedConfig, &router); err == nil {
 				for _, uf := range router.UpstreamHTTPFilters {
 					uid := model.ID(fmt.Sprintf("%s/U%d", id, len(result.UpstreamFilters)))
-					result.UpstreamFilters = append(result.UpstreamFilters, p.httpFilter(uid, uf, active))
+					result.UpstreamFilters = append(result.UpstreamFilters, p.httpFilter(uid, uf, active, ecdsUpstreamHTTP))
 				}
 			}
 		}
@@ -563,26 +696,36 @@ func (p *parse) parseHCM(id model.ID, raw json.RawMessage, active bool) (*model.
 	return result, hcm.RouteConfig, nil
 }
 
-// httpFilter converts one http_filters entry, id. A filter with
-// config_discovery takes the ECDS config whose name is the filter's name
-// (http_connection_manager.proto, HttpFilter.name) and whose type is in
-// type_urls; with none, an active listener in a complete capture with no
+// httpFilter converts one http_filters entry, id, of an ECDS category. A
+// filter with config_discovery takes the ECDS config of its category whose
+// name is the filter's name (http_connection_manager.proto, HttpFilter.name)
+// and whose type is in type_urls, when the dump shows that entry is its
+// subscription's. With none, an active listener in a complete capture with no
 // skipped ECDS entry runs default_config (config_source.proto,
 // ExtensionConfigSource). Otherwise it has no config.
-func (p *parse) httpFilter(id model.ID, hf rawHTTPFilter, active bool) model.HTTPFilter {
+func (p *parse) httpFilter(id model.ID, hf rawHTTPFilter, active bool, category string) model.HTTPFilter {
 	d := hf.ConfigDiscovery
 	if d == nil {
 		return parseHTTPFilter(hf)
 	}
 	disc := &model.Discovery{TypeURLs: d.TypeURLs, DefaultConfig: present(d.DefaultConfig), ApplyDefaultWithoutWarming: d.ApplyDefaultConfigWithoutWarming}
+	pool := slices.Concat(p.ecdsSections...)
+	if i, ok := p.ecdsAt[category]; ok {
+		pool = p.ecdsSections[i]
+	}
 	var found []json.RawMessage
-	for _, e := range p.ecds[hf.Name] {
-		if slices.ContainsFunc(d.TypeURLs, func(u string) bool { return typeName(u) == typeName(e.typ) }) {
+	for _, e := range pool {
+		if e.name == hf.Name && slices.ContainsFunc(d.TypeURLs, func(u string) bool { return typeName(u) == typeName(e.typ) }) {
 			found = append(found, e.config)
 		}
 	}
+	sources := len(p.subs[category][hf.Name])
 	hf.TypedConfig = nil
 	switch {
+	case len(found) > 0 && p.ecdsAt == nil:
+		p.warn(id, model.WarnECDSAmbiguous, "filter %q: an ECDS config has its name, but the dump doesn't say which filter category it belongs to", hf.Name)
+	case len(found) > 0 && sources > 1:
+		p.warn(id, model.WarnECDSAmbiguous, "filter %q: %d config sources subscribe to its name, and the dump doesn't say which ECDS config is whose", hf.Name, sources)
 	case len(found) == 1:
 		hf.TypedConfig, disc.Source = found[0], model.ConfigECDS
 	case len(found) > 1:
@@ -778,8 +921,9 @@ type rawStaticListener struct {
 	Listener    rawListenerBody `json:"listener"`
 }
 
-// rawListenerBody is one Listener resource.
+// rawListenerBody is one Listener resource; raw is its JSON.
 type rawListenerBody struct {
+	raw     json.RawMessage
 	Name    string `json:"name"`
 	Address struct {
 		SocketAddress struct {
@@ -789,6 +933,16 @@ type rawListenerBody struct {
 	} `json:"address"`
 	FilterChains       []rawFilterChain `json:"filter_chains"`
 	DefaultFilterChain *rawFilterChain  `json:"default_filter_chain"`
+}
+
+// UnmarshalJSON decodes the listener and keeps its JSON.
+func (b *rawListenerBody) UnmarshalJSON(data []byte) error {
+	type plain rawListenerBody
+	if err := json.Unmarshal(data, (*plain)(b)); err != nil {
+		return err
+	}
+	b.raw = slices.Clone(data)
+	return nil
 }
 
 // rawUpdateFailure is a rejected update (UpdateFailureState).
@@ -836,6 +990,7 @@ type rawHTTPFilter struct {
 
 // rawConfigDiscovery is an ExtensionConfigSource.
 type rawConfigDiscovery struct {
+	ConfigSource                     json.RawMessage `json:"config_source"`
 	DefaultConfig                    json.RawMessage `json:"default_config"`
 	ApplyDefaultConfigWithoutWarming bool            `json:"apply_default_config_without_warming"`
 	TypeURLs                         []string        `json:"type_urls"`
@@ -843,6 +998,7 @@ type rawConfigDiscovery struct {
 
 // ecdsEntry is one EcdsConfigDump ecds_filter: a TypedExtensionConfig.
 type ecdsEntry struct {
+	name   string          // the subscription's resource name
 	typ    string          // the typed_config @type
 	config json.RawMessage // the typed_config
 }
@@ -899,6 +1055,7 @@ type rawFilterType struct {
 
 // rawRouter reads the router filter's upstream HTTP filters.
 type rawRouter struct {
+	Type                string          `json:"@type"`
 	UpstreamHTTPFilters []rawHTTPFilter `json:"upstream_http_filters"`
 }
 

@@ -277,6 +277,92 @@ func TestECDS(t *testing.T) {
 	}
 }
 
+// ECDS dump builders. Each listener has one HCM whose router takes up.
+const luaType = "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+
+func ecdsDiscovery(name, source string) string {
+	return `{"name": "` + name + `", "config_discovery": {"config_source": ` + source + `, "type_urls": ["` + luaType + `"]}}`
+}
+
+func ecdsListener(name, extra, down, up string) string {
+	return `{"name": "` + name + `", "active_state": {"listener": {"name": "` + name + `", ` + extra + `"filter_chains": [{"filters": [
+ {"name": "envoy.filters.network.http_connection_manager", "typed_config": {"route_config": {"name": "` + name + `"}, "http_filters": [` + down + `
+  {"name": "envoy.filters.http.router", "typed_config": {"@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router", "upstream_http_filters": [` + up + `]}}]}}]}]}}}`
+}
+
+func ecdsSection(names ...string) string {
+	var entries []string
+	for _, n := range names {
+		entries = append(entries, `{"ecds_filter": {"name": "`+n+`", "typed_config": {"@type": "`+luaType+`"}}}`)
+	}
+	return `{"@type": "type.googleapis.com/envoy.admin.v3.EcdsConfigDump", "ecds_filters": [` + strings.Join(entries, ",") + `]}`
+}
+
+const (
+	ads   = `{"ads": {}}`
+	other = `{"api_config_source": {"api_type": "GRPC", "grpc_services": [{"envoy_grpc": {"cluster_name": "other"}}]}}`
+)
+
+// TestECDS_SubscriptionKey: Envoy keys an ECDS subscription by config source
+// and name, per filter category (config_discovery_impl.cc, getSubscription),
+// and dumps one EcdsConfigDump per category, in key order (config_tracker.h
+// CbsMap; ecds_filter_http before ecds_filter_upstream_http). An entry joins a
+// slot only when the dump shows whose it is; otherwise the slot is unresolved.
+func TestECDS_SubscriptionKey(t *testing.T) {
+	type slot struct{ listener, upstream int } // upstream -1: the downstream filter
+	cases := []struct {
+		name      string
+		listeners []string
+		sections  []string
+		want      map[slot]string // ECDS source per slot
+		ambiguous int             // ecds-ambiguous warnings
+	}{
+		{"two entries, one name", []string{ecdsListener("a", "", ecdsDiscovery("x", ads)+",", "")},
+			[]string{ecdsSection("x", "x")}, map[slot]string{{0, -1}: ""}, 1},
+		{"one config source, two listeners", []string{ecdsListener("a", "", ecdsDiscovery("x", ads)+",", ""), ecdsListener("b", "", ecdsDiscovery("x", ads)+",", "")},
+			[]string{ecdsSection("x")}, map[slot]string{{0, -1}: model.ConfigECDS, {1, -1}: model.ConfigECDS}, 0},
+		{"two config sources", []string{ecdsListener("a", "", ecdsDiscovery("x", ads)+",", ""), ecdsListener("b", "", ecdsDiscovery("x", other)+",", "")},
+			[]string{ecdsSection("x")}, map[slot]string{{0, -1}: "", {1, -1}: ""}, 2},
+		{"upstream entry only", []string{ecdsListener("a", "", ecdsDiscovery("x", ads)+",", ""), ecdsListener("b", "", "", ecdsDiscovery("x", ads))},
+			[]string{ecdsSection(), ecdsSection("x")}, map[slot]string{{0, -1}: "", {1, 0}: model.ConfigECDS}, 0},
+		{"downstream entry only", []string{ecdsListener("a", "", ecdsDiscovery("x", ads)+",", ""), ecdsListener("b", "", "", ecdsDiscovery("x", ads))},
+			[]string{ecdsSection("x"), ecdsSection()}, map[slot]string{{0, -1}: model.ConfigECDS, {1, 0}: ""}, 0},
+		{"a section no listener explains", []string{ecdsListener("a", "", ecdsDiscovery("x", ads)+",", "")},
+			[]string{ecdsSection(), ecdsSection("x")}, map[slot]string{{0, -1}: ""}, 1},
+		{"a listener filter subscribes too", []string{ecdsListener("a", `"listener_filters": [`+ecdsDiscovery("x", ads)+`], `, ecdsDiscovery("x", ads)+",", "")},
+			[]string{ecdsSection("x")}, map[slot]string{{0, -1}: ""}, 1},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			dump := `{"configs": [{"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump", "dynamic_listeners": [` +
+				strings.Join(c.listeners, ",") + `]}, ` + strings.Join(c.sections, ",") + `]}`
+			snap, err := parser.Parse(strings.NewReader(dump), parser.Options{Capture: model.CaptureComplete})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for s, want := range c.want {
+				hcm := snap.Listeners[s.listener].FilterChains[0].HCM
+				f := hcm.HTTPFilters[0]
+				if s.upstream >= 0 {
+					f = hcm.UpstreamFilters[s.upstream]
+				}
+				if f.Discovery == nil || f.Discovery.Source != want || (want == "") != (f.TypedConfig == nil) {
+					t.Errorf("%s: discovery %+v, config %v; want source %q", f.ID, f.Discovery, f.TypedConfig, want)
+				}
+			}
+			n := 0
+			for _, w := range snap.Warnings {
+				if w.Code == model.WarnECDSAmbiguous {
+					n++
+				}
+			}
+			if n != c.ambiguous {
+				t.Errorf("ecds-ambiguous warnings = %d, want %d: %+v", n, c.ambiguous, snap.Warnings)
+			}
+		})
+	}
+}
+
 // TestECDS_DefaultNeedsFullCapture: a missing ECDS entry proves the default
 // runs only when the capture is complete and no ECDS entry was skipped; else
 // the installed config is unknown (P-010 rule 3).
