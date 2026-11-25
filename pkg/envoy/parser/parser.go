@@ -1,8 +1,10 @@
 // Package parser converts a raw Envoy /config_dump JSON payload into the
 // domain model defined in [model]. The Envoy config_dump is a heterogeneous
 // JSON array where each element has a "@type" discriminator; the parser dispatches
-// on that field to extract ListenersConfigDump and RoutesConfigDump sections, then
-// joins them into a [model.Snapshot].
+// on that field to extract the ListenersConfigDump, RoutesConfigDump and
+// EcdsConfigDump sections, then joins them into a [model.Snapshot]. Every other
+// section is read for its @type only and listed as ignored in
+// [model.Snapshot.Coverage].
 //
 // Non-fatal errors (e.g. a single malformed section) are collected as warnings in
 // the best-effort snapshot so the caller can surface them to the user rather than
@@ -10,8 +12,10 @@
 //
 // # Occurrence IDs
 //
-// Parse assigns every occurrence a [model.ID] as a structural path: L0 (listener),
-// L0/C1 (filter chain), L0/C1/N0 (network filter; the HCM), .../F3 (HTTP filter
+// Parse assigns every occurrence a [model.ID] as a structural path: L0 (listener;
+// dynamic listeners first, then static ones), L0/C1 (filter chain; L0/Cd is the
+// default filter chain), L0/C1/N0 (network filter; an HCM has its network
+// filter's ID), .../F3 (HTTP filter
 // slot), .../U0 (upstream filter), .../RC (route config use), .../RC/V2/R5/W1
 // (virtual host, route, weighted backend). Route config sources are RD<n>
 // (dynamic), RS<n> (static) and <HCM>/RCI (inline). RDS names resolve against
