@@ -323,7 +323,7 @@ func (ix *Index) gaps(scope map[model.ID]bool) ([]Gap, []Claim) {
 	}
 	for _, c := range ix.dropped {
 		if scope[c.Subject] && c.Assertion != nil {
-			add(c.Subject, c.Assertion.Kind())
+			add(c.Subject, kindOf(c.Assertion))
 		}
 	}
 	slices.SortFunc(out, func(a, b Gap) int {

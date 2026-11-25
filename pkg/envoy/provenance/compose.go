@@ -142,15 +142,24 @@ func known(a Assertion) bool {
 
 // drop records a dropped claim; rule-3 drops become gaps (design §5).
 func (ix *Index) drop(c Claim, code, reason string, gap bool) {
-	kind := "none"
-	if c.Assertion != nil {
-		kind = c.Assertion.Kind()
-	}
+	kind := kindOf(c.Assertion)
 	ix.warnings = append(ix.warnings, model.Warning{Subject: c.Subject, Code: code,
 		Message: fmt.Sprintf("dropped claim %s (%s on %q): %s", c.ID, kind, c.Subject, reason)})
 	if gap {
 		ix.dropped = append(ix.dropped, c)
 	}
+}
+
+// kindOf returns a's kind, or for a foreign assertion its Go type name, whose
+// methods may panic. A nil assertion is "none".
+func kindOf(a Assertion) string {
+	switch {
+	case a == nil:
+		return "none"
+	case known(a):
+		return a.Kind()
+	}
+	return fmt.Sprintf("%T", a)
 }
 
 // structure is what Compose and the index know about snap's occurrences.

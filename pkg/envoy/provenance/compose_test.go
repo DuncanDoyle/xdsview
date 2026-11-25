@@ -272,6 +272,23 @@ func TestCompose_ForeignAssertions(t *testing.T) {
 	}
 }
 
+// nilLink embeds a nil *FilterLink, so its promoted methods panic.
+type nilLink struct{ *provenance.FilterLink }
+
+// TestCompose_ForeignNilEmbed (Codex r3 N3): dropping a foreign assertion
+// names its Go type and never calls its methods, in Compose or Dependencies.
+func TestCompose_ForeignNilEmbed(t *testing.T) {
+	ix := compose(t, twoListeners(), fixed{"m", []provenance.Claim{
+		{Subject: route0, Assertion: nilLink{}, Certainty: model.Inferred, Evidence: ev(slot0, nil)},
+	}})
+	if w := ix.Warnings(); len(w) != 1 || !strings.Contains(w[0].Message, "(provenance_test.nilLink on") {
+		t.Errorf("warnings %v, want one naming provenance_test.nilLink", w)
+	}
+	if d := ix.Dependencies(route0); !hasGap(d, route0, "provenance_test.nilLink") {
+		t.Errorf("gaps %v lack the dropped claim's type", d.Gaps)
+	}
+}
+
 // TestCompose_Order: claims are ordered by subject (numerically), then module
 // order, then emission order, the same on every run.
 func TestCompose_Order(t *testing.T) {
