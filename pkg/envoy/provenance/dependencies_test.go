@@ -54,7 +54,7 @@ func hasObject(d provenance.Dependencies, ref model.Ref, kind string) bool {
 }
 
 func hasGap(d provenance.Dependencies, subject model.ID, kind string) bool {
-	return slices.Contains(d.Gaps, provenance.Gap{Subject: subject, Kind: kind})
+	return slices.ContainsFunc(d.Gaps, func(g provenance.Gap) bool { return g.Subject == subject && g.Kind == kind })
 }
 
 // TestDependencies (R6) covers the scope rules and the expected gaps.
@@ -137,11 +137,11 @@ func TestDependencies_PolicyGaps(t *testing.T) {
 	ix := compose(t, snap, fixed{"m", []provenance.Claim{dropped}})
 	d := ix.Dependencies(route0)
 	for _, g := range []provenance.Gap{
-		{Subject: route0, Kind: provenance.KindPolicyRecord},
-		{Subject: vhost0, Kind: provenance.KindPolicyRecord},
-		{Subject: slot0, Kind: provenance.KindPolicyRecord},
+		{Subject: route0, Kind: provenance.KindPolicyRecord, Slot: slot0, Level: provenance.LevelRoute},
+		{Subject: vhost0, Kind: provenance.KindPolicyRecord, Slot: slot0, Level: provenance.LevelVirtualHost},
+		{Subject: slot0, Kind: provenance.KindPolicyRecord, Slot: slot0, Level: provenance.LevelListener},
 	} {
-		if !hasGap(d, g.Subject, g.Kind) {
+		if !slices.Contains(d.Gaps, g) {
 			t.Errorf("gaps %v lack %+v", d.Gaps, g)
 		}
 	}
@@ -158,6 +158,40 @@ func TestDependencies_PolicyGaps(t *testing.T) {
 		Certainty: model.Exact, Evidence: ev(l0, &p)}}})
 	if hasGap(ix.Dependencies(route0), slot0, provenance.KindPolicyRecord) {
 		t.Error("slot gap despite a listener-level record")
+	}
+}
+
+// TestDependencies_PolicyGapsPerSlot (Codex #1): per-filter config for slot S
+// at level X is covered only by a link placing a level-X record on S. A linked
+// record for one filter leaves another filter's config a gap.
+func TestDependencies_PolicyGapsPerSlot(t *testing.T) {
+	snap := twoListeners()
+	hcm := snap.Listeners[0].FilterChains[0].HCM
+	cors := model.ID("L0/C0/N0/F2")
+	hcm.HTTPFilters = append(hcm.HTTPFilters, model.HTTPFilter{ID: cors, Name: "cors", Type: "type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors", Disabled: true})
+	both := map[string]any{"authz": map[string]any{}, "cors": map[string]any{}}
+	hcm.RouteConfig.VirtualHosts[0].Routes[0].TypedPerFilterConfig = both
+	hcm.RouteConfig.VirtualHosts[0].TypedPerFilterConfig = both
+	ix := compose(t, snap, fixed{"m", []provenance.Claim{
+		record("route", route0, provenance.LevelRoute, policyA),
+		record("vhost", vhost0, provenance.LevelVirtualHost, policyB),
+		link("route", route0, cors),
+		link("vhost", route0, cors),
+	}})
+	d := ix.Dependencies(route0)
+	rec := provenance.KindPolicyRecord
+	for _, g := range []provenance.Gap{
+		{Subject: route0, Kind: rec, Slot: slot0, Level: provenance.LevelRoute},
+		{Subject: vhost0, Kind: rec, Slot: slot0, Level: provenance.LevelVirtualHost},
+	} {
+		if !slices.Contains(d.Gaps, g) {
+			t.Errorf("gaps %v lack %+v", d.Gaps, g)
+		}
+	}
+	for _, g := range d.Gaps {
+		if g.Kind == rec && g.Slot == cors {
+			t.Errorf("linked cors config has a gap: %+v", g)
+		}
 	}
 }
 

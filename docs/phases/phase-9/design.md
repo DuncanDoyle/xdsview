@@ -209,7 +209,9 @@ type Dependencies struct {
 
 type Gap struct {
 	Subject model.ID
-	Kind    string // the assertion kind expected, e.g. "routeSource"
+	Kind    string   // the assertion kind expected, e.g. "routeSource"
+	Slot    model.ID // policyRecord only: the HTTP filter slot
+	Level   Level    // policyRecord only: the level the record is missing at
 }
 ```
 
@@ -230,7 +232,7 @@ type Dependent struct {
 ```
 
 **Expected gaps** (Snellius review, snellius#70). An empty `Gaps` means every expected input is attributed. Besides the per-kind gaps above:
-1. `policyRecord`: per-filter config at route, virtual host or route config level with no `PolicyRecord` at that level; and an HCM slot that runs by default, is not the router, has no `ExtensionSource` marking it a helper, and has no listener-level `PolicyRecord`. Without `merge.*` at a level (U1), a hidden policy could add config there; the gap makes that visible.
+1. `policyRecord`: per-filter config for slot S at level X (route, virtual host or route config) is covered only when a surviving `FilterLink` places a level-X `PolicyRecord` on S. Otherwise a `policyRecord` gap names that slot and level (`Gap.Slot`, `Gap.Level`). A readable record for one filter never clears another filter's gap. Also a gap: an HCM slot that runs by default, is not the router, has no `ExtensionSource` marking it a helper, and has no listener-level `PolicyRecord`. Without `merge.*` at a level (U1), a hidden policy could add config there; the gap makes that visible.
 2. `dropped`: a claim in scope that Compose rule 3 dropped. Its subject gets a gap of the dropped claim's kind.
 3. `gatewaySource`: a listener with no `GatewaySource` above unknown. A consumer that knows the Gateway it captured may close this gap itself, as its own context. Listeners from a ListenerSet are not attributed in Phase 9: they show this gap.
 

@@ -104,10 +104,13 @@ type Dependent struct {
 	Kind   string // the claim's assertion kind, e.g. "backendSource"
 }
 
-// Gap is an expected attribution that is missing or ambiguous.
+// Gap is an expected attribution that is missing or ambiguous. A policyRecord
+// gap also names the filter slot and the level its record is missing for.
 type Gap struct {
 	Subject model.ID
-	Kind    string // the assertion kind expected, e.g. "routeSource"
+	Kind    string   // the assertion kind expected, e.g. "routeSource"
+	Slot    model.ID // policyRecord only: the HTTP filter slot
+	Level   Level    // policyRecord only: the level the record is missing at
 }
 
 // Dependencies returns the evidence scope of block (any occurrence ID). Its
@@ -123,10 +126,10 @@ type Gap struct {
 //     such BackendSource;
 //   - extensionSource: an HTTP filter slot with per-filter config on any route
 //     of its HCM and no such ExtensionSource;
-//   - policyRecord: per-filter config at route, virtual host or route config
-//     level with no PolicyRecord at that level; and an HTTP filter slot that
-//     runs by default, is not the router or a helper, with no listener-level
-//     PolicyRecord on its listener;
+//   - policyRecord: per-filter config for a slot at route, virtual host or
+//     route config level that no kept [FilterLink] places a record of that
+//     level on; and an HTTP filter slot that runs by default, is not the
+//     router or a helper, with no listener-level PolicyRecord on its listener;
 //   - gatewaySource: a listener with no GatewaySource above unknown;
 //   - a dropped claim's kind on its subject (Compose rule 3).
 func (ix *Index) Dependencies(block model.ID) Dependencies {
@@ -182,12 +185,12 @@ func (ix *Index) scope(block model.ID) map[model.ID]bool {
 // gaps returns the expected attributions missing in scope.
 func (ix *Index) gaps(scope map[model.ID]bool) []Gap {
 	var out []Gap
-	add := func(id model.ID, kind string) {
-		g := Gap{Subject: id, Kind: kind}
+	addGap := func(g Gap) {
 		if !slices.Contains(out, g) {
 			out = append(out, g)
 		}
 	}
+	add := func(id model.ID, kind string) { addGap(Gap{Subject: id, Kind: kind}) }
 	has := func(id model.ID, kind string, min model.Certainty) bool {
 		for _, c := range ix.About(id) {
 			if c.Assertion.Kind() == kind && c.Certainty >= min {
@@ -218,10 +221,25 @@ func (ix *Index) gaps(scope map[model.ID]bool) []Gap {
 			}
 		}
 	}
-	for _, src := range ix.snap.RouteConfigs {
-		if scope[src.ID] && len(src.TypedPerFilterConfig) > 0 && !has(src.ID, KindPolicyRecord, model.Unknown+1) {
-			add(src.ID, KindPolicyRecord)
+	// placed holds (record subject, slot) pairs that a kept link joins.
+	placed := map[[2]model.ID]bool{}
+	for _, c := range ix.claims {
+		if l, ok := c.Assertion.(FilterLink); ok {
+			if rec, ok := ix.Record(c); ok {
+				placed[[2]model.ID{rec.Subject, l.Slot}] = true
+			}
 		}
+	}
+	unplaced := func(at model.ID, level Level, pfc map[string]any, hcm *model.HCMConfig) {
+		for _, f := range hcm.HTTPFilters {
+			if _, ok := pfc[f.Name]; ok && scope[at] && scope[f.ID] && !placed[[2]model.ID{at, f.ID}] {
+				addGap(Gap{Subject: at, Kind: KindPolicyRecord, Slot: f.ID, Level: level})
+			}
+		}
+	}
+	sources := map[model.ID]model.RouteConfigSource{}
+	for _, src := range ix.snap.RouteConfigs {
+		sources[src.ID] = src
 	}
 	for _, l := range ix.snap.Listeners {
 		if scope[l.ID] && !has(l.ID, KindGatewaySource, model.Unknown+1) {
@@ -241,26 +259,25 @@ func (ix *Index) gaps(scope map[model.ID]bool) []Gap {
 					add(f.ID, KindExtensionSource)
 				}
 				if !f.Disabled && !isRouter(f) && !ix.helper(f.ID) && !listenerPolicy {
-					add(f.ID, KindPolicyRecord)
+					addGap(Gap{Subject: f.ID, Kind: KindPolicyRecord, Slot: f.ID, Level: LevelListener})
 				}
+			}
+			if src, ok := sources[hcm.RouteConfigUse.Source]; ok {
+				unplaced(src.ID, LevelRouteConfig, src.TypedPerFilterConfig, hcm)
 			}
 			if hcm.RouteConfig == nil {
 				continue
 			}
 			for _, vh := range hcm.RouteConfig.VirtualHosts {
-				if scope[vh.ID] && len(vh.TypedPerFilterConfig) > 0 && !has(vh.ID, KindPolicyRecord, model.Unknown+1) {
-					add(vh.ID, KindPolicyRecord)
-				}
+				unplaced(vh.ID, LevelVirtualHost, vh.TypedPerFilterConfig, hcm)
 				for _, r := range vh.Routes {
+					unplaced(r.ID, LevelRoute, r.TypedPerFilterConfig, hcm)
 					if scope[r.ID] {
 						if !resolved(r.ID, KindRouteSource) {
 							add(r.ID, KindRouteSource)
 						}
 						if r.Cluster != "" && !resolved(r.ID, KindBackendSource) {
 							add(r.ID, KindBackendSource)
-						}
-						if len(r.TypedPerFilterConfig) > 0 && !has(r.ID, KindPolicyRecord, model.Unknown+1) {
-							add(r.ID, KindPolicyRecord)
 						}
 					}
 					for _, w := range r.WeightedClusters {
@@ -281,7 +298,13 @@ func (ix *Index) gaps(scope map[model.ID]bool) []Gap {
 		if c := model.CompareID(a.Subject, b.Subject); c != 0 {
 			return c
 		}
-		return strings.Compare(a.Kind, b.Kind)
+		if c := strings.Compare(a.Kind, b.Kind); c != 0 {
+			return c
+		}
+		if c := model.CompareID(a.Slot, b.Slot); c != 0 {
+			return c
+		}
+		return strings.Compare(string(a.Level), string(b.Level))
 	})
 	return out
 }
