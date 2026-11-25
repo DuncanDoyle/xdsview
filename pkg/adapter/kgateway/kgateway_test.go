@@ -57,6 +57,33 @@ var levelsDump = `{"configs": [
    {"name": "listener~80~example_com-route-1-httproute-web-ns-1-0-matcher-0", "match": {"prefix": "/b"}, "route": {"cluster": "kube_ns_web_80"},
     "typed_per_filter_config": {"ext_auth/ns/one": {}, "ext_auth/ns/two": {}}, ` + mergeMD("extAuth", "both") + `}]}]}}]}]}`
 
+// TestPolicyOrder (Codex #4): two records that differ only by group keep one
+// order, claim IDs and refs across parses (R7).
+func TestPolicyOrder(t *testing.T) {
+	md := func(group string) string {
+		return `"merge.Policy.` + group + `": {"f": ["` + group + `/Policy/ns/p"]}`
+	}
+	dump := `{"configs": [{"@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump", "dynamic_route_configs": [
+  {"route_config": {"name": "rc", "metadata": {"filter_metadata": {` + md("b.example.dev") + `, ` + md("a.example.dev") + `}}, "virtual_hosts": []}}]}]}`
+	var first []string
+	for i := range 50 {
+		var got []string
+		for _, c := range compose(t, parse(t, dump)).Claims() {
+			if p, ok := c.Assertion.(provenance.PolicyRecord); ok {
+				got = append(got, c.ID+" "+c.Ref+" "+p.Policy.Group)
+			}
+		}
+		if i == 0 {
+			first = got
+			if len(got) != 2 || !strings.HasSuffix(got[0], "a.example.dev") {
+				t.Fatalf("records %v, want a.example.dev first", got)
+			}
+		} else if !slices.Equal(got, first) {
+			t.Fatalf("parse %d: records %v, want %v", i, got, first)
+		}
+	}
+}
+
 // TestMergeLevels (R5): records at listener, route config and vhost level are
 // PolicyRecord claims on those subjects, level-local. Hand-built: no OSS
 // capture shows merge metadata above route level.

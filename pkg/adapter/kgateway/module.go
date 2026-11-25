@@ -9,7 +9,9 @@
 package kgateway
 
 import (
+	"cmp"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -194,10 +196,12 @@ func (e *emitter) route(r model.Route) {
 // Kind is read, so a downstream policy Kind appears without its own module.
 // Each record is exact: the metadata names that ID for that field. An ID whose
 // group or kind differs from its key's, or that isn't a valid Kubernetes
-// name, is skipped. Records are sorted by policy, then field.
+// name, is skipped. Records are sorted by policy group, kind, namespace and
+// name, then field.
 func (e *emitter) policies(subject model.ID, level provenance.Level, md map[string]any) []record {
 	var out []record
-	for key, v := range md {
+	for _, key := range slices.Sorted(maps.Keys(md)) {
+		v := md[key]
 		gk, ok := strings.CutPrefix(key, mergeKeyPrefix)
 		if !ok {
 			continue
@@ -219,8 +223,10 @@ func (e *emitter) policies(subject model.ID, level provenance.Level, md map[stri
 			}
 		}
 	}
-	slices.SortFunc(out, func(a, b record) int {
-		return strings.Compare(a.policy.String()+"/"+a.field, b.policy.String()+"/"+b.field)
+	slices.SortStableFunc(out, func(a, b record) int {
+		return cmp.Or(strings.Compare(a.policy.Group, b.policy.Group), strings.Compare(a.policy.Kind, b.policy.Kind),
+			strings.Compare(a.policy.Namespace, b.policy.Namespace), strings.Compare(a.policy.Name, b.policy.Name),
+			strings.Compare(a.field, b.field))
 	})
 	for i := range out {
 		e.records++
