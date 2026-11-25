@@ -1,0 +1,114 @@
+{
+  "schemaVersion": "v1alpha1",
+  "snapshot": {
+    "capture": "unverified",
+    "listeners": [
+      {
+        "id": "L0",
+        "name": "edge",
+        "address": "0.0.0.0:8443",
+        "filterChains": [
+          {
+            "id": "L0/C0",
+            "name": "known",
+            "tls": {
+              "sniHosts": [
+                "known.example.test"
+              ]
+            },
+            "networkFilters": [
+              {
+                "id": "L0/C0/N0",
+                "name": "envoy.filters.network.tcp_proxy",
+                "type": "type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy"
+              }
+            ]
+          },
+          {
+            "id": "L0/Cd",
+            "name": "fallback",
+            "default": true,
+            "networkFilters": [
+              {
+                "id": "L0/Cd/N0",
+                "name": "envoy.filters.network.http_connection_manager",
+                "type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+              }
+            ],
+            "hcm": {
+              "id": "L0/Cd/N0",
+              "routeConfigName": "",
+              "httpFilters": [
+                {
+                  "id": "L0/Cd/N0/F0",
+                  "name": "envoy.filters.http.router",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  },
+                  "origin": {
+                    "certainty": "inferred",
+                    "kind": "router"
+                  }
+                }
+              ],
+              "routeConfigUse": {
+                "id": "L0/Cd/N0/RC",
+                "source": "L0/Cd/N0/RCI",
+                "state": "found"
+              },
+              "routeConfig": {
+                "name": "fallback_route",
+                "virtualHosts": [
+                  {
+                    "id": "L0/Cd/N0/RC/V0",
+                    "name": "any",
+                    "domains": [
+                      "*"
+                    ],
+                    "routes": [
+                      {
+                        "id": "L0/Cd/N0/RC/V0/R0",
+                        "name": "",
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "cluster": "fallback_backend",
+                        "effectiveChain": {
+                          "filters": [
+                            {
+                              "slot": "L0/Cd/N0/F0",
+                              "name": "envoy.filters.http.router",
+                              "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                              "runs": "yes",
+                              "state": "on",
+                              "request": "yes",
+                              "response": "no",
+                              "configSource": "inline"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "state": {
+          "status": "active",
+          "lastUpdated": "2026-01-01T00:00:00Z"
+        }
+      }
+    ],
+    "routeConfigs": [
+      {
+        "id": "L0/Cd/N0/RCI",
+        "kind": "inline",
+        "name": "fallback_route"
+      }
+    ]
+  },
+  "warnings": []
+}

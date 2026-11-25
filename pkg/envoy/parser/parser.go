@@ -288,43 +288,54 @@ func (p *parse) listenerBody(l *model.Listener, body rawListenerBody) {
 	}
 
 	for i, rfc := range body.FilterChains {
-		nfc := model.NetworkFilterChain{
-			ID:   model.ID(fmt.Sprintf("%s/C%d", l.ID, i)),
-			Name: rfc.Name,
-		}
-
-		// TLS context from filter_chain_match.server_names
-		if len(rfc.FilterChainMatch.ServerNames) > 0 {
-			nfc.TLS = &model.TLSContext{
-				SNIHosts: rfc.FilterChainMatch.ServerNames,
-			}
-		}
-
-		// List every network filter; the HCM is also parsed in full.
-		for n, nf := range rfc.Filters {
-			var typed typedConfig
-			_ = json.Unmarshal(nf.TypedConfig, &typed) // a filter without a readable @type keeps an empty Type
-			nfc.NetworkFilters = append(nfc.NetworkFilters, model.NetworkFilter{
-				ID: model.ID(fmt.Sprintf("%s/N%d", nfc.ID, n)), Name: nf.Name, Type: typed.Type,
-			})
-			// Envoy picks the factory by typed_config type; the name is a label.
-			if nf.Name != "envoy.filters.network.http_connection_manager" && typed.Type != hcmType {
-				continue
-			}
-			label := fmt.Sprintf("listener %q filter chain %s", l.Name, chainLabel(i, rfc.Name))
-			hcm, inline, err := parseHCM(nf.TypedConfig)
-			if err != nil {
-				p.warn(nfc.ID, model.WarnHCMSkipped, "%s: skipped HTTP connection manager: %v", label, err)
-				continue
-			}
-			hcm.ID = model.ID(fmt.Sprintf("%s/N%d", nfc.ID, n))
-			p.join(hcm, inline, label)
-			assignIDs(hcm)
-			nfc.HCM = hcm
-		}
-
-		l.FilterChains = append(l.FilterChains, nfc)
+		l.FilterChains = append(l.FilterChains, p.filterChain(l, model.ID(fmt.Sprintf("%s/C%d", l.ID, i)), chainLabel(i, rfc.Name), rfc))
 	}
+	// Envoy uses the default chain when no other chain matches (listener.proto).
+	if d := body.DefaultFilterChain; d != nil {
+		label := "default"
+		if d.Name != "" {
+			label = fmt.Sprintf("default %q", d.Name)
+		}
+		fc := p.filterChain(l, l.ID+"/Cd", label, *d)
+		fc.Default = true
+		l.FilterChains = append(l.FilterChains, fc)
+	}
+}
+
+// filterChain converts one filter chain of l, with its ID and warning label.
+func (p *parse) filterChain(l *model.Listener, id model.ID, chain string, rfc rawFilterChain) model.NetworkFilterChain {
+	nfc := model.NetworkFilterChain{ID: id, Name: rfc.Name}
+
+	// TLS context from filter_chain_match.server_names
+	if len(rfc.FilterChainMatch.ServerNames) > 0 {
+		nfc.TLS = &model.TLSContext{
+			SNIHosts: rfc.FilterChainMatch.ServerNames,
+		}
+	}
+
+	// List every network filter; the HCM is also parsed in full.
+	for n, nf := range rfc.Filters {
+		var typed typedConfig
+		_ = json.Unmarshal(nf.TypedConfig, &typed) // a filter without a readable @type keeps an empty Type
+		nfc.NetworkFilters = append(nfc.NetworkFilters, model.NetworkFilter{
+			ID: model.ID(fmt.Sprintf("%s/N%d", nfc.ID, n)), Name: nf.Name, Type: typed.Type,
+		})
+		// Envoy picks the factory by typed_config type; the name is a label.
+		if nf.Name != "envoy.filters.network.http_connection_manager" && typed.Type != hcmType {
+			continue
+		}
+		label := fmt.Sprintf("listener %q filter chain %s", l.Name, chain)
+		hcm, inline, err := parseHCM(nf.TypedConfig)
+		if err != nil {
+			p.warn(nfc.ID, model.WarnHCMSkipped, "%s: skipped HTTP connection manager: %v", label, err)
+			continue
+		}
+		hcm.ID = model.ID(fmt.Sprintf("%s/N%d", nfc.ID, n))
+		p.join(hcm, inline, label)
+		assignIDs(hcm)
+		nfc.HCM = hcm
+	}
+	return nfc
 }
 
 // join resolves hcm's route config use: its inline config, else its RDS name
@@ -672,7 +683,8 @@ type rawListenerBody struct {
 			PortValue int    `json:"port_value"`
 		} `json:"socket_address"`
 	} `json:"address"`
-	FilterChains []rawFilterChain `json:"filter_chains"`
+	FilterChains       []rawFilterChain `json:"filter_chains"`
+	DefaultFilterChain *rawFilterChain  `json:"default_filter_chain"`
 }
 
 // rawUpdateFailure is a rejected update (UpdateFailureState).

@@ -1,0 +1,58 @@
+{
+ "configs": [
+  {
+   "@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
+   "dynamic_listeners": [
+    {
+     "name": "edge",
+     "active_state": {
+      "version_info": "1",
+      "listener": {
+       "@type": "type.googleapis.com/envoy.config.listener.v3.Listener",
+       "name": "edge",
+       "address": {"socket_address": {"address": "0.0.0.0", "port_value": 8443}},
+       "filter_chains": [
+        {
+         "name": "known",
+         "filter_chain_match": {"server_names": ["known.example.test"]},
+         "filters": [
+          {
+           "name": "envoy.filters.network.tcp_proxy",
+           "typed_config": {
+            "@type": "type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy",
+            "stat_prefix": "known",
+            "cluster": "known_backend"
+           }
+          }
+         ]
+        }
+       ],
+       "default_filter_chain": {
+        "name": "fallback",
+        "filters": [
+         {
+          "name": "envoy.filters.network.http_connection_manager",
+          "typed_config": {
+           "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+           "stat_prefix": "fallback",
+           "route_config": {
+            "name": "fallback_route",
+            "virtual_hosts": [
+             {"name": "any", "domains": ["*"], "routes": [{"match": {"prefix": "/"}, "route": {"cluster": "fallback_backend"}}]}
+            ]
+           },
+           "http_filters": [
+            {"name": "envoy.filters.http.router", "typed_config": {"@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"}}
+           ]
+          }
+         }
+        ]
+       }
+      },
+      "last_updated": "2026-01-01T00:00:00Z"
+     }
+    }
+   ]
+  }
+ ]
+}

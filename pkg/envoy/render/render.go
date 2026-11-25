@@ -194,13 +194,17 @@ func (p *printer) listener(l model.Listener) {
 	p.line(strings.Join(parts, " · "))
 
 	// One plain filter chain is the common case: skip its level.
-	if len(l.FilterChains) == 1 && l.FilterChains[0].TLS == nil && !otherNetworkFilters(l.FilterChains[0]) {
+	if len(l.FilterChains) == 1 && l.FilterChains[0].TLS == nil && !l.FilterChains[0].Default && !otherNetworkFilters(l.FilterChains[0]) {
 		p.chainBody(l.FilterChains[0], "")
 		return
 	}
 	for i, fc := range l.FilterChains {
 		prefix, indent := node("", i == len(l.FilterChains)-1)
-		label := strings.TrimSpace("chain " + clean(fc.Name))
+		label := "chain"
+		if fc.Default {
+			label = "default chain"
+		}
+		label = strings.TrimSpace(label + " " + clean(fc.Name))
 		if fc.TLS != nil && len(fc.TLS.SNIHosts) > 0 {
 			label += " · TLS " + clean(strings.Join(fc.TLS.SNIHosts, ", "))
 		}

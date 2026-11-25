@@ -74,10 +74,24 @@ func TestNetworkFilters(t *testing.T) {
 		t.Errorf("HCM named http = %+v, want parsed", hcm)
 	}
 
-	// A skipped HCM still has its network filter occurrence.
+	// A skipped HCM still has its network filter occurrence (subject L0/C0).
 	snap = parseString(t, `{"configs": [{"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump", "dynamic_listeners": [`+
 		hcmListener("x", `"http_filters": 1`)+`]}]}`)
 	if fc := snap.Listeners[0].FilterChains[0]; len(fc.NetworkFilters) != 1 || fc.NetworkFilters[0].ID != "L0/C0/N0" || fc.HCM != nil {
 		t.Errorf("chain = %+v, want the skipped HCM listed as L0/C0/N0", fc)
+	}
+}
+
+// TestDefaultFilterChain: default_filter_chain is parsed as the listener's
+// last chain, with ID L<n>/Cd, and its routes get IDs under it.
+func TestDefaultFilterChain(t *testing.T) {
+	snap := parseFile(t, fixtures+"default-chain/envoy/config_dump.json")
+	chains := snap.Listeners[0].FilterChains
+	if len(chains) != 2 || chains[0].ID != "L0/C0" || chains[0].Default || chains[1].ID != "L0/Cd" || !chains[1].Default || chains[1].Name != "fallback" {
+		t.Fatalf("chains = %+v, want L0/C0 then the default chain L0/Cd", chains)
+	}
+	hcm := chains[1].HCM
+	if hcm == nil || hcm.ID != "L0/Cd/N0" || hcm.RouteConfig == nil || hcm.RouteConfig.VirtualHosts[0].Routes[0].ID != "L0/Cd/N0/RC/V0/R0" {
+		t.Errorf("default chain HCM = %+v, want routes under L0/Cd/N0", hcm)
 	}
 }

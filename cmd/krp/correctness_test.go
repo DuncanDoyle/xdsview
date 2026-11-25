@@ -54,3 +54,11 @@ func TestDump_NetworkFilters(t *testing.T) {
 		},
 		[]string{`"networkFilters"`, `"id": "L0/C0/N0"`, `"id": "L1/C0/N1"`})
 }
+
+// TestDump_DefaultFilterChain: the default chain is shown last, labelled,
+// with its routes and their chains.
+func TestDump_DefaultFilterChain(t *testing.T) {
+	wantOutput(t, []string{"--file", fixture("default-chain")},
+		[]string{"├─ chain known · TLS known.example.test", "└─ default chain fallback", "backend: fallback_backend", "1 envoy.filters.http.router  on"},
+		[]string{`"id": "L0/Cd"`, `"default": true`, `"L0/Cd/N0/RC/V0/R0"`})
+}

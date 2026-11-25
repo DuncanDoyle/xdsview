@@ -61,6 +61,7 @@ type NetworkFilterChain struct {
 	ID             ID              `json:"id"`
 	Name           string          `json:"name"`
 	TLS            *TLSContext     `json:"tls,omitempty"`            // nil for plaintext
+	Default        bool            `json:"default,omitempty"`        // the listener's default_filter_chain, used when no chain matches; always last
 	NetworkFilters []NetworkFilter `json:"networkFilters,omitempty"` // every network filter, in chain order
 	HCM            *HCMConfig      `json:"hcm,omitempty"`            // extracted from the network filter list
 }

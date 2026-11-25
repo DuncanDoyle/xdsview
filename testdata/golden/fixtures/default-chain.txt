@@ -1,0 +1,9 @@
+edge 0.0.0.0:8443 · active
+├─ chain known · TLS known.example.test
+│  └─ network filters: envoy.filters.network.tcp_proxy (TcpProxy) · no HTTP connection manager
+└─ default chain fallback
+   └─ vhost any [*]
+      └─ route / (prefix)
+         filters (request order):
+           1 envoy.filters.http.router  on
+         backend: fallback_backend
