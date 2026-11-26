@@ -2,7 +2,6 @@ package provenance_test
 
 import (
 	"bytes"
-	"slices"
 	"strings"
 	"testing"
 
@@ -127,30 +126,5 @@ func TestText_Formats(t *testing.T) {
 		if want := "policies: Policy ns/a (f, " + c.String() + ")\n"; !strings.Contains(b.String(), want) {
 			t.Errorf("no %q in\n%s", want, b.String())
 		}
-	}
-}
-
-// names is a NameMapper that answers from a table.
-type names map[provenance.NameKind]map[string]provenance.NameAnswer
-
-func (n names) Name(k provenance.NameKind, name string) provenance.NameAnswer { return n[k][name] }
-
-// TestGuess: one kind's answer is returned as is; a name that reads as two
-// kinds is ambiguous and lists every candidate of each.
-func TestGuess(t *testing.T) {
-	svc := model.Ref{Kind: "Service", Namespace: "ns", Name: "web"}
-	gw := model.Ref{Group: "gateway.networking.k8s.io", Kind: "Gateway", Namespace: "ns", Name: "web"}
-	m := names{
-		provenance.NameCluster:  {"web": {Certainty: model.Inferred, Candidates: []model.Ref{svc}}, "only": {Certainty: model.Exact, Candidates: []model.Ref{svc}}},
-		provenance.NameListener: {"web": {Certainty: model.Inferred, Candidates: []model.Ref{gw}}},
-	}
-	if got := provenance.Guess(m, "only"); got.Certainty != model.Exact || !slices.Equal(got.Candidates, []model.Ref{svc}) {
-		t.Errorf("Guess(only) = %+v", got)
-	}
-	if got := provenance.Guess(m, "web"); got.Certainty != model.Ambiguous || !slices.Equal(got.Candidates, []model.Ref{svc, gw}) {
-		t.Errorf("Guess(web) = %+v, want ambiguous with both", got)
-	}
-	if got := provenance.Guess(m, "none"); got.Certainty != model.Unknown || got.Candidates != nil {
-		t.Errorf("Guess(none) = %+v", got)
 	}
 }

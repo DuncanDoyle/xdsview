@@ -306,7 +306,7 @@ Two tests check the rule on the corpus, for every dump and fixture and every lis
 - `merge.*` is decoded at listener, route config and virtual host level, beside route level. Each record is a `PolicyRecord` on its own level. Nothing says which level governs (P-008).
 - Field links follow rule 4: one matching slot or none. A Composite's delegates are candidates too (#5). The rustformation check reads the field Envoy loads the module from; when `name` and `module` disagree, there is no link (#4).
 - A route name whose rule name contains dots reads its rule index and name (#2).
-- A route name is parsed after its own `<vhost>-route-<N>-` prefix, so a marker inside the virtual host name can't change the readings. A name without that prefix is read after every possible prefix, and its readings are marked `Incomplete`. `Names` has no virtual host, so it always reads after every possible prefix.
+- A route name is parsed after its own `<vhost>-route-<N>-` prefix, so a marker inside the virtual host name can't change the readings. A name without that prefix is read after every possible prefix, and its readings are marked `Incomplete`.
 - The policy-field table names the kgateway version it was checked against. Its check: every field in the corpus's `merge.*` records is in the table or a recorded exclusion (R14, #30).
 
 Selection (R8):
@@ -361,11 +361,9 @@ type NameAnswer struct {
 	Certainty  model.Certainty
 	Candidates []model.Ref // several when ambiguous
 }
-
-// Guess tries every kind, for callers with a bare name and no kind
-// (Snellius EnvoyNamer). Answers for different kinds make it ambiguous.
-func Guess(m NameMapper, name string) NameAnswer
 ```
+
+There is no `Guess` and no route-name kind: every Snellius call site knows its kind ([consumer-snellius.md](reviews/consumer-snellius.md)), and no consumer maps a bare route name. `kgateway.Names()` answers unknown for route config and listener names, RDS route-config names included: they carry a port or listener name but no object. A consumer maps them with its own Gateway context.
 
 ### 7. Rendering and krp (R10)
 

@@ -219,11 +219,6 @@ func TestRouteName_VhostMarker(t *testing.T) {
 	if res.Certainty != model.Inferred || len(res.Candidates) != 1 || res.Candidates[0].Route != web {
 		t.Errorf("readings = %s %+v, want inferred %v only", res.Certainty, res.Candidates, web)
 	}
-	// A bare name has no virtual host, so its answer lists every reading.
-	a := kgateway.Names().Name(provenance.NameRoute, markerVhost+"-route-0-httproute-web-ns-0-0-matcher-0")
-	if !slices.Contains(a.Candidates, web) {
-		t.Errorf("Names = %+v, want %v among the candidates", a, web)
-	}
 }
 
 // TestRouteName_Unanchored: a route name without its virtual host's prefix
@@ -250,9 +245,8 @@ func TestRouteName_Unanchored(t *testing.T) {
 	}
 }
 
-// TestNames (R9): cluster and route names give certainty and candidates,
-// each carrying its kind; an ambiguous route name lists every reading.
-// Route config and listener names carry no object.
+// TestNames (R9): a cluster name gives certainty and a candidate carrying its
+// kind. Route config and listener names carry no object.
 func TestNames(t *testing.T) {
 	m := kgateway.Names()
 	if a := m.Name(provenance.NameCluster, "kube_ns_web_8080"); a.Certainty != model.Inferred || !slices.Equal(a.Candidates, []model.Ref{{Kind: "Service", Namespace: "ns", Name: "web"}}) {
@@ -263,27 +257,11 @@ func TestNames(t *testing.T) {
 			t.Errorf("%s = %+v, want unknown", kind, a)
 		}
 	}
-	a := m.Name(provenance.NameRoute, "listener~80~x-route-0-httproute-api-example-com-kgateway-system-0-0-matcher-0")
-	var got []string
-	for _, c := range a.Candidates {
-		if c.Kind != "HTTPRoute" {
-			t.Errorf("candidate kind %q", c.Kind)
-		}
-		got = append(got, c.Namespace+"/"+c.Name)
-	}
-	want := []string{"example-com-kgateway-system/api", "com-kgateway-system/api-example", "kgateway-system/api-example-com", "system/api-example-com-kgateway"}
-	if a.Certainty != model.Ambiguous || !slices.Equal(got, want) {
-		t.Errorf("route = %s %v, want ambiguous %v", a.Certainty, got, want)
-	}
 	if a := m.Name(provenance.NameCluster, "kube_ns_web"); a.Certainty != model.Unknown {
 		t.Errorf("bad cluster = %+v", a)
 	}
 	if !slices.Equal(kgateway.CheckedMinors(), []string{"v2.4", "v2.5"}) {
 		t.Errorf("minors %v", kgateway.CheckedMinors())
-	}
-	// A route name reads as a route only, so Guess passes its answer through.
-	if g := provenance.Guess(m, "kube_ns_web_8080"); g.Certainty != model.Inferred {
-		t.Errorf("Guess = %+v", g)
 	}
 }
 

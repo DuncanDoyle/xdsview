@@ -264,8 +264,8 @@ err = render.Text(os.Stdout, pruned, chains, render.Options{
 	Trailer: provenance.Notes(ix),
 })
 
-// A bare name from proxy stats: a cluster, route config, listener or route.
-answer := provenance.Guess(kgateway.Names(), "kube_shop_cart_8080") // Service shop/cart
+// A bare cluster name from proxy stats.
+answer := kgateway.Names().Name(provenance.NameCluster, "kube_shop_cart_8080") // Service shop/cart
 ```
 
 Each chain entry carries its slot ID; `Runs`, `Request` and `Response` are `yes`, `no` or `unknown`. `render.Options` has `AllFilters` (list every HCM filter inline), `ResponseOrder`, and hooks keyed by `render.Row` (route ID and slot ID): `Style`, `Labels` (shown on a row after " · "), `Notes` (lines under a route or filter row) and `Trailer` (labelled lines after a route's filters). `ix.Dependencies(block)` lists the objects a block's claims rest on and the attribution it lacks.

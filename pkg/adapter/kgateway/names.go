@@ -24,32 +24,17 @@ func CheckedMinors() []string { return []string{"v2.4", "v2.5"} }
 
 // Names returns the [provenance.NameMapper] for kgateway names:
 //   - a cluster "kube_<ns>_<name>_<port>" is a Service, inferred;
-//   - a route name reads as one or more HTTPRoutes (see [New]);
 //   - route config and listener names carry a port or listener name but no
-//     object, so they map to nothing.
+//     object, so they map to nothing. A consumer maps them with its own
+//     Gateway context.
 func Names() provenance.NameMapper { return names{} }
 
 type names struct{}
 
 func (names) Name(kind provenance.NameKind, name string) provenance.NameAnswer {
-	switch kind {
-	case provenance.NameCluster:
+	if kind == provenance.NameCluster {
 		if b, _, ok := clusterBackend(name); ok {
 			return provenance.NameAnswer{Certainty: model.Inferred, Candidates: []model.Ref{b}}
-		}
-	case provenance.NameRoute:
-		var refs []model.Ref
-		for _, r := range parseAnyRouteName(name) {
-			if !slices.Contains(refs, r.Route) {
-				refs = append(refs, r.Route)
-			}
-		}
-		switch len(refs) {
-		case 0:
-		case 1:
-			return provenance.NameAnswer{Certainty: model.Inferred, Candidates: refs}
-		default:
-			return provenance.NameAnswer{Certainty: model.Ambiguous, Candidates: refs}
 		}
 	}
 	return provenance.NameAnswer{}
