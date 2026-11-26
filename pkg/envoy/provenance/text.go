@@ -43,19 +43,20 @@ func Labels(ix *Index, narrowings []Narrowing) func(render.Row) []string {
 // Notes returns a [render.Options.Trailer] hook with the lines printed after
 // a route's filters: "policies:" for the route's own policy records, and
 // "inherited policies:" for those at its virtual host, route config and
-// listener, each with its level.
+// listener, each policy field once with its levels.
 func Notes(ix *Index) func(render.Row) []render.Line {
 	return func(r render.Row) []render.Line {
 		if r.Route == "" || r.Slot != "" {
 			return nil
 		}
-		var own, inherited []string
+		var own []string
+		var inherited policyGroups
 		for _, c := range Records(ix, ix.snap, r.Route) {
 			p := c.Assertion.(PolicyRecord)
 			if p.Level == LevelRoute {
 				own = append(own, policyText(p.Policy, []string{p.Field}, c.Certainty))
 			} else {
-				inherited = append(inherited, policyText(p.Policy, []string{p.Field, levelWords[p.Level]}, c.Certainty))
+				inherited = inherited.add(p, c.Certainty)
 			}
 		}
 		var out []render.Line
@@ -63,25 +64,94 @@ func Notes(ix *Index) func(render.Row) []render.Line {
 			out = append(out, render.Line{Label: "policies", Text: strings.Join(own, ", ")})
 		}
 		if len(inherited) > 0 {
-			out = append(out, render.Line{Label: "inherited policies", Text: strings.Join(inherited, ", ")})
+			out = append(out, render.Line{Label: "inherited policies", Text: inherited.text()})
 		}
 		return out
 	}
 }
 
-var levelWords = map[Level]string{LevelVirtualHost: "vhost", LevelRouteConfig: "route config", LevelListener: "listener"}
+var levelWords = map[Level]string{LevelRoute: "route", LevelVirtualHost: "vhost", LevelRouteConfig: "route config", LevelListener: "listener"}
+
+// specificity ranks levels as Envoy reads per-filter config: route first.
+var specificity = map[Level]int{LevelListener: 0, LevelRouteConfig: 1, LevelVirtualHost: 2, LevelRoute: 3}
+
+// policyGroup is one policy field on a row with every level it is recorded at.
+type policyGroup struct {
+	policy    model.Ref
+	field     string
+	levels    []Level
+	certainty model.Certainty
+}
+
+// policyGroups keeps groups in the order their first record was added.
+type policyGroups []policyGroup
+
+// add files p under its policy and field, with the lowest certainty seen.
+func (gs policyGroups) add(p PolicyRecord, c model.Certainty) policyGroups {
+	for i := range gs {
+		if g := &gs[i]; g.policy == p.Policy && g.field == p.Field {
+			if !slices.Contains(g.levels, p.Level) {
+				g.levels = append(g.levels, p.Level)
+			}
+			g.certainty = min(g.certainty, c)
+			return gs
+		}
+	}
+	return append(gs, policyGroup{policy: p.Policy, field: p.Field, levels: []Level{p.Level}, certainty: c})
+}
+
+// texts formats each group, e.g. "TrafficPolicy ns/x (cors, inferred; route config, listener)".
+// Levels print most specific first; a route-only group prints none.
+func (gs policyGroups) texts() []string {
+	var out []string
+	for _, g := range gs {
+		var clauses []string
+		if notes := noteText([]string{g.field}, g.certainty); notes != "" {
+			clauses = append(clauses, notes)
+		}
+		levels := slices.SortedFunc(slices.Values(g.levels), func(a, b Level) int { return specificity[b] - specificity[a] })
+		if !slices.Equal(levels, []Level{LevelRoute}) {
+			clauses = append(clauses, levelText(levels))
+		}
+		out = append(out, withClauses(g.policy, clauses))
+	}
+	return out
+}
+
+func (gs policyGroups) text() string { return strings.Join(gs.texts(), ", ") }
+
+func levelText(levels []Level) string {
+	var words []string
+	for _, l := range levels {
+		words = append(words, levelWords[l])
+	}
+	return strings.Join(words, ", ")
+}
+
+// withClauses writes ref with its clauses in parentheses, separated by "; ".
+func withClauses(ref model.Ref, clauses []string) string {
+	if len(clauses) == 0 {
+		return ref.String()
+	}
+	return ref.String() + " (" + strings.Join(clauses, "; ") + ")"
+}
 
 // policyText formats a policy with its notes and certainty unless exact,
 // e.g. "TrafficPolicy ns/x (extAuth, inferred)".
 func policyText(ref model.Ref, notes []string, c model.Certainty) string {
+	if s := noteText(notes, c); s != "" {
+		return ref.String() + " (" + s + ")"
+	}
+	return ref.String()
+}
+
+// noteText joins the non-empty notes and the certainty unless exact.
+func noteText(notes []string, c model.Certainty) string {
 	notes = slices.DeleteFunc(slices.Clone(notes), func(s string) bool { return s == "" })
 	if c != model.Exact {
 		notes = append(notes, c.String())
 	}
-	if len(notes) == 0 {
-		return ref.String()
-	}
-	return ref.String() + " (" + strings.Join(notes, ", ") + ")"
+	return strings.Join(notes, ", ")
 }
 
 // suffix names a certainty unless it is exact, which prints bare.
@@ -186,15 +256,15 @@ func (ix *Index) filterLabels(r render.Row) []string {
 	if ext := Resolve[ExtensionSource](ix, r.Slot); len(ext.Candidates) == 1 && ext.Candidates[0].Extension != nil {
 		out = append(out, policyText(*ext.Candidates[0].Extension, nil, ext.Certainty))
 	}
+	var linked policyGroups
 	for _, c := range ix.About(r.Route) {
 		l, ok := c.Assertion.(FilterLink)
 		if !ok || l.Slot != r.Slot {
 			continue
 		}
 		if rec, ok := ix.Record(c); ok {
-			p := rec.Assertion.(PolicyRecord)
-			out = append(out, policyText(p.Policy, []string{p.Field}, min(rec.Certainty, c.Certainty)))
+			linked = linked.add(rec.Assertion.(PolicyRecord), min(rec.Certainty, c.Certainty))
 		}
 	}
-	return out
+	return append(out, linked.texts()...)
 }

@@ -43,11 +43,65 @@ func TestText_RowsPerRoute(t *testing.T) {
 		"1 authz   enabled by route · Extension ns/authz (inferred) · Policy ns/b (f, inferred)",
 		"policies: Policy ns/a (f)",
 		"policies: Policy ns/b (f)",
-		"inherited policies: Policy ns/b (f, vhost)",
+		"inherited policies: Policy ns/b (f; vhost)",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("no %q in\n%s", want, out)
 		}
+	}
+}
+
+// TestText_Levels: a policy linked from several levels prints once per row
+// with its levels, most specific first. A link from a level less specific
+// than the deciding per-filter config is marked overridden; claims are kept.
+func TestText_Levels(t *testing.T) {
+	cases := []struct {
+		name   string
+		decide func(*model.Snapshot) // moves authz's per-filter config off route R0
+		claims []provenance.Claim
+		want   []string
+	}{
+		{"route decides", nil, []provenance.Claim{
+			record("a", l0, provenance.LevelListener, policyA),
+			record("rc", "RD0", provenance.LevelRouteConfig, policyA),
+			record("b", route0, provenance.LevelRoute, policyB),
+			link("a", route0, slot0), link("rc", route0, slot0), link("b", route0, slot0),
+		}, []string{
+			"enabled by route · Policy ns/a (f, inferred; route config, listener) · Policy ns/b (f, inferred)\n",
+			"inherited policies: Policy ns/a (f; route config, listener)\n",
+		}},
+		{"vhost decides", func(s *model.Snapshot) {
+			vh := &s.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0]
+			vh.TypedPerFilterConfig, vh.Routes[0].TypedPerFilterConfig = vh.Routes[0].TypedPerFilterConfig, nil
+		}, []provenance.Claim{
+			record("v", vhost0, provenance.LevelVirtualHost, policyA),
+			record("rc", "RD0", provenance.LevelRouteConfig, policyA),
+			link("v", route0, slot0), link("rc", route0, slot0),
+		}, []string{
+			"enabled by vhost · Policy ns/a (f, inferred; vhost, route config)\n",
+		}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			snap := twoListeners()
+			if c.decide != nil {
+				c.decide(snap)
+			}
+			ix := compose(t, snap, fixed{"m", c.claims})
+			var b bytes.Buffer
+			opts := render.Options{Labels: provenance.Labels(ix, nil), Trailer: provenance.Notes(ix)}
+			if err := render.Text(&b, snap, chain.Effective(snap), opts); err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range c.want {
+				if !strings.Contains(b.String(), want) {
+					t.Errorf("no %q in\n%s", want, b.String())
+				}
+			}
+			if n := len(ix.Claims()); n != len(c.claims) {
+				t.Errorf("%d claims, want %d", n, len(c.claims))
+			}
+		})
 	}
 }
 
