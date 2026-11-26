@@ -1,7 +1,7 @@
 # krp — Roadmap
 
 **Last updated:** 2026-11-22
-Program: [kgateway-tooling `program.md`](https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md) (local checkout: `../kgateway-tooling-claude`)
+Program: [kgateway-tooling `program.md`](https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md)
 
 ## Goal
 
@@ -99,8 +99,8 @@ Original scope: compare the controller's intended xDS (kgateway admin `/snapshot
 
 Make the module license-clean and vendor-neutral (program P-002, D-013), and make attribution state its certainty (D-012).
 
-- Remove `testdata/enterprise/`; move the tests that read it onto OSS dumps.
-- Move the enterprise transformation type out of the core kgateway mapper, behind the `origin.Chain` seam.
+- Remove the former downstream corpus directory; move the tests that read it onto OSS dumps.
+- Move the downstream transformation type out of the core kgateway mapper, behind the `origin.Chain` seam.
 - Contributions carry a certainty; policy attribution is at most inferred and only for kgateway's own policy Kind; text output marks inferred.
 - Order (D-015): 8.1 certainty and the filter link, 8.2 corpus, 8.3 mapper. Releases (D-016): `v0.5.0` after 8.1, `v0.6.0` after 8.3.
 
@@ -167,7 +167,7 @@ Removed from the krp roadmap on 2026-11-04. kgateway-ui (Phases 2–5) and the p
 ### From the TODO list
 
 #### Global Policy Namespace
-Kgateway has a feature called "Global Policy Namespace". This feature allows the user to define Kgateway policies (e.g. TrafficPolicy, and downstream policy kinds) in a different namespace than its target. Normally, in K8S Gateway API, a `targetRef` is a LocalObjectReference, meaning that the policy needs to be deployed in the same namespace as its target. "Global Policy Namespace" allows you to select a single namespace on your K8S cluster from which policies can attach to any target.
+Kgateway has a feature called "Global Policy Namespace". This feature allows the user to define Kgateway policies (e.g. TrafficPolicy) in a different namespace than its target. Normally, in K8S Gateway API, a `targetRef` is a LocalObjectReference, meaning that the policy needs to be deployed in the same namespace as its target. "Global Policy Namespace" allows you to select a single namespace on your K8S cluster from which policies can attach to any target.
 
 Currently, I don't think `krp` is able to detect global policy attachment from policies deployed in the "Global Policy Namespace" to targets in other namespaces.
 
@@ -193,7 +193,7 @@ pkg/envoy/source  ──►  pkg/envoy/parser  ──►  pkg/envoy/model  ─�
 
 ## Test Scenarios
 
-The corpus in `testdata/scenarios/` is recorded with `hack/record-dumps.sh <version>` on OSS kgateway v2.4.7 and v2.5.0, into `envoy/kgateway-<version>/`. The earlier enterprise recordings left the repository in Phase 8.2 (D-013, D-018). Config no recording has is in hand-built dumps under `testdata/fixtures/` (router upstream filters: `upstream-extproc`).
+The corpus in `testdata/scenarios/` is recorded with `hack/record-dumps.sh <version>` on OSS kgateway v2.4.7 and v2.5.0, into `envoy/kgateway-<version>/`. The earlier downstream recordings left the repository in Phase 8.2 (D-013, D-018). Config no recording has is in hand-built dumps under `testdata/fixtures/` (router upstream filters: `upstream-extproc`).
 
 | Scenario | Description | OSS v2.4.7 / v2.5.0 |
 |----------|-------------|:---:|

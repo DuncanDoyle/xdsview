@@ -46,7 +46,7 @@ Three facts shape the design:
 1. **`<i>` is not the rule index.** It's the route's position in the virtual host after precedence sorting. The rule index is the first number after the namespace, and the second is the match index. krp's filter docs call that second number the "backend" index, which is wrong (fixed in 5.3).
 2. **Route names are ambiguous to reverse.** Names, namespaces and rule names all allow `-`. For example, `httproute-a-b-c-0-0` is either HTTPRoute `a-b` in `c` or `a` in `b-c`. Forward matching, which finds the routes of a known HTTPRoute, is unambiguous apart from rare collisions. Virtual hosts and `kube_` clusters reverse cleanly, because `~` and `_` can't appear in the names they separate.
 3. **Metadata beats names.**
-   - **`merge.<Kind>.<group>`** route metadata gives policy provenance as `{<policyField>: ["<group>/<Kind>/<ns>/<name>"]}`. It's present on every policy scenario in both corpora; the enterprise corpus uses its own Kind.
+   - **`merge.<Kind>.<group>`** route metadata gives policy provenance as `{<policyField>: ["<group>/<Kind>/<ns>/<name>"]}`. It's present on every policy scenario in both corpora; the downstream corpus uses its own Kind.
    - **`dev.kgateway.route_source`** route metadata gives `{kind, group, name, namespace, rule, match}`. It's exact, but off by default (Helm `enableRouteSourceMetadata`).
    - HTTP filters carry no source metadata.
 
@@ -135,7 +135,7 @@ The core is generic in two ways:
 - it reads any `merge.<Kind>.<group>` key, so a vendor policy Kind shows up as a `PolicyRef` without a plugin;
 - it classifies filters by Envoy `@type`, not by vendor names.
 
-The test proves what a consumer sees. A test-only mapper in `origin_test` recognises one made-up filter name in a small synthetic dump, a fixture that doesn't depend on `testdata/enterprise/` (removed before E6). After `Annotate(snap, Chain(test, Kgateway(...)))`, that filter carries the plugin's origin, and the OSS filters in the same dump carry the OSS origins. The CLI golden test also renders one plugin origin, through a test-only hook in `cmd/krp`.
+The test proves what a consumer sees. A test-only mapper in `origin_test` recognises one made-up filter name in a small synthetic dump, a fixture that doesn't depend on the former downstream corpus directory (removed before E6). After `Annotate(snap, Chain(test, Kgateway(...)))`, that filter carries the plugin's origin, and the OSS filters in the same dump carry the OSS origins. The CLI golden test also renders one plugin origin, through a test-only hook in `cmd/krp`.
 
 ## Model
 
@@ -174,7 +174,7 @@ The approach (a context-aware upgrade request versus a dial timeout) is the plan
 | 08-named-rules | Rules named `a`, `a-b` and `a-matcher-b` | `--rule <name>`, the prefix trap |
 | 04 + `route_source` | 04 recorded again with `enableRouteSourceMetadata=true` | Exact origins; Inferred and Exact must agree |
 
-Each scenario is recorded on v2.4.7 and v2.5.0 with `hack/record-dumps.sh`, which gains a Helm values option for the `route_source` variant. `prefix_rewrite` (#11) and `upstream_http_filters` (#15) aren't emitted by kgateway OSS, so they're tested with synthetic parser fixtures. The enterprise 06 dump has real upstream filters (`envoy.filters.http.late_ext_proc`, then `envoy.filters.http.upstream_codec`), and gets explicit parse and render expectations while it's in the repo.
+Each scenario is recorded on v2.4.7 and v2.5.0 with `hack/record-dumps.sh`, which gains a Helm values option for the `route_source` variant. `prefix_rewrite` (#11) and `upstream_http_filters` (#15) aren't emitted by kgateway OSS, so they're tested with synthetic parser fixtures. The downstream 06 dump has real upstream filters (`envoy.filters.http.late_ext_proc`, then `envoy.filters.http.upstream_codec`), and gets explicit parse and render expectations while it's in the repo.
 
 ## Testing
 

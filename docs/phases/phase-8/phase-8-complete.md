@@ -4,13 +4,13 @@
 **Range:** f8b4af6..c1348fb (released as `v0.6.0` at 10512f6)
 
 ## Summary
-Every attribution now states how it was derived. A policy is linked to a filter only when exactly one filter configured for the route matches it, and only for kgateway's TrafficPolicy. The enterprise dumps, goldens and transformation type left the module; neutral hand-built fixtures keep the coverage they gave. `v0.5.0` delivered E13 (certainty); this release delivers E6's cleanup. OSS output is byte-for-byte the same as `v0.5.0`.
+Every attribution now states how it was derived. A policy is linked to a filter only when exactly one filter configured for the route matches it, and only for kgateway's TrafficPolicy. The downstream dumps, goldens and transformation type left the module; neutral hand-built fixtures keep the coverage they gave. `v0.5.0` delivered E13 (certainty); this release delivers E6's cleanup. OSS output is byte-for-byte the same as `v0.5.0`.
 
 ## Sub-phases (phase record only)
 | Sub-phase | Kind | Issues | Description |
 |---|---|---|---|
 | 8.1 | planned | #32 | Certainty on contributions, policy refs and route indices; one-candidate link (`v0.5.0`) |
-| 8.2 | planned | #32 | Enterprise corpus out (D-018); `upstream-extproc` fixture |
+| 8.2 | planned | #32 | Downstream corpus out (D-018); `upstream-extproc` fixture |
 | 8.3 | planned | #32 | Policy links only for TrafficPolicy; vendor transformation type out |
 | review fixes | stabilization | phase review, four fix rounds | Evidence checks on route-name readings, policy IDs and the transformation link |
 
@@ -30,7 +30,7 @@ Fix round 4 findings #2, #4 and #5 (P1 correctness) are deferred to Phase 9 inst
   - `PolicyFilter` links only `gateway.kgateway.dev/TrafficPolicy`;
   - `Policies` skips IDs without a valid identity;
   - a route-name reading fills only fields that agree with `route_source`.
-- `testdata/enterprise/` and its goldens removed; `testdata/fixtures/upstream-extproc` added.
+- The former downstream corpus directory and its goldens removed; `testdata/fixtures/upstream-extproc` added.
 - Decisions D-012 to D-019. No new dependencies.
 
 ## Notes for later phases

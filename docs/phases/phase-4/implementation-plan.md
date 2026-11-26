@@ -9,7 +9,7 @@ The work is split into three **planned** sub-phases. Each one is a reviewable ch
 |---|---|---|
 | 4.1 | Library move and API, import boundary, client-go bump, LICENSE | — |
 | 4.2 | `-o json` and golden contract files | 4.1 |
-| 4.3 | Test corpus: OSS recordings on v2.4.7 and v2.5.0, enterprise corpus moved | 4.1 (4.2 golden files regenerate at the end) |
+| 4.3 | Test corpus: OSS recordings on v2.4.7 and v2.5.0, downstream corpus moved | 4.1 (4.2 golden files regenerate at the end) |
 
 Phase close: cross-model phase review, tag `v0.1.0`, update the program file, send cross-repo notices.
 
@@ -40,7 +40,7 @@ Phase close: cross-model phase review, tag `v0.1.0`, update the program file, se
 
 ## 4.3 — Test corpus
 
-1. **Move the enterprise corpus.** Run `git mv` on all current `testdata/scenarios/*/envoy/config_dump.json` and the 02_1/02_6/02_7/02_8 `k8s/` manifests into `testdata/enterprise/scenarios/<s>/`. Add `testdata/enterprise/README.md`, which says the dumps came from the enterprise distribution and are removed before the move into kgateway (E6).
+1. **Move the downstream corpus.** Run `git mv` on all current `testdata/scenarios/*/envoy/config_dump.json` and the 02_1/02_6/02_7/02_8 `k8s/` manifests into the former downstream corpus directory (one folder per scenario). Add a README in that directory, which says the dumps came from a downstream distribution and are removed before the move into kgateway (E6).
 2. **Parameterise the scripts.** The scenario `setup.sh` and `teardown.sh`, and the 02_1 TLS secret helpers, take a kubeconfig path and a context. They pass `--kubeconfig` and `--context` to every `kubectl` call. `teardown.sh` deletes everything `setup.sh` creates, including policies. Fix the README collection snippets the same way (the 00-simple snippet tears down by calling `setup.sh`).
 3. **Rewrite five scenarios for OSS.** 02_1 is a transformation `TrafficPolicy` on HTTPS, 02_6 a CORS `TrafficPolicy`, 02_7 ext auth (`GatewayExtension` plus a dummy Service, and a `TrafficPolicy`), and 02_8 global rate limit (`GatewayExtension` plus a dummy Service, and a `TrafficPolicy`). 06 gets new manifests: two ext_proc `GatewayExtension`s with dummy Services, and the `TrafficPolicy`s that use them. If OSS can't express part of a scenario, write it down in that scenario's README.
 4. **Recording script.** `hack/record-dumps.sh <kgateway-version>` does the following:

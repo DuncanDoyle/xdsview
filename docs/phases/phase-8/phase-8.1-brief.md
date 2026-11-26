@@ -42,7 +42,7 @@ Cases 1, 2, 4–9, 11, 13 and 14 fail before the change. Cases 3, 10 and 12 are 
 
 ## Scope
 In: `pkg/envoy/model`, `pkg/envoy/chain`, `pkg/envoy/origin`, `pkg/envoy/render`, `pkg/envoy/filter` (tests only), `cmd/krp` goldens, `internal/` where it renders these, README.
-Out: the enterprise corpus (8.2), the TrafficPolicy-only mapper rule and the transformation type (8.3), `ObjectForName` certainty, #26, #30.
+Out: the downstream corpus (8.2), the TrafficPolicy-only mapper rule and the transformation type (8.3), `ObjectForName` certainty, #26, #30.
 
 ## Plan / design impact
 None beyond D-014 to D-016. Golden diff may hold only certainty fields, the suffixes, and contributions dropped by the one-candidate rule; each dropped contribution is listed in the complete record.

@@ -117,7 +117,7 @@ type interactiveContext struct {
 //     inline below the filter name as indented JSON.
 //
 // Config resolution for an expanded filter: the key used for lookup in
-// Route.TypedPerFilterConfig is HTTPFilter.Name (e.g. "io.solo.transformation").
+// Route.TypedPerFilterConfig is HTTPFilter.Name (e.g. "acme.transformation").
 // This is the same key already used by [Render] to detect per-route activation
 // of disabled-at-HCM filters. If Route.TypedPerFilterConfig[filter.Name] is
 // non-nil it is shown (per-route override) — including an empty map {}, which

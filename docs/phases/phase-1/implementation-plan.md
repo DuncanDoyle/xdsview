@@ -196,7 +196,7 @@ func TestEnvoySnapshotTLS(t *testing.T) {
 						HCM: &model.HCMConfig{
 							RouteConfigName: "https-api",
 							HTTPFilters: []model.HTTPFilter{
-								{Name: "io.solo.transformation", Disabled: true},
+								{Name: "acme.transformation", Disabled: true},
 								{Name: "envoy.filters.http.router"},
 							},
 						},
@@ -279,7 +279,7 @@ type HCMConfig struct {
 
 // HTTPFilter is a single filter in the HTTP filter pipeline.
 type HTTPFilter struct {
-	Name        string         `json:"name"`                  // e.g. "io.solo.transformation"
+	Name        string         `json:"name"`                  // e.g. "acme.transformation"
 	TypedConfig map[string]any `json:"typedConfig,omitempty"` // raw typed config (for Phase 2)
 	Disabled    bool           `json:"disabled,omitempty"`    // filter disabled at HCM level, enabled per-route
 }
@@ -493,8 +493,8 @@ func TestParse_HTTPSWithSNI(t *testing.T) {
 		if len(fc0.HCM.HTTPFilters) < 2 {
 			t.Fatalf("expected at least 2 HTTP filters, got %d", len(fc0.HCM.HTTPFilters))
 		}
-		if fc0.HCM.HTTPFilters[0].Name != "io.solo.transformation" {
-			t.Errorf("expected first filter 'io.solo.transformation', got %q", fc0.HCM.HTTPFilters[0].Name)
+		if fc0.HCM.HTTPFilters[0].Name != "acme.transformation" {
+			t.Errorf("expected first filter 'acme.transformation', got %q", fc0.HCM.HTTPFilters[0].Name)
 		}
 
 		// RouteConfig should be joined
@@ -1256,7 +1256,7 @@ func TestRender_HTTPS_TwoFilterChains(t *testing.T) {
 						HCM: &model.HCMConfig{
 							RouteConfigName: "https-api",
 							HTTPFilters: []model.HTTPFilter{
-								{Name: "io.solo.transformation", Disabled: true},
+								{Name: "acme.transformation", Disabled: true},
 								{Name: "envoy.filters.http.router"},
 							},
 							RouteConfig: &model.RouteConfig{
@@ -1283,7 +1283,7 @@ func TestRender_HTTPS_TwoFilterChains(t *testing.T) {
 						HCM: &model.HCMConfig{
 							RouteConfigName: "https-developer",
 							HTTPFilters: []model.HTTPFilter{
-								{Name: "io.solo.transformation", Disabled: true},
+								{Name: "acme.transformation", Disabled: true},
 								{Name: "envoy.filters.http.router"},
 							},
 						},
@@ -1301,7 +1301,7 @@ func TestRender_HTTPS_TwoFilterChains(t *testing.T) {
 		"https-developer",
 		"api.example.com",
 		"developer.example.com",
-		"io.solo.transformation",
+		"acme.transformation",
 	}
 	for _, s := range checks {
 		if !strings.Contains(output, s) {
@@ -1880,7 +1880,7 @@ git commit -m "docs: add README and .gitignore"
 
 ### Background: how Kgateway registers optional filters
 
-Kgateway installs filters like `io.solo.transformation`, `extauth`, and `ratelimit` in the HCM `http_filters` list with `"disabled": true`. This registers the filter in the pipeline without activating it globally. Routes that need the filter opt-in via `typed_per_filter_config` — Envoy activates the filter only for those routes. This pattern avoids per-request overhead on routes where a policy is not configured.
+Kgateway installs filters like `acme.transformation` (illustrative name for a downstream filter), `extauth`, and `ratelimit` in the HCM `http_filters` list with `"disabled": true`. This registers the filter in the pipeline without activating it globally. Routes that need the filter opt-in via `typed_per_filter_config` — Envoy activates the filter only for those routes. This pattern avoids per-request overhead on routes where a policy is not configured.
 
 ### Fix 1 — Route-level policies (issue #1)
 

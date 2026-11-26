@@ -34,7 +34,7 @@ The Envoy `/config_dump` response contains a `configs` array with typed sections
 `@type: type.googleapis.com/envoy.admin.v3.ListenersConfigDump`
 
 Contains `dynamic_listeners` array. Each listener has network-level filter chains, each containing an HCM (`envoy.filters.network.http_connection_manager`). The HCM contains:
-- `http_filters` array — the HTTP filter pipeline (e.g. `io.solo.transformation`, `envoy.filters.http.cors`, `envoy.filters.http.router`)
+- `http_filters` array — the HTTP filter pipeline (e.g. `acme.transformation` (illustrative name for a downstream filter), `envoy.filters.http.cors`, `envoy.filters.http.router`)
 - `rds.route_config_name` — reference to the route config (VirtualHosts are NOT inline)
 
 For HTTPS listeners, each filter chain may have a `transport_socket` with TLS context for SNI-based routing.
@@ -152,7 +152,7 @@ type HeaderOperation struct {
 }
 
 type HTTPFilter struct {
-    Name        string         // e.g. "io.solo.transformation"
+    Name        string         // e.g. "acme.transformation"
     TypedConfig map[string]any // raw config, stored but not rendered in Phase 1
     Disabled    bool           // true when filter is disabled at HCM level, enabled per-route via typed_per_filter_config
 }
@@ -160,7 +160,7 @@ type HTTPFilter struct {
 
 ### Note: HCM-level disabled filters and per-route activation (Phase 1.1)
 
-Kgateway registers filters like `io.solo.transformation`, `extauth`, and `ratelimit` in the HCM `http_filters` list with `"disabled": true`. This means the filter is installed in the pipeline but inactive by default on every route. Individual routes opt-in by providing configuration in `typed_per_filter_config` keyed by the filter name — Envoy activates the filter only for those routes.
+Kgateway registers filters like `acme.transformation` (illustrative name for a downstream filter), `extauth`, and `ratelimit` in the HCM `http_filters` list with `"disabled": true`. This means the filter is installed in the pipeline but inactive by default on every route. Individual routes opt-in by providing configuration in `typed_per_filter_config` keyed by the filter name — Envoy activates the filter only for those routes.
 
 When rendering HTTP filters for a specific route, the renderer checks `typed_per_filter_config`: if a filter is `Disabled: true` at the HCM level but has an entry in the route's `typed_per_filter_config`, it is rendered as active (not grayed out).
 
@@ -191,7 +191,7 @@ Static lipgloss panels (no interactivity in Phase 1). Multiple listeners render 
 │     └─ VirtualHost: https-api~api_example_com [api.example.com]         │
 │        └─ Route: / (prefix)                                             │
 │           HTTP Filters:                                                 │
-│           ├─ [1] io.solo.transformation                                 │
+│           ├─ [1] acme.transformation                                 │
 │           └─ [2] envoy.filters.http.router                              │
 │           Backend: kube_httpbin_httpbin_8000                             │
 │                                                                         │
@@ -200,7 +200,7 @@ Static lipgloss panels (no interactivity in Phase 1). Multiple listeners render 
 │     └─ VirtualHost: https-developer~developer_example_com [...]         │
 │        └─ Route: / (prefix)                                             │
 │           HTTP Filters:                                                 │
-│           ├─ [1] io.solo.transformation                                 │
+│           ├─ [1] acme.transformation                                 │
 │           └─ [2] envoy.filters.http.router                              │
 │           Backend: kube_httpbin_httpbin_8000                             │
 ╰─────────────────────────────────────────────────────────────────────────╯

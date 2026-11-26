@@ -12,10 +12,10 @@ The module ships no vendor or edition data or names in its core (program P-002).
 
 | # | Requirement | Source |
 |---|---|---|
-| R1 | No enterprise dumps, manifests or goldens in the module. | #32, D-013, E6 |
-| R2 | OSS regression coverage stays: every behaviour the enterprise tests protect is tested on OSS dumps or hand-built fixtures, at the same boundary. | #32 |
+| R1 | No downstream dumps, manifests or goldens in the module. | #32, D-013, E6 |
+| R2 | OSS regression coverage stays: every behaviour the downstream tests protect is tested on OSS dumps or hand-built fixtures, at the same boundary. | #32 |
 | R3 | No vendor or edition names in non-test code or in hand-built fixtures. | P-002 |
-| R4 | The enterprise transformation type is recognised only through a plugin, and the `origin.Chain` seam stays able to do so. | #32 |
+| R4 | The downstream transformation type is recognised only through a plugin, and the `origin.Chain` seam stays able to do so. | #32 |
 | R5 | Every attribution carries a certainty in the model and JSON. A policy contribution is at most `inferred`. | D-012, audit P1-a, P2-a |
 | R6 | The OSS policy-field table applies only to kgateway's own policy Kind. | D-012, audit P1-b |
 | R7 | Text output marks `inferred` origins and contributions, as it marks `ambiguous`. | D-012, audit P2-b, P2-d |
@@ -32,23 +32,23 @@ The module ships no vendor or edition data or names in its core (program P-002).
 
 ### 1. Corpus (R1–R3)
 
-- Delete `testdata/enterprise/` and `testdata/golden/enterprise/`.
+- Delete the former downstream corpus directory and its goldens.
 - Tests move to OSS dumps per the inventory below. `TestParseAllScenarios` and `TestDumpJSON_Golden` walk `testdata/scenarios` only.
-- Hand-built fixtures that name a vendor policy or filter (`EnterpriseKgatewayTrafficPolicy`, `io.solo.*`, `solo.io`, `_ee`) switch to a neutral example (`AcmePolicy`, `example.com`).
+- Hand-built fixtures that name a vendor policy or filter (a downstream policy kind, filter, domain or suffix) switch to a neutral example (`AcmePolicy`, `example.com`).
 
-| Enterprise-backed test | Behaviour | OSS replacement |
+| Downstream-backed test | Behaviour | OSS replacement |
 |---|---|---|
-| `TestParseAllScenarios`, matcher 01_1–01_9 | parse every dump, matchers | already on OSS 2.4.7 and 2.5.0; drop the enterprise glob |
-| `TestParse_SimpleHTTP`, `_HTTPSWithSNI`, `_ExtAuth`, header modifiers, mirror, rewrite, CORS, rate limit | parser accuracy | OSS 00, 02_1–02_8. Enterprise-only expectations (first filter `io.solo.transformation`, key `ratelimit_ee/default`) become the OSS values |
+| `TestParseAllScenarios`, matcher 01_1–01_9 | parse every dump, matchers | already on OSS 2.4.7 and 2.5.0; drop the downstream glob |
+| `TestParse_SimpleHTTP`, `_HTTPSWithSNI`, `_ExtAuth`, header modifiers, mirror, rewrite, CORS, rate limit | parser accuracy | OSS 00, 02_1–02_8. Downstream-only expectations (the first filter is a downstream filter, and the rate-limit key has a downstream suffix) become the OSS values |
 | `TestE2E_UpstreamFilters` | router upstream filters parsed **and rendered** (#15) | No OSS dump has them. The hand-built `accuracy` fixture already covers parsing; add a render check on it |
 | `TestDumpJSON_Golden` on `06-multi-extproc` | CLI JSON for `upstreamFilters` (typed config, origin) and per-route `ExtProcPerRoute.disabled` | a neutral hand-built dump under `testdata/fixtures/`, with its own JSON golden, added before the deletion |
-| `TestFilter_E2E_EnterpriseScenarios` | narrowing | `TestFilter_E2E_OSSScenarios` covers it; drop |
-| `TestDumpJSON_Golden` (19 enterprise goldens) | JSON envelope | 106 OSS goldens |
+| the downstream-scenario filter test | narrowing | `TestFilter_E2E_OSSScenarios` covers it; drop |
+| `TestDumpJSON_Golden` (19 downstream goldens) | JSON envelope | 106 OSS goldens |
 
 ### 2. Mapper (R4, R6)
 
-- `origin/kgateway.go` drops the envoy-gloo transformation type. `transformation` maps only to OSS kgateway's `dynamic_modules/simple_mutations` instance.
-- `chain/sides.go` drops the `FilterTransformations` entry. That type then shows unknown sides (`?`), like any unlisted type.
+- `origin/kgateway.go` drops the downstream transformation type. `transformation` maps only to OSS kgateway's `dynamic_modules/simple_mutations` instance.
+- `chain/sides.go` drops the downstream transformation entry. That type then shows unknown sides (`?`), like any unlisted type.
 - `PolicyFilter` applies `policyFilterKinds`, `globalDisable` and the transformation rule only when the policy is `gateway.kgateway.dev/TrafficPolicy`. `Policies` still reads every `merge.<Kind>.<group>` key, so another Kind is listed under `policies:` but gets no contribution unless a plugin's `PolicyFilter` claims it. The source for this: kgateway writes `merge.` metadata per policy GroupKind (`irtranslator/policy.go:19,106`, `v2.5.1`).
 - A test plugin, composed with `origin.Chain`, attributes a non-OSS transformation type. This shows that R4's seam works without an exported API change.
 
@@ -69,7 +69,7 @@ The module ships no vendor or edition data or names in its core (program P-002).
 |---|---|---|
 | kgwctl (`v0.4.3`) | `parser`, `origin.Kgateway`, `origin.Annotate`, `chain.Annotate`, `filter.*`, `render.Text` with `Style`/`RouteExtra`, `RouteAnnotation.Certainty`, `NarrowedByKnown`; `Contribution` in one test | Go API: additive. JSON: `certainty` on each contribution and policy, and `indexCertainty` on route origins built partly from the name. Text: ` (inferred)` on origin and contribution lines, and `(partly from name)` on such indices, so goldens update. All 29 contribution kinds in its goldens are TrafficPolicy, so the Kind restriction drops none. A contribution where several filters match the field is dropped (D-014); dump 09 keeps its links (D-017). |
 | Snellius | none (no import today) | none. E4 can import `v0.5.0` directly. |
-| enterprise dumps (anyone) | transformation attribution, sides | lost without a plugin (D-013) |
+| downstream dumps (anyone) | transformation attribution, sides | lost without a plugin (D-013) |
 
 Exported Go API: no removals or signature changes. Fields are added to `Contribution`, `PolicyRef` and `RouteOrigin`. All three stay comparable (`Certainty` is an integer type).
 
@@ -80,4 +80,4 @@ n/a: read-only tool.
 ## Risks
 
 - A consumer that compares rendered text with string matching breaks on the suffix. kgwctl is the only one, and it is told before release.
-- Tests repointed to OSS could lose a subtle enterprise-only parser path. The inventory found none beyond upstream filters and vendor names.
+- Tests repointed to OSS could lose a subtle downstream-only parser path. The inventory found none beyond upstream filters and vendor names.

@@ -90,18 +90,18 @@ Golden files under `testdata/golden/` hold the JSON for each scenario dump. They
 
 ## Test corpus (D-003)
 
-Every existing dump was recorded on Solo Enterprise for kgateway (every one contains `io.solo.*` filters). Scenarios 02_1, 02_6, 02_7 and 02_8 also use enterprise policy APIs.
+Every existing dump was recorded on a downstream distribution (every one contains downstream filters). Scenarios 02_1, 02_6, 02_7 and 02_8 also use downstream policy APIs.
 
 | Corpus | Location | Source |
 |---|---|---|
 | OSS (main) | `testdata/scenarios/<s>/envoy/kgateway-v2.4.7/config_dump.json` and `.../kgateway-v2.5.0/...` | re-recorded on kind |
-| Enterprise (kept) | `testdata/enterprise/scenarios/<s>/` | existing dumps and manifests, moved as-is |
+| Downstream (kept) | the former downstream corpus directory (one folder per scenario) | existing dumps and manifests, moved as-is |
 
 - The OSS manifests of 02_1 (transformation), 02_6 (CORS), 02_7 (ext auth) and 02_8 (rate limit) are rewritten to OSS `TrafficPolicy` and `GatewayExtension`. Ext auth and rate limit only need a backing Service to exist, because Envoy's filter config doesn't depend on a reachable server. Scenario 06 (multiple ext_proc filters) has a dump but no manifests, so it gets new OSS manifests: two ext_proc `GatewayExtension`s and their `TrafficPolicy`s.
 - A recording script builds a kind cluster with its own kubeconfig file, which every `kubectl`/`helm` call receives through `--kubeconfig` together with `--context`. It installs the given kgateway version with Helm. The scenario scripts, including the TLS secret helpers, take kubeconfig and context as arguments.
 - Each scenario is recorded in isolation. Setup runs, then a wait until its HTTPRoute and policies report `Accepted`. After that, `/config_dump` is polled until it holds a route for the scenario's HTTPRoute and two reads in a row are equal. Only then is the dump written, and teardown runs before the next scenario starts.
 - The parser e2e and filter e2e tests run over every dump in both corpora. Each scenario has a table of expected route names derived from its manifests. The filter tests assert the exact set that is kept, with and without `--rule`, and that other HTTPRoutes' routes are dropped. Passing on v2.4.7 and v2.5.0 confirms the route naming convention still holds.
-- `testdata/enterprise/README.md` states that the folder is removed before the move into kgateway (E6).
+- A README in the former downstream corpus directory states that the folder is removed before the move into kgateway (E6).
 
 ## Compatibility
 
@@ -123,7 +123,7 @@ Every existing dump was recorded on Solo Enterprise for kgateway (every one cont
 2. The import-boundary test passes.
 3. CLI text output is byte-identical to the base for all scenarios.
 4. `-o json` works and golden files cover every dump.
-5. The OSS corpus is recorded on v2.4.7 and v2.5.0, and the enterprise corpus is moved. Tests pass on both.
+5. The OSS corpus is recorded on v2.4.7 and v2.5.0, and the downstream corpus is moved. Tests pass on both.
 6. `LICENSE` is added and client-go is at v0.36.2.
 7. A test program in a separate module imports `pkg/envoy/...` through a `replace` directive and builds, which proves the API is usable from outside.
 8. Phase close tags `v0.1.0`, updates the program file, and sends cross-repo notices to kgwctl (E1) and kgateway-ui (E4).
