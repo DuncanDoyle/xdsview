@@ -78,15 +78,37 @@ func TestNothingImportsRemovedPackages(t *testing.T) {
 }
 
 func TestCoreImportsOnlyStdlib(t *testing.T) {
+	var paths []string
 	for _, pkg := range core {
+		paths = append(paths, modulePrefix+pkg)
+	}
+	checkStdlibOnly(t, paths, paths)
+}
+
+// contract holds the packages consumers import for provenance (design §7). They
+// may import only the standard library, the core and provenance.
+var contract = []string{modulePrefix + "provenance", "github.com/DuncanDoyle/xdsview/pkg/adapter/kgateway"}
+
+func TestContractImportsOnlyStdlib(t *testing.T) {
+	allowed := []string{modulePrefix + "provenance"}
+	for _, pkg := range core {
+		allowed = append(allowed, modulePrefix+pkg)
+	}
+	checkStdlibOnly(t, contract, allowed)
+}
+
+// checkStdlibOnly fails for each non-standard dependency of pkgs outside allowed.
+func checkStdlibOnly(t *testing.T, pkgs, allowed []string) {
+	t.Helper()
+	for _, pkg := range pkgs {
 		out, err := exec.Command("go", "list", "-deps",
-			"-f", "{{if not .Standard}}{{.ImportPath}}{{end}}", modulePrefix+pkg).CombinedOutput()
+			"-f", "{{if not .Standard}}{{.ImportPath}}{{end}}", pkg).CombinedOutput()
 		if err != nil {
 			t.Fatalf("go list %s: %v\n%s", pkg, err, out)
 		}
 		for _, dep := range strings.Fields(string(out)) {
-			if !slices.Contains(core, strings.TrimPrefix(dep, modulePrefix)) {
-				t.Errorf("%s depends on %s; core packages may import only the standard library and pkg/envoy core", pkg, dep)
+			if dep != pkg && !slices.Contains(allowed, dep) {
+				t.Errorf("%s depends on %s; it may import only the standard library and %v", pkg, dep, allowed)
 			}
 		}
 	}
