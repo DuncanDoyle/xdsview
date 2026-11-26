@@ -43,6 +43,7 @@ kgwctl and Snellius reviewed this design at `8d381f6`. These changes are visible
 32. krp JSON: `selection.unresolved` exists; `selection.query` has `route` (`model.Ref`), optional `ruleIndex` (integer) and `ruleName`; claims and links are projected onto the retained snapshot (§7).
 33. `Input.Complete` is false when any listed reading, at any certainty, is `Incomplete`.
 34. A route config use that joined no source is an input with reason `unresolved`. A route config source block holds the inputs of every use of it.
+35. A route's direct response is a `backendSource` input, always a gap (`notCoverable`). This changes results only (§5 Stability).
 35. `Select` counts readings as `Resolve` merges them. One reading at `ambiguous` certainty stays ambiguous.
 
 ## Goal
@@ -373,7 +374,7 @@ type Candidate struct {
 `Inputs(block)` enumerates every input the block shows or relies on, sorted by subject, kind, slot, level and cluster, and checks each one against the claim kinds that can cover it. `Dependencies(block)` derives from the same enumeration: its `Gaps` are the inputs with status `gap`. Both are fail-closed: there is no per-case gap rule. `block` is any occurrence ID.
 
 **1. Inputs.**
-- Every listener, virtual host, route and weighted backend in or above the block, and every mirror cluster of such a route.
+- Every listener, virtual host, route and weighted backend in or above the block, every mirror cluster of such a route, and its direct response.
 - Every network filter other than the HCM in a filter chain in or above the block.
 - Every HTTP filter slot, downstream and router upstream, of every HCM serving the block: the HCM in or above it, or for a route config source block, every HCM whose use resolves to it.
 - Every per-filter config entry on the source a use in or above the block resolves to (or the source block itself), and on every virtual host, route and weighted backend in or above the block. An entry with no matching installed slot is an input too.
@@ -396,6 +397,7 @@ A source block is the union of its uses' blocks. That duplicates the use blocks 
 | route or weighted backend with a cluster | `backendSource` |
 | mirror cluster of a route | `backendSource` on the route naming that mirror (`ResolveMirror`) |
 | route whose cluster is picked per request (header, specifier plugin) | nothing: always a gap |
+| route with a direct response (its `backendSource` input) | nothing: always a gap. It may come from an object other than the HTTPRoute (kgateway: a DirectResponse resource) |
 | network filter other than the HCM | nothing: always a gap |
 | HTTP filter slot, downstream or upstream, other than the router | `extensionSource` |
 | downstream slot that runs by default, not the router, not marked a helper | also: for each route checked, a kept `filterLink` on that route placing a listener-level `policyRecord` on the slot |
