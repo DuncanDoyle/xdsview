@@ -227,7 +227,7 @@ type Gap struct {
 - Every per-filter config entry at route config level (the source a use in or above the block resolves to, inline or RDS, or the source block itself), and at virtual host, route and weighted backend level in or above the block. An entry with no matching installed slot is an input too.
 - A static source that an inline source records as `Reported` is the same source as that inline config: its block has the inline source's inputs, the inline source's listener lineage included, not those of an unused source. A source with no use is its own block of inputs: its per-filter config entries.
 
-**Bootstrap.** A static listener (`Listener.Static`), everything in it, its inline route configs and their `Reported` static copies come from the proxy's startup config, not from Kubernetes, so no claim can cover them. They are still inputs, with status `bootstrap`: never a gap, and they add no objects. Dynamic (xDS) listeners are unaffected.
+**Bootstrap.** A static listener (`Listener.Static`), everything in it, its inline route configs and their `Reported` static copies come from the proxy's startup config, not from Kubernetes, so no claim can cover them. They are still inputs, with status `bootstrap`: never a gap, and they add no objects. Dynamic (xDS) listeners are unaffected. A route config that a static listener fetches over RDS is dynamic: its virtual hosts, routes, backends and per-filter config keep their normal inputs and gaps.
 
 **2. Cover.** An input is covered only by claims at inferred or exact. A filter link covers only on the route being checked; the routes checked are the block's routes beneath the input, or all of them when the block holds none.
 

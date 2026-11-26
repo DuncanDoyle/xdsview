@@ -478,6 +478,31 @@ func TestDependencies_Bootstrap(t *testing.T) {
 	}
 }
 
+// TestDependencies_StaticListenerRDS (Codex r6 P1): a route config that a
+// static listener fetches over RDS is dynamic. Its virtual hosts, routes,
+// backends and per-filter config keep their gaps; the listener and its slots stay bootstrap.
+func TestDependencies_StaticListenerRDS(t *testing.T) {
+	snap := twoListeners()
+	snap.Listeners[0].Static = true
+	ix := compose(t, snap, fixed{"m", nil})
+	d := ix.Dependencies(route0)
+	for _, g := range []provenance.Gap{
+		{Subject: vhost0, Kind: provenance.KindHostSource},
+		{Subject: route0, Kind: provenance.KindRouteSource},
+		{Subject: route0, Kind: provenance.KindBackendSource},
+		{Subject: route0, Kind: provenance.KindPolicyRecord, Slot: slot0, Level: provenance.LevelRoute},
+	} {
+		if !slices.Contains(d.Gaps, g) {
+			t.Errorf("gaps %v lack %+v", d.Gaps, g)
+		}
+	}
+	for _, g := range d.Gaps {
+		if g.Subject == l0 || g.Subject == slot0 {
+			t.Errorf("bootstrap subject is a gap: %+v", g)
+		}
+	}
+}
+
 // TestRecords lists a route's records at every level, most specific first.
 func TestRecords(t *testing.T) {
 	snap, _ := parser.Parse(strings.NewReader(depsDump), parser.Options{})

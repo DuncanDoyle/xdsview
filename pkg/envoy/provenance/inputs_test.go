@@ -37,6 +37,7 @@ func TestInputs_Status(t *testing.T) {
 	snap := twoListeners()
 	snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes[1].MirrorClusters = []string{"m"}
 	snap.Listeners[1].Static = true
+	snap.RouteConfigs[1].Kind = model.SourceInline // L1's routes are bootstrap
 	// R0 reads two ways; R1 has only an unknown reading; L0's listener has a dropped claim.
 	ix := compose(t, snap, fixed{"m", []provenance.Claim{
 		source(route0, routeA, model.Inferred), source(route0, routeB, model.Inferred),
