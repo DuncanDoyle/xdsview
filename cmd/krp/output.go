@@ -76,7 +76,7 @@ func newSelection(snap *model.Snapshot, q kgateway.Query, sel kgateway.Selection
 		Unresolved: []routeName{},
 	}
 	for _, n := range sel.Narrowed {
-		if len(n.Kept) == 1 && matches(q, n.Kept[0].Assertion.(provenance.RouteSource)) {
+		if r, ok := oneReading(n.Kept); ok && matches(q, r) {
 			out.Routes = append(out.Routes, n.Route)
 		}
 	}
@@ -115,6 +115,22 @@ func narrowed(snap *model.Snapshot, ns []provenance.Narrowing, selected []model.
 // matches reports whether a reading is the queried HTTPRoute and rule.
 func matches(q kgateway.Query, o provenance.RouteSource) bool {
 	return o.Route == q.Route && (q.RuleIndex == nil || o.RuleIndex == *q.RuleIndex) && (q.RuleName == "" || o.RuleName == q.RuleName)
+}
+
+// oneReading returns the reading kept claims share, if they name one. Like
+// provenance.Resolve, it compares route, rule index, rule name and match index.
+func oneReading(kept []provenance.Claim) (provenance.RouteSource, bool) {
+	if len(kept) == 0 {
+		return provenance.RouteSource{}, false
+	}
+	first := kept[0].Assertion.(provenance.RouteSource)
+	for _, c := range kept[1:] {
+		o := c.Assertion.(provenance.RouteSource)
+		if o.Route != first.Route || o.RuleIndex != first.RuleIndex || o.RuleName != first.RuleName || o.MatchIndex != first.MatchIndex {
+			return provenance.RouteSource{}, false
+		}
+	}
+	return first, true
 }
 
 // routeNames maps every route of snap to its name and its virtual host's.
