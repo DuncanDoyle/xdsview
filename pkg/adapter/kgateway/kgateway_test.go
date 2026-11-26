@@ -172,6 +172,35 @@ func TestP1Fixes(t *testing.T) {
 	}
 }
 
+// markerVhost is a virtual host whose name holds a route-name marker.
+const markerVhost = "listener~80~x-route-0-httproute-a"
+
+// markerDump has one route of HTTPRoute ns/web under markerVhost.
+var markerDump = `{"configs": [
+ {"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump", "dynamic_listeners": [
+  {"name": "listener~80", "active_state": {"listener": {"name": "listener~80", "filter_chains": [{"name": "listener~80", "filters": [
+   {"name": "envoy.filters.network.http_connection_manager", "typed_config": {"rds": {"route_config_name": "listener~80"}, "http_filters": [
+    {"name": "envoy.filters.http.router", "typed_config": {"@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"}}]}}]}]}}}]},
+ {"@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump", "dynamic_route_configs": [
+  {"route_config": {"name": "listener~80", "virtual_hosts": [{"name": "` + markerVhost + `", "domains": ["*"], "routes": [
+   {"name": "` + markerVhost + `-route-0-httproute-web-ns-0-0-matcher-0", "match": {"prefix": "/"}, "route": {"cluster": "kube_ns_web_80"}}]}]}}]}]}`
+
+// TestRouteName_VhostMarker (Codex P1): a marker inside the virtual host name
+// neither hides the route's source nor adds readings.
+func TestRouteName_VhostMarker(t *testing.T) {
+	ix := compose(t, parse(t, markerDump))
+	web := model.Ref{Group: "gateway.networking.k8s.io", Kind: "HTTPRoute", Namespace: "ns", Name: "web"}
+	res := provenance.Resolve[provenance.RouteSource](ix, "L0/C0/N0/RC/V0/R0")
+	if res.Certainty != model.Inferred || len(res.Candidates) != 1 || res.Candidates[0].Route != web {
+		t.Errorf("readings = %s %+v, want inferred %v only", res.Certainty, res.Candidates, web)
+	}
+	// A bare name has no virtual host, so its answer lists every reading.
+	a := kgateway.Names().Name(provenance.NameRoute, markerVhost+"-route-0-httproute-web-ns-0-0-matcher-0")
+	if !slices.Contains(a.Candidates, web) {
+		t.Errorf("Names = %+v, want %v among the candidates", a, web)
+	}
+}
+
 // TestNames (R9): cluster and route names give certainty and candidates,
 // each carrying its kind; an ambiguous route name lists every reading.
 // Route config and listener names carry no object.

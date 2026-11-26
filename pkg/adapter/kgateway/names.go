@@ -39,7 +39,7 @@ func (names) Name(kind provenance.NameKind, name string) provenance.NameAnswer {
 		}
 	case provenance.NameRoute:
 		var refs []model.Ref
-		for _, r := range parseRouteName(name) {
+		for _, r := range parseAnyRouteName(name) {
 			if !slices.Contains(refs, r.Route) {
 				refs = append(refs, r.Route)
 			}
@@ -85,16 +85,47 @@ func listenerFromName(name string) (provenance.ListenerSource, bool) {
 	return provenance.ListenerSource{Section: name}, true
 }
 
-// routeName captures the HTTPRoute part of a route name and its final match index:
-// <vhost>-route-<N>-httproute-<name>-<ns>-<rule>-<match>[-<ruleName>]-matcher-<match>.
-var routeName = regexp.MustCompile(`-route-\d+-httproute-(.+)-matcher-(\d+)$`)
+// routeRest captures the HTTPRoute part and final match index of a route name
+// after its "<vhost>-route-<N>-" prefix (kgateway irtranslator/route.go):
+// httproute-<name>-<ns>-<rule>-<match>[-<ruleName>]-matcher-<match>.
+var routeRest = regexp.MustCompile(`^httproute-(.+)-matcher-(\d+)$`)
 
-// parseRouteName returns every reading of a route name's HTTPRoute part.
+// parseRouteName returns every reading of a route name under virtual host
+// vhost, parsed after the "<vhost>-route-<N>-" prefix. anchored is false when
+// the name lacks that prefix; the readings then come from [parseAnyRouteName].
+func parseRouteName(vhost, name string) (readings []provenance.RouteSource, anchored bool) {
+	if rest, ok := cutRoutePrefix(vhost, name); ok {
+		return parseRouteRest(rest), true
+	}
+	return parseAnyRouteName(name), false
+}
+
+// parseAnyRouteName reads a name without its virtual host: every
+// "-route-<N>-" in it may end the prefix, so it returns the readings of each.
+func parseAnyRouteName(name string) []provenance.RouteSource {
+	var out []provenance.RouteSource
+	for i := 0; ; i++ {
+		j := strings.Index(name[i:], "-route-")
+		if j < 0 {
+			return out
+		}
+		i += j
+		if rest, ok := cutRoutePrefix(name[:i], name); ok {
+			for _, r := range parseRouteRest(rest) {
+				if !slices.Contains(out, r) {
+					out = append(out, r)
+				}
+			}
+		}
+	}
+}
+
+// parseRouteRest returns every reading of a route name's HTTPRoute part.
 // Names, namespaces and rule names may all contain "-", so a name can have
 // several readings. A rule name is a Gateway API SectionName, which may
 // contain dots (Phase 8 #2).
-func parseRouteName(name string) []provenance.RouteSource {
-	m := routeName.FindStringSubmatch(name)
+func parseRouteRest(rest string) []provenance.RouteSource {
+	m := routeRest.FindStringSubmatch(rest)
 	if m == nil {
 		return nil
 	}

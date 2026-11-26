@@ -120,7 +120,7 @@ func (e *emitter) hcm(hcm model.HCMConfig, src model.RouteConfigSource, listener
 		e.vhost(vh)
 		vhRecords := e.policies(vh.ID, provenance.LevelVirtualHost, vh.Metadata)
 		for _, r := range vh.Routes {
-			e.route(r)
+			e.route(vh.Name, r)
 			routeRecords := e.policies(r.ID, provenance.LevelRoute, r.Metadata)
 			for _, recs := range [][]record{routeRecords, vhRecords, srcRecords, listenerRecords} {
 				for _, rec := range recs {
@@ -168,16 +168,18 @@ func (e *emitter) vhost(vh model.VirtualHost) {
 	e.add(vh.ID, provenance.HostSource{Hostname: strings.ReplaceAll(vh.Name[i+1:], "_", ".")}, model.Inferred, nameEvidence(vh.ID, "name", nil))
 }
 
-// route claims a route's HTTPRoute readings and its backends.
-func (e *emitter) route(r model.Route) {
-	if o, fromName, ok := routeFromMetadata(r); ok {
+// route claims a route's HTTPRoute readings and its backends. vhost is the
+// name of the route's virtual host.
+func (e *emitter) route(vhost string, r model.Route) {
+	if o, fromName, ok := routeFromMetadata(vhost, r); ok {
 		ev := []provenance.Evidence{{Kind: provenance.EvidenceMetadata, Subject: r.ID, Field: "metadata.filter_metadata." + routeSourceKey, Object: &o.Route}}
 		if fromName {
 			ev = append(ev, nameEvidence(r.ID, "name", &o.Route))
 		}
 		e.add(r.ID, o, model.Exact, ev...)
 	} else {
-		for _, o := range parseRouteName(r.Name) {
+		readings, _ := parseRouteName(vhost, r.Name)
+		for _, o := range readings {
 			e.add(r.ID, o, model.Inferred, nameEvidence(r.ID, "name", &o.Route))
 		}
 	}

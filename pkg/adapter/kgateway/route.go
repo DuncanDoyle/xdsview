@@ -14,7 +14,8 @@ import (
 //
 // Indices the metadata lacks come from the route name, read with the
 // metadata's name and namespace, so that read is unambiguous; fromName says so.
-func routeFromMetadata(r model.Route) (o provenance.RouteSource, fromName, ok bool) {
+// vhost is the name of the route's virtual host.
+func routeFromMetadata(vhost string, r model.Route) (o provenance.RouteSource, fromName, ok bool) {
 	md, ok := r.Metadata[routeSourceKey].(map[string]any)
 	if !ok {
 		return o, false, false
@@ -57,7 +58,8 @@ func routeFromMetadata(r model.Route) (o provenance.RouteSource, fromName, ok bo
 		}
 	}
 	// Fill the rest from the name, restricted to this route's identity.
-	for _, c := range parseRouteName(r.Name) {
+	readings, _ := parseRouteName(vhost, r.Name)
+	for _, c := range readings {
 		if c.Route != ref {
 			continue
 		}
@@ -93,13 +95,22 @@ func conflicts(o, c provenance.RouteSource) bool {
 // marker inside the vhost name can't match. A name in another format is
 // returned whole.
 func routePart(vhost, name string) string {
+	if rest, ok := cutRoutePrefix(vhost, name); ok {
+		return rest
+	}
+	return name
+}
+
+// cutRoutePrefix returns name without its "<vhost>-route-<n>-" prefix, and
+// whether it had one.
+func cutRoutePrefix(vhost, name string) (string, bool) {
 	rest, ok := strings.CutPrefix(name, vhost+"-route-")
 	if !ok {
-		return name
+		return "", false
 	}
 	n, after, ok := strings.Cut(rest, "-")
 	if _, digits := index(n); !ok || !digits {
-		return name
+		return "", false
 	}
-	return after
+	return after, true
 }
