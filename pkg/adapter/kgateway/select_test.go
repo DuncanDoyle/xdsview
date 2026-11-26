@@ -141,3 +141,25 @@ func TestNarrow(t *testing.T) {
 		t.Errorf("no Known narrowed %+v", got)
 	}
 }
+
+// TestSelect_UnresolvedNeedsRouteSegment checks that a route name without a
+// "-route-<n>-" segment is never listed as unresolved, as kgwctl requires.
+func TestSelect_UnresolvedNeedsRouteSegment(t *testing.T) {
+	routes := []model.Route{
+		{Name: "custom-httproute-a-b-c-0-0-Bad_Rule-matcher-0"},        // no segment: not a kgateway route name
+		{Name: "other-route-7-httproute-a-b-c-0-0-Bad_Rule-matcher-0"}, // segment after a foreign prefix
+	}
+	hcm := &model.HCMConfig{
+		HTTPFilters:    []model.HTTPFilter{{Name: "envoy.filters.http.router", Type: snaptest.RouterType}},
+		RouteConfigUse: model.RouteConfigUse{Source: "RD0", State: model.RouteConfigFound},
+		RouteConfig:    &model.RouteConfig{Name: "rc", VirtualHosts: []model.VirtualHost{{Name: "v", Routes: routes}}},
+	}
+	snap := snaptest.IDs(&model.Snapshot{
+		Listeners:    []model.Listener{{Name: "listener~80", State: model.ListenerState{Status: model.ListenerActive}, FilterChains: []model.NetworkFilterChain{{HCM: hcm}}}},
+		RouteConfigs: []model.RouteConfigSource{{ID: "RD0", Kind: model.SourceDynamic, Name: "rc"}},
+	})
+	sel := kgateway.Select(compose(t, snap), snap, kgateway.Query{Route: httpRoute("c", "a-b")})
+	if want := []model.ID{route(1)}; !slices.Equal(sel.Unresolved, want) {
+		t.Errorf("Unresolved = %v, want %v", sel.Unresolved, want)
+	}
+}

@@ -92,13 +92,22 @@ func conflicts(o, c provenance.RouteSource) bool {
 }
 
 // routePart strips "<vhost>-route-<n>-" from a kgateway route name, so a
-// marker inside the vhost name can't match. A name in another format is
-// returned whole.
+// marker inside the vhost name can't match. Without that prefix it cuts after
+// the first "-route-<n>-" segment, and returns "" when there is none.
 func routePart(vhost, name string) string {
 	if rest, ok := cutRoutePrefix(vhost, name); ok {
 		return rest
 	}
-	return name
+	for i := 0; ; i++ {
+		j := strings.Index(name[i:], "-route-")
+		if j < 0 {
+			return ""
+		}
+		i += j
+		if rest, ok := cutRoutePrefix(name[:i], name); ok {
+			return rest
+		}
+	}
 }
 
 // cutRoutePrefix returns name without its "<vhost>-route-<n>-" prefix, and
