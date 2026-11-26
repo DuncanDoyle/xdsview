@@ -25,7 +25,10 @@ func TestDependencies_Oracle(t *testing.T) {
 		o := newOracle(t, snap)
 		missing := map[string]bool{}
 		for _, block := range o.blocks {
-			inputs := provenance.Inputs(ix, model.ID(block))
+			var inputs []provenance.Gap
+			for _, in := range ix.Inputs(model.ID(block)) {
+				inputs = append(inputs, in.Gap)
+			}
 			for _, it := range o.items {
 				if o.shows(block, it) && !o.matches(block, it, inputs) {
 					missing[block+": "+it.kind+" "+it.subject+" "+it.name] = true

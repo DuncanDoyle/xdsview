@@ -119,6 +119,59 @@ type Gap struct {
 	Cluster string   // backendSource only: the mirror cluster, empty for the route's own backend
 }
 
+// Input is one thing a block shows or relies on (see [Index.Dependencies]),
+// and whether claims cover it. Gap names it, and is what Dependencies reports
+// when Status is [InputGap].
+type Input struct {
+	Gap
+	Status InputStatus
+	Reason GapReason // gap only
+	// Candidates is set for a routeSource input: every RouteSource claim on
+	// the route, at any certainty. Cluster state is never consulted.
+	Candidates []Candidate
+}
+
+// InputStatus says whether an input is covered.
+type InputStatus string
+
+// Input statuses.
+const (
+	InputCovered   InputStatus = "covered"   // claims at inferred or exact cover it
+	InputGap       InputStatus = "gap"       // no claim covers it
+	InputBootstrap InputStatus = "bootstrap" // from the proxy's startup config: nothing to attribute
+)
+
+// GapReason says why an input is a gap.
+type GapReason string
+
+// Gap reasons.
+const (
+	ReasonAmbiguous    GapReason = "ambiguous"    // several candidates at the highest certainty
+	ReasonNoEvidence   GapReason = "noEvidence"   // no claim at inferred or better
+	ReasonDropped      GapReason = "dropped"      // Compose dropped a claim of this kind on the subject
+	ReasonNotCoverable GapReason = "notCoverable" // no claim kind can cover it, e.g. a network filter
+)
+
+// Candidate is one reading of a route: the HTTPRoute it names and the claim,
+// with its evidence.
+type Candidate struct {
+	Ref   model.Ref
+	Claim Claim
+}
+
+// Inputs returns every input of block (any occurrence ID), sorted by subject,
+// kind, slot, level and cluster. [Index.Dependencies] derives from it: its
+// gaps are the inputs with status [InputGap].
+func (ix *Index) Inputs(block model.ID) []Input {
+	_, inputs := ix.inputs(block)
+	out := make([]Input, 0, len(inputs))
+	for _, in := range inputs {
+		out = append(out, in.Input)
+	}
+	slices.SortFunc(out, func(a, b Input) int { return compareGap(a.Gap, b.Gap) })
+	return out
+}
+
 // Dependencies returns the evidence scope of block (any occurrence ID). It is
 // fail-closed (design §5): it enumerates every input the block shows or
 // relies on, and each input no claim covers is a [Gap].
@@ -180,56 +233,51 @@ func (ix *Index) Dependencies(block model.ID) Dependencies {
 			add(ix.claims[i])
 		}
 	}
-	gaps := map[Gap]bool{}
+	var deps Dependencies
 	for _, in := range inputs {
-		if in.bootstrap {
-			continue
-		}
-		if !in.covered {
-			gaps[in.gap] = true
-			continue
+		if in.Status == InputGap {
+			deps.Gaps = append(deps.Gaps, in.Gap)
 		}
 		for _, i := range in.covers {
 			add(ix.claims[i])
 		}
 	}
-	for _, c := range ix.dropped {
-		if scope[c.Subject] && c.Assertion != nil && !d.bootstrap(c.Subject) {
-			gaps[Gap{Subject: c.Subject, Kind: kindOf(c.Assertion)}] = true
-		}
-	}
-	var deps Dependencies
 	deps.Objects = slices.SortedFunc(maps.Keys(objects), func(a, b Dependent) int {
 		return strings.Compare(refKey(a.Object)+"\x00"+a.Kind, refKey(b.Object)+"\x00"+b.Kind)
 	})
-	deps.Gaps = slices.SortedFunc(maps.Keys(gaps), func(a, b Gap) int {
-		if c := model.CompareID(a.Subject, b.Subject); c != 0 {
-			return c
-		}
-		if c := strings.Compare(a.Kind, b.Kind); c != 0 {
-			return c
-		}
-		if c := model.CompareID(a.Slot, b.Slot); c != 0 {
-			return c
-		}
-		if c := strings.Compare(string(a.Level), string(b.Level)); c != 0 {
-			return c
-		}
-		return strings.Compare(a.Cluster, b.Cluster)
-	})
+	slices.SortFunc(deps.Gaps, compareGap)
 	return deps
+}
+
+func compareGap(a, b Gap) int {
+	if c := model.CompareID(a.Subject, b.Subject); c != 0 {
+		return c
+	}
+	if c := strings.Compare(a.Kind, b.Kind); c != 0 {
+		return c
+	}
+	if c := model.CompareID(a.Slot, b.Slot); c != 0 {
+		return c
+	}
+	if c := strings.Compare(string(a.Level), string(b.Level)); c != 0 {
+		return c
+	}
+	return strings.Compare(a.Cluster, b.Cluster)
 }
 
 func refKey(r model.Ref) string {
 	return r.Group + "\x00" + r.Kind + "\x00" + r.Namespace + "\x00" + r.Name
 }
 
-// input is one thing a block shows or relies on, and the claims covering it.
+// input is an [Input] and the claims covering it.
 type input struct {
-	gap       Gap   // reported when not covered
-	covered   bool  // claims at inferred or exact cover it
-	covers    []int // indices of the claims that can cover it
-	bootstrap bool  // from the proxy's startup config: never a gap
+	Input
+	covers []int // indices of the covering claims; none for a gap or bootstrap input
+}
+
+// notCoverable is an input no claim kind can cover.
+func notCoverable(g Gap) input {
+	return input{Input: Input{Gap: g, Status: InputGap, Reason: ReasonNotCoverable}}
 }
 
 // depIndex is the snapshot's structure as Dependencies reads it.
@@ -406,7 +454,7 @@ func (ix *Index) inputs(block model.ID) (map[model.ID]bool, []input) {
 			fc := d.chains[id]
 			for _, nf := range fc.NetworkFilters {
 				if fc.HCM == nil || nf.ID != fc.HCM.ID {
-					out = append(out, input{gap: Gap{Subject: nf.ID, Kind: KindExtensionSource}})
+					out = append(out, notCoverable(Gap{Subject: nf.ID, Kind: KindExtensionSource}))
 				}
 			}
 		case subjectHCM:
@@ -425,10 +473,10 @@ func (ix *Index) inputs(block model.ID) (map[model.ID]bool, []input) {
 				out = append(out, ix.alternative(id, KindBackendSource))
 			} else if a.ClusterHeader != "" || a.ClusterSpecifierPlugin != "" || a.InlineClusterSpecifierPlugin != nil {
 				// The cluster is picked per request: no backend claim covers it.
-				out = append(out, input{gap: Gap{Subject: id, Kind: KindBackendSource}})
+				out = append(out, notCoverable(Gap{Subject: id, Kind: KindBackendSource}))
 			}
 			for _, m := range r.MirrorClusters {
-				out = append(out, input{gap: Gap{Subject: id, Kind: KindBackendSource, Cluster: m}})
+				out = append(out, notCoverable(Gap{Subject: id, Kind: KindBackendSource, Cluster: m}))
 			}
 			inRoutes[d.owner[id].hcm.ID] = append(inRoutes[d.owner[id].hcm.ID], id)
 			inRoutes[d.parent[id]] = append(inRoutes[d.parent[id]], id)
@@ -455,7 +503,7 @@ func (ix *Index) inputs(block model.ID) (map[model.ID]bool, []input) {
 		}
 		if !used {
 			for range d.sources[block].TypedPerFilterConfig {
-				out = append(out, input{gap: Gap{Subject: block, Kind: KindPolicyRecord, Level: LevelRouteConfig}})
+				out = append(out, notCoverable(Gap{Subject: block, Kind: KindPolicyRecord, Level: LevelRouteConfig}))
 			}
 		}
 	}
@@ -464,7 +512,7 @@ func (ix *Index) inputs(block model.ID) (map[model.ID]bool, []input) {
 		for name := range pfc {
 			slots := h.slots[name]
 			if len(slots) == 0 {
-				out = append(out, input{gap: Gap{Subject: at, Kind: KindPolicyRecord, Slot: h.upstreamBy[name], Level: level}})
+				out = append(out, notCoverable(Gap{Subject: at, Kind: KindPolicyRecord, Slot: h.upstreamBy[name], Level: level}))
 			}
 			for _, s := range slots {
 				out = append(out, ix.placement(Gap{Subject: at, Kind: KindPolicyRecord, Slot: s, Level: level}, at, s, routes))
@@ -507,14 +555,44 @@ func (ix *Index) inputs(block model.ID) (map[model.ID]bool, []input) {
 				if s := h.slots[name]; len(s) > 0 {
 					slot = s[0]
 				}
-				out = append(out, input{gap: Gap{Subject: id, Kind: KindPolicyRecord, Slot: slot}})
+				out = append(out, notCoverable(Gap{Subject: id, Kind: KindPolicyRecord, Slot: slot}))
 			}
 		}
 	}
-	for i := range out {
-		out[i].bootstrap = d.bootstrap(out[i].gap.Subject)
+	// A dropped claim's kind on a subject in scope is a gap (Compose rule 3).
+	for _, c := range ix.dropped {
+		if scope[c.Subject] && c.Assertion != nil {
+			out = append(out, input{Input: Input{Gap: Gap{Subject: c.Subject, Kind: kindOf(c.Assertion)}, Status: InputGap, Reason: ReasonDropped}})
+		}
 	}
-	return scope, out
+	return scope, merge(d, out)
+}
+
+// merge joins inputs with the same gap: a gap wins over a cover, and a drop
+// over any other reason. Bootstrap inputs lose their status and covers.
+func merge(d *depIndex, ins []input) []input {
+	var out []input
+	at := map[Gap]int{}
+	for _, in := range ins {
+		if d.bootstrap(in.Subject) {
+			in.Status, in.Reason, in.covers = InputBootstrap, "", nil
+		}
+		i, ok := at[in.Gap]
+		if !ok {
+			at[in.Gap] = len(out)
+			out = append(out, in)
+			continue
+		}
+		m := &out[i]
+		m.covers = append(m.covers, in.covers...)
+		if in.Status == InputGap && (m.Status == InputCovered || in.Reason == ReasonDropped) {
+			m.Status, m.Reason = in.Status, in.Reason
+		}
+		if m.Candidates == nil {
+			m.Candidates = in.Candidates
+		}
+	}
+	return out
 }
 
 // alternative is the input on id that an alternatives kind covers.
@@ -532,9 +610,19 @@ func (ix *Index) alternative(id model.ID, kind string) input {
 	case KindBackendSource:
 		c = Resolve[BackendSource](ix, id).Certainty
 	}
-	in := input{gap: Gap{Subject: id, Kind: kind}, covered: c >= model.Inferred}
+	in := input{Input: Input{Gap: Gap{Subject: id, Kind: kind}, Status: InputCovered}}
+	switch {
+	case c == model.Ambiguous:
+		in.Status, in.Reason = InputGap, ReasonAmbiguous
+	case c < model.Inferred:
+		in.Status, in.Reason = InputGap, ReasonNoEvidence
+	}
 	for _, i := range ix.bySubject[id] {
-		if ix.claims[i].Assertion.Kind() == kind && ix.claims[i].Certainty >= model.Inferred {
+		cl := ix.claims[i]
+		if r, ok := cl.Assertion.(RouteSource); ok && kind == KindRouteSource {
+			in.Candidates = append(in.Candidates, Candidate{Ref: r.Route, Claim: cl})
+		}
+		if in.Status == InputCovered && cl.Assertion.Kind() == kind && cl.Certainty >= model.Inferred {
 			in.covers = append(in.covers, i)
 		}
 	}
@@ -542,14 +630,17 @@ func (ix *Index) alternative(id model.ID, kind string) input {
 }
 
 // placement is the input that links on each of routes cover by placing a
-// record on `at` onto slot. With no routes, nothing covers it.
+// record on `at` onto slot. With no routes, nothing can cover it.
 func (ix *Index) placement(gap Gap, at, slot model.ID, routes []model.ID) input {
+	if len(routes) == 0 {
+		return notCoverable(gap)
+	}
 	d := ix.deps()
-	in := input{gap: gap, covered: len(routes) > 0}
+	in := input{Input: Input{Gap: gap, Status: InputCovered}}
 	for _, r := range routes {
 		c := d.placed[[3]model.ID{r, at, slot}]
 		if len(c) == 0 {
-			in.covered = false
+			return input{Input: Input{Gap: gap, Status: InputGap, Reason: ReasonNoEvidence}}
 		}
 		in.covers = append(in.covers, c...)
 	}
