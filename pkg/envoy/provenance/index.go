@@ -601,7 +601,11 @@ func (ix *Index) inputs(block model.ID) (map[model.ID]bool, []input) {
 	// A dropped claim's kind on a subject in scope is a gap (Compose rule 3).
 	for _, c := range ix.dropped {
 		if scope[c.Subject] && c.Assertion != nil {
-			out = append(out, input{Input: Input{Gap: Gap{Subject: c.Subject, Kind: kindOf(c.Assertion)}, Status: InputGap, Reason: ReasonDropped}})
+			g := Gap{Subject: c.Subject, Kind: kindOf(c.Assertion)}
+			if b, ok := c.Assertion.(BackendSource); ok {
+				g.Cluster = b.Mirror
+			}
+			out = append(out, input{Input: Input{Gap: g, Status: InputGap, Reason: ReasonDropped}})
 		}
 	}
 	return scope, merge(d, out)

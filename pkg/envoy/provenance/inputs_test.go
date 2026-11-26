@@ -116,6 +116,24 @@ func TestInputs_Complete(t *testing.T) {
 	}
 }
 
+// TestInputs_DroppedMirror (Codex r6 P2): a dropped mirror BackendSource
+// claim is a gap on the mirror input, not on the route's primary backend.
+func TestInputs_DroppedMirror(t *testing.T) {
+	snap := twoListeners()
+	snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes[1].MirrorClusters = []string{"m"}
+	backend := model.Ref{Kind: "Service", Namespace: "ns", Name: "svc"}
+	primary := provenance.Claim{Subject: route1, Assertion: provenance.BackendSource{Backend: backend}, Certainty: model.Inferred, Evidence: ev(route1, &backend)}
+	mirror := provenance.Claim{Subject: route1, Assertion: provenance.BackendSource{Backend: backend, Mirror: "m"}, Certainty: model.Inferred} // no evidence: dropped
+	ix := compose(t, snap, fixed{"m", []provenance.Claim{primary, mirror}})
+	bs := provenance.KindBackendSource
+	if in := input(t, ix, route1, provenance.Gap{Subject: route1, Kind: bs}); in.Status != provenance.InputCovered {
+		t.Errorf("primary backend is %s/%s, want covered", in.Status, in.Reason)
+	}
+	if in := input(t, ix, route1, provenance.Gap{Subject: route1, Kind: bs, Cluster: "m"}); in.Reason != provenance.ReasonDropped {
+		t.Errorf("mirror backend is %s/%s, want gap/dropped", in.Status, in.Reason)
+	}
+}
+
 // TestInputs_Mirror (scenario 02_4): a mirror cluster is an ordinary backend.
 // The kgateway module claims it, its input is covered, and the route's own
 // backend still resolves to its primary cluster alone.
