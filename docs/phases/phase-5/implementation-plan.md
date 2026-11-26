@@ -45,8 +45,8 @@ Phase close: cross-model phase review, tag `v0.2.0`, program file (E5 available,
    2. 04 again with `enableRouteSourceMetadata: true` into `kgateway-<version>-route-source`.
 
    If a scenario can't be expressed in OSS, write that in its README and skip it.
-5. **Filter e2e.** Extend `scenarioRoutes` with literal names for the new scenarios, including per-rule expectations for 04 and the multi-listener case in 05. `TestFilter_E2E_OSSCorpusComplete` already requires them. `enterpriseRoutes()` changes from copying `scenarioRoutes` minus exclusions to an explicit list of the enterprise scenarios, so new OSS scenarios don't create enterprise expectations.
-6. **Parser e2e.** It covers the new dumps automatically. Add assertions that 07 yields `WeightedClusters` and that the policy filters have the expected `Type`. The enterprise 06 dump yields `UpstreamFilters` named `envoy.filters.http.late_ext_proc`, then `envoy.filters.http.upstream_codec`, and the renderer shows both in that order.
+5. **Filter e2e.** Extend `scenarioRoutes` with literal names for the new scenarios, including per-rule expectations for 04 and the multi-listener case in 05. `TestFilter_E2E_OSSCorpusComplete` already requires them. The downstream route-list helper changes from copying `scenarioRoutes` minus exclusions to an explicit list of the downstream scenarios, so new OSS scenarios don't create downstream expectations.
+6. **Parser e2e.** It covers the new dumps automatically. Add assertions that 07 yields `WeightedClusters` and that the policy filters have the expected `Type`. The downstream 06 dump yields `UpstreamFilters` named `envoy.filters.http.late_ext_proc`, then `envoy.filters.http.upstream_codec`, and the renderer shows both in that order.
 7. Fix the "backend index" wording in `filter`'s package doc and `routeMatches` to "match index".
 8. Regenerate the golden files. The diff should contain only additions: `type` on filters, plus the new scenarios.
 

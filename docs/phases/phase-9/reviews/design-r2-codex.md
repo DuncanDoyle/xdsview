@@ -1,5 +1,7 @@
 # Design + plan re-review — Phase 9 (Codex)
 
+Local file links and vendor names redacted; reviewer text otherwise unchanged.
+
 **Scope:** amendments `ac3cb72..10af6ff` against design-codex.md
 **Cross-model:** yes. cli: codex; resolved_model: gpt-6.2-sol; status: ok
 **Date:** 2026-11-25
@@ -22,10 +24,10 @@
 
 ### New findings
 
-- **P1 · Correctness · ECDS fallback is misstated.** Envoy can apply `default_config` after initial discovery fails even with `apply_default_config_without_warming` unset. The flag controls whether Envoy waits. The new rule can report an active fallback as unresolved. [design.md:132](/Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude/docs/phases/phase-9/design.md:132)
-- **P1 · Correctness · JSON projection erases selection diagnostics.** Pruning keeps selected routes, then projection removes references to excluded routes. That drops the ambiguous and unresolved results the new selection API exposes. Subject-only claim projection can also leave dangling `Evidence.Subject` IDs. [design.md:259](/Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude/docs/phases/phase-9/design.md:259) · [design.md:296](/Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude/docs/phases/phase-9/design.md:296)
-- **P2 · Architecture · Filter links can cite unrelated policy records.** Compose checks the record’s module and the slot’s HCM, but never checks whether the record’s subject applies to the route. A record on an unrelated listener can pass and appear as a contribution. [design.md:188](/Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude/docs/phases/phase-9/design.md:188)
-- **P2 · Architecture · Two new API handoffs lack a dependency path.** The unchanged `Source` interface returns only a stream, leaving no declared handoff for capture completeness. `provenance.Notes` needs `render.Row`, while the package table permits provenance to import only model and chain. [design.md:50](/Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude/docs/phases/phase-9/design.md:50) · [design.md:60](/Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude/docs/phases/phase-9/design.md:60) · [design.md:292](/Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude/docs/phases/phase-9/design.md:292)
+- **P1 · Correctness · ECDS fallback is misstated.** Envoy can apply `default_config` after initial discovery fails even with `apply_default_config_without_warming` unset. The flag controls whether Envoy waits. The new rule can report an active fallback as unresolved. `docs/phases/phase-9/design.md:132`
+- **P1 · Correctness · JSON projection erases selection diagnostics.** Pruning keeps selected routes, then projection removes references to excluded routes. That drops the ambiguous and unresolved results the new selection API exposes. Subject-only claim projection can also leave dangling `Evidence.Subject` IDs. `docs/phases/phase-9/design.md:259` · `docs/phases/phase-9/design.md:296`
+- **P2 · Architecture · Filter links can cite unrelated policy records.** Compose checks the record’s module and the slot’s HCM, but never checks whether the record’s subject applies to the route. A record on an unrelated listener can pass and appear as a contribution. `docs/phases/phase-9/design.md:188`
+- **P2 · Architecture · Two new API handoffs lack a dependency path.** The unchanged `Source` interface returns only a stream, leaving no declared handoff for capture completeness. `provenance.Notes` needs `render.Row`, while the package table permits provenance to import only model and chain. `docs/phases/phase-9/design.md:50` · `docs/phases/phase-9/design.md:60` · `docs/phases/phase-9/design.md:292`
 
 The author reports `go test ./...` and `go vet ./...` passed. I reviewed the docs without rerunning tests or editing files.
 ## Triage

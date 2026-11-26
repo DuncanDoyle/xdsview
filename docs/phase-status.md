@@ -36,7 +36,7 @@ Branch: duncandoyle/phase9 (local; nothing merges to main before the consumer re
 Status: done (2026-11-25), `a4ab9b3`; record in phase-9.3-complete.md (parts A and B). Next: phase review (Codex), close benchmark with `Compose`, Q5.
 
 ## Program
-Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (local: `../kgateway-tooling-claude/program.md`, updated at `70fda55`)
+Program file: https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md (updated at `70fda55`)
 Waiting on: nothing. Open `cross-repo` issues in xdsview: none (2026-11-24).
 Consumers: E6 (kgwctl move into kgateway): `v0.6.0` released. E13 available (`v0.5.0`). E11 available. E15 (this phase): kgwctl `proxy routes`, kgwctl Phase 6 via E7, Snellius Phase 12.
 
@@ -67,7 +67,7 @@ Consumers: E6 (kgwctl move into kgateway): `v0.6.0` released. E13 available (`v0
 - 2026-11-23: Phase 8 closed: phase review and four fix rounds (Codex); three P1s deferred to Phase 9 by the owner. OSS output identical to `v0.5.0`.
 - 2026-11-23: program adopted P-010 (`c304e76`): Phase 9 contract break after P-009 (D-019). Phase 8 unchanged.
 - 2026-11-22: owner reordered Phase 8 certainty-first (D-015, via program session). After Phase 8, this session runs the xDS convergence investigation (design only).
-- 2026-11-22: architectural review. Phase 7 deferred (D-011), attribution states its certainty (D-012), enterprise corpus removed (D-013). Phase 8 started.
+- 2026-11-22: architectural review. Phase 7 deferred (D-011), attribution states its certainty (D-012), downstream corpus removed (D-013). Phase 8 started.
 - 2026-11-21: Phase 6 patch `v0.4.3` (sub-phase 6.7, #31): warning for a skipped HCM; narrowing keeps listeners mid-update. E6 cleanup planned as Phase 8 (#32).
 - 2026-11-21: Phase 6 patch `v0.4.2` (sub-phase 6.6, #29): narrowing edge cases. #30 open (unmapped policy fields).
 - 2026-11-21: Phase 6 patch `v0.4.1` (sub-phase 6.5, #28, D-010): attribution gaps and `RouteExtra`.

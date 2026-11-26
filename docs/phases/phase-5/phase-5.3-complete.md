@@ -29,7 +29,7 @@ none
 | Route origins on every OSS recording | `TestKgateway_RouteOrigins`: 50 runs (24 scenarios × 2 versions, plus the two `-route-source` recordings). Every route must be in the literal table, and every table entry must be in the dump. |
 | Metadata vs name | `TestKgateway_ExactMatchesInferred` on both `-route-source` recordings |
 | Filters, policies, vhosts, clusters | `TestKgateway_PolicyFilters`, `TestKgateway_Policies`, `TestKgateway_VirtualHostsAndClusters` |
-| Plugin seam, `ObjectForName`, rule name with digits | `origin_test.go` (synthetic dump, independent of `testdata/enterprise`) |
+| Plugin seam, `ObjectForName`, rule name with digits | `origin_test.go` (synthetic dump, independent of the former downstream corpus directory) |
 | Rule by name | `TestFilter_E2E_RuleName` on 08, both versions |
 | Tests bite | Four mutations, each caught and reverted: <ul><li>ignore v2.4's `rule` format</li><li>drop the `Known` filtering (shows the 4 readings of `api-example-com-kgateway-system`)</li><li>leave `_` in hostnames</li><li>prefix-only rule-name match (keeps `a-matcher-b` for `a`)</li></ul> |
 | Boundary | `origin` in `TestCoreImportsOnlyStdlib` |

@@ -28,7 +28,7 @@ none
 | Weighted clusters, prefix rewrite, upstream filters, types | `pkg/envoy/parser/accuracy_test.go`. It didn't compile before the change (`undefined: model.WeightedCluster`) and passes now. |
 | Shared route config stays isolated | `TestParse_SharedRouteConfigIsolated` |
 | Composite filter type | `TestParse_CompositeFilterType`: same-type actions take the delegate type; mixed types stay `Composite` |
-| Real dumps | `TestE2E_TrafficSplit` (07, both versions), `TestE2E_PolicyFilterTypes` (OSS 02_1, 02_7, 02_8, 06), `TestE2E_UpstreamFilters` (enterprise 06: `late_ext_proc`, then `upstream_codec`, parsed and rendered in order) |
+| Real dumps | `TestE2E_TrafficSplit` (07, both versions), `TestE2E_PolicyFilterTypes` (OSS 02_1, 02_7, 02_8, 06), `TestE2E_UpstreamFilters` (downstream 06: `late_ext_proc`, then `upstream_codec`, parsed and rendered in order) |
 | Renderer | `internal/renderer/accuracy_test.go`: three tests that failed before the change and pass now |
 | Corpus | 03, 04, 05, 07, 08 on v2.4.7 and v2.5.0, plus 04 `-route-source` on both. Filter e2e uses exact route names per rule. `TestFilter_E2E_OSSCorpusComplete` failed until the tables were added. |
 | Golden files | 138 lines added, 0 removed; 5 new scenario directories |

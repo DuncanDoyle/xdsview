@@ -3,7 +3,7 @@
 **Date:** 2026-11-23 | **Kind:** planned | **Base:** 251a451 | **Edge:** E6 (part) | **Decisions:** D-012, D-013, D-018
 
 ## Outcome
-The core kgateway mapper links a policy to a filter only for `gateway.kgateway.dev/TrafficPolicy`. Other kinds and groups stay listed on `Route.Policies` (exact), unlinked. The enterprise transformation type left `origin` and the sides table. A plugin in `origin.Chain` adds such a link back.
+The core kgateway mapper links a policy to a filter only for `gateway.kgateway.dev/TrafficPolicy`. Other kinds and groups stay listed on `Route.Policies` (exact), unlinked. The downstream transformation type left `origin` and the sides table. A plugin in `origin.Chain` adds such a link back.
 
 | # | Case (composed path) | Result |
 |---|---|---|
@@ -17,8 +17,8 @@ Tests: `TestVendorNeutral_PolicyKind`, `TestVendorNeutral_Transformation` (`pkg/
 
 ## Gates
 - `go test ./...` and `go vet ./...` pass. No golden changed.
-- `FilterTransformations` in Go: only the plugin test at close; after the phase review, nowhere (synthetic type).
-- `enterprise|solo|gloo|_ee` in Go under `pkg cmd internal`: no match.
+- Downstream transformation type name in Go: only the plugin test at close; after the phase review, nowhere (synthetic type).
+- Scan for vendor names, edition names and an edition-specific suffix in Go under `pkg cmd internal`: no match.
 
 ## Reviews
 Planned sub-phase: reviewed in the phase review before `v0.6.0`.

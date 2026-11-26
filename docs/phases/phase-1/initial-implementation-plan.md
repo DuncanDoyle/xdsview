@@ -910,7 +910,7 @@ Create `internal/correlator/testdata/config_dump.json` with a minimal realistic 
                                 "route": {"cluster": "default_my-svc_8080"},
                                 "metadata": {
                                   "filter_metadata": {
-                                    "io.solo.kgateway": {
+                                    "acme.kgateway": {
                                       "policy_ref": {
                                         "kind": "AuthPolicy",
                                         "name": "jwt-policy",
@@ -1223,7 +1223,7 @@ func extractMetadataPolicyRefs(dump *configDump) map[string]*model.K8SRef {
 							if route.Metadata == nil {
 								continue
 							}
-							rawMeta, ok := route.Metadata.FilterMetadata["io.solo.kgateway"]
+							rawMeta, ok := route.Metadata.FilterMetadata["acme.kgateway"]
 							if !ok {
 								continue
 							}

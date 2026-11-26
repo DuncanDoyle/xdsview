@@ -34,7 +34,7 @@
 - [x] **Step 1: Add bubbletea and bubbles**
 
 ```bash
-cd /Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude
+cd <xdsview checkout>
 go get github.com/charmbracelet/bubbletea@latest
 go get github.com/charmbracelet/bubbles@latest
 go mod tidy
@@ -519,8 +519,8 @@ func interactiveSnapshot() *model.EnvoySnapshot {
 							RouteConfigName: "listener~80",
 							HTTPFilters: []model.HTTPFilter{
 								{
-									Name:        "io.solo.transformation",
-									TypedConfig: map[string]any{"@type": "type.googleapis.com/envoy.api.v2.filter.http.RouteTransformations"},
+									Name:        "acme.transformation",
+									TypedConfig: map[string]any{"@type": "type.googleapis.com/example.v1.RouteTransformations"},
 								},
 								{Name: "envoy.filters.http.router"},
 							},
@@ -565,7 +565,7 @@ func TestRenderInteractive_CursorOnFirstFilter(t *testing.T) {
 	cursor := renderer.FilterRef{ListenerIdx: 0, FilterChainIdx: 0, VirtualHostIdx: 0, RouteIdx: 0, FilterIdx: 0}
 	output := renderer.RenderInteractive(snapshot, renderer.RenderOpts{Cursor: &cursor})
 
-	if !strings.Contains(output, "io.solo.transformation") {
+	if !strings.Contains(output, "acme.transformation") {
 		t.Errorf("expected filter name to still be present in output\nOutput:\n%s", output)
 	}
 	static := renderer.Render(snapshot)
@@ -587,7 +587,7 @@ func TestRenderInteractive_ExpandedPerRouteConfig(t *testing.T) {
 						HCM: &model.HCMConfig{
 							RouteConfigName: "listener~80",
 							HTTPFilters: []model.HTTPFilter{
-								{Name: "io.solo.transformation", Disabled: true},
+								{Name: "acme.transformation", Disabled: true},
 								{Name: "envoy.filters.http.router"},
 							},
 							RouteConfig: &model.RouteConfig{
@@ -601,8 +601,8 @@ func TestRenderInteractive_ExpandedPerRouteConfig(t *testing.T) {
 												Match:   model.RouteMatch{Prefix: "/"},
 												Cluster: "kube_httpbin_httpbin_8000",
 												TypedPerFilterConfig: map[string]any{
-													"io.solo.transformation": map[string]any{
-														"@type":        "type.googleapis.com/solo.transformation",
+													"acme.transformation": map[string]any{
+														"@type":        "type.googleapis.com/acme.transformation",
 														"request_body": "passthrough",
 													},
 												},
@@ -1070,7 +1070,7 @@ func TestBuildItems_SimpleSnapshot(t *testing.T) {
 						HCM: &envoymodel.HCMConfig{
 							RouteConfigName: "listener~80",
 							HTTPFilters: []envoymodel.HTTPFilter{
-								{Name: "io.solo.transformation"},
+								{Name: "acme.transformation"},
 								{Name: "envoy.filters.http.router"},
 							},
 							RouteConfig: &envoymodel.RouteConfig{

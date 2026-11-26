@@ -1,5 +1,7 @@
 # krp Design Review — Improvement Plan
 
+Local file links and vendor names redacted; reviewer text otherwise unchanged.
+
 **Date:** 2026-03-07
 **Reviewing:** `2026-03-06-krp-design.md` and `2026-03-06-krp-implementation.md`
 
@@ -9,7 +11,7 @@
 
 ### 1. Correlator Is Based on Fictional Metadata Format
 
-**Problem:** The design assumes kgateway embeds `io.solo.kgateway` metadata with a structured `policy_ref` in the Envoy route metadata. This is not how kgateway actually works. The test fixture in Task 5 is hand-crafted around this assumption, so the "primary" correlation layer (Metadata) won't work on a real cluster.
+**Problem:** The design assumes kgateway embeds `acme.kgateway` (illustrative name for a vendor key) metadata with a structured `policy_ref` in the Envoy route metadata. This is not how kgateway actually works. The test fixture in Task 5 is hand-crafted around this assumption, so the "primary" correlation layer (Metadata) won't work on a real cluster.
 
 The `policyKindToFilterName` mapping is also a guess — e.g., `TrafficPolicy` → `header_to_metadata` is incorrect since TrafficPolicy can map to multiple Envoy filters.
 

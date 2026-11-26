@@ -14,11 +14,11 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 **Alternatives:** Build the Gateway API graph in krp — rejected: duplicates the UI and the CLI.
 **Consequences:** The old Gateway API track is in the roadmap's Deferred section. Exported packages are a contract tracked in the program file.
 
-## D-003 — Test corpus: OSS main, enterprise kept separately (2026-11-04, phase 4)
-**Context:** Every existing dump came from the enterprise distribution, and four scenarios use enterprise policy APIs. krp is headed into kgateway OSS (program E6).
-**Decision:** Re-record all scenarios on OSS kgateway v2.4.7 and v2.5.0 as the main corpus, rewriting the four enterprise scenarios (and adding manifests for 06, which had none) with OSS `TrafficPolicy`/`GatewayExtension`. Keep the existing enterprise dumps and manifests in `testdata/enterprise/` as extra parser coverage (owner's choice).
-**Alternatives:** OSS only, removing the enterprise corpus — not chosen; OSS v2.5.0 only — rejected: 2.4 is still supported.
-**Consequences:** `testdata/enterprise/` is removed before the move into kgateway. Tests run on both corpora. Superseded by D-013 and D-018: removed in Phase 8.2.
+## D-003 — Test corpus: OSS main, downstream kept separately (2026-11-04, phase 4)
+**Context:** Every existing dump came from a downstream distribution, and four scenarios use downstream policy APIs. krp is headed into kgateway OSS (program E6).
+**Decision:** Re-record all scenarios on OSS kgateway v2.4.7 and v2.5.0 as the main corpus, rewriting the four downstream scenarios (and adding manifests for 06, which had none) with OSS `TrafficPolicy`/`GatewayExtension`. Keep the existing downstream dumps and manifests in the former downstream corpus directory as extra parser coverage (owner's choice).
+**Alternatives:** OSS only, removing the downstream corpus — not chosen; OSS v2.5.0 only — rejected: 2.4 is still supported.
+**Consequences:** The former downstream corpus directory is removed before the move into kgateway. Tests run on both corpora. Superseded by D-013 and D-018: removed in Phase 8.2.
 
 ## D-004 — Standard-library core; Kubernetes in `source/kube` (2026-11-04, phase 4)
 **Context:** kgateway-ui's core may not import client-go (UI D-016), and kgwctl brings its own `*rest.Config`.
@@ -98,13 +98,13 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 - Move the most-specific-level rule out of `chain`: rejected, because no requirement needs it. It is labelled `inferred` instead.
 **Consequences:** JSON gains `certainty` on contributions (additive). Text output changes, so consumer goldens change. Released as a minor version.
 
-## D-013 — Phase 8 removes the enterprise corpus (supersedes D-003's enterprise part) (2026-11-22, phase 8)
-**Context:** D-003 kept the enterprise dumps as extra parser coverage until the move into kgateway (E6). kgwctl's move now waits on it (#32). An inventory showed that the OSS dumps (2.4.7, 2.5.0, 2.5.1) already cover every enterprise-backed test, except a real dump with router upstream filters.
-**Decision:** Delete `testdata/enterprise/` and its goldens. Repoint the tests to OSS dumps, and cover upstream filters with a hand-built fixture at the render boundary. Hand-built fixtures use neutral names. The enterprise transformation type leaves the core mapper and the sides table, and a test plugin shows the seam instead. Git history isn't rewritten unless the owner asks.
+## D-013 — Phase 8 removes the downstream corpus (supersedes D-003's downstream part) (2026-11-22, phase 8)
+**Context:** D-003 kept the downstream dumps as extra parser coverage until the move into kgateway (E6). kgwctl's move now waits on it (#32). An inventory showed that the OSS dumps (2.4.7, 2.5.0, 2.5.1) already cover every downstream-backed test, except a real dump with router upstream filters.
+**Decision:** Delete the former downstream corpus directory and its goldens. Repoint the tests to OSS dumps, and cover upstream filters with a hand-built fixture at the render boundary. Hand-built fixtures use neutral names. The downstream transformation type leaves the core mapper and the sides table, and a test plugin shows the seam instead. Git history isn't rewritten unless the owner asks.
 **Alternatives:**
 - Keep the corpus in a separate module: rejected, because nothing outside this repo needs it.
 - Rewrite history: owner decision, not assumed.
-**Consequences:** Enterprise dumps lose their transformation attribution and show `?` sides for that filter. A plugin can restore the attribution but not the sides; a sides hook waits for a consumer that needs one.
+**Consequences:** Downstream dumps lose their transformation attribution and show `?` sides for that filter. A plugin can restore the attribution but not the sides; a sides hook waits for a consumer that needs one.
 
 ## D-014 — Design-review amendments to D-011 and D-012 (2026-11-22, phase 8)
 **Context:** Codex's design review (`docs/phases/phase-8/reviews/design-codex.md`) found three things:
@@ -125,7 +125,7 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 **Context:** kgwctl `proxy routes` already ships policy contributions with no certainty (program edge E13). The owner decided, relayed by the program session, that attribution certainty goes first.
 **Decision:** Sub-phase order becomes 8.1 certainty and the filter link, 8.2 corpus, 8.3 mapper. Scope is unchanged.
 **Alternatives:** the reviewed order (corpus, mapper, certainty): rejected, because it delays the labels kgwctl needs.
-**Consequences:** 8.1 regenerates the enterprise goldens that 8.2 then deletes. The design review's findings still apply; only the order changed.
+**Consequences:** 8.1 regenerates the downstream goldens that 8.2 then deletes. The design review's findings still apply; only the order changed.
 
 ## D-016 — Owner approval of Phase 8; two releases (2026-11-22, phase 8)
 **Context:** the design and plan (D-012 to D-015) needed owner approval, with four open questions.
@@ -144,9 +144,9 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 **Alternatives:** n/a (a factual correction).
 **Consequences:** The tie-break decided only the hand-built `TestAnnotate_DisableBesideInheritedProvider` case, which 8.1 replaces with `TestCertainty_OneCandidate`. The goldens show whether any recorded dump drops a contribution.
 
-## D-018 — The enterprise corpus moves downstream (amends D-013) (2026-11-22, phase 8)
-**Context:** D-013 deletes the enterprise dumps. The owner decided that a downstream consumer keeps them, in its own private repository. That repository also holds its `origin` plugin behind the `origin.Chain` seam (P-002).
-**Decision:** D-013's "delete" becomes "move". For xdsview, 8.2's scope is unchanged: the corpus leaves this repository, and git history stays. The downstream copy is that repository's own work, taken from this history; xdsview pushes nothing there. Where an enterprise-only test shows parser behaviour that no OSS dump covers, xdsview keeps a neutral hand-built fixture (as D-013 does for upstream filters).
+## D-018 — The downstream corpus moves to a downstream repository (amends D-013) (2026-11-22, phase 8)
+**Context:** D-013 deletes the downstream dumps. The owner decided that a downstream consumer keeps them, in its own private repository. That repository also holds its `origin` plugin behind the `origin.Chain` seam (P-002).
+**Decision:** D-013's "delete" becomes "move". For xdsview, 8.2's scope is unchanged: the corpus leaves this repository, and git history stays. The downstream copy is that repository's own work, taken from this history; xdsview pushes nothing there. Where a downstream-only test shows parser behaviour that no OSS dump covers, xdsview keeps a neutral hand-built fixture (as D-013 does for upstream filters).
 **Alternatives:** keep the corpus here (rejected: P-002, E6).
 **Consequences:** No change to 8.2's plan or to consumers.
 

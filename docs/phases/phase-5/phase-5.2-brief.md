@@ -22,7 +22,7 @@ The OSS corpus also lacks multi-policy, multi-rule, multi-listener, traffic-spli
 | Router with upstream filters | `HCMConfig.UpstreamFilters` in order; text shows them after the router |
 | Filter wrapped in `ExtensionWithMatcher` | `HTTPFilter.Type` is the inner `@type` |
 | Two HCMs sharing one route config | Mutating one's new fields doesn't change the other's |
-| Enterprise 06 dump | `UpstreamFilters` = `envoy.filters.http.late_ext_proc`, `envoy.filters.http.upstream_codec` |
+| Downstream 06 dump | `UpstreamFilters` = `envoy.filters.http.late_ext_proc`, `envoy.filters.http.upstream_codec` |
 | New OSS scenarios on v2.4.7 and v2.5.0 | Filter e2e: exact route names per HTTPRoute and per rule |
 | `-o json` | Golden diff adds fields and scenarios only |
 
@@ -30,7 +30,7 @@ The OSS corpus also lacks multi-policy, multi-rule, multi-listener, traffic-spli
 The parser's raw structs never declared these fields (`pkg/envoy/parser/parser.go`, with a TODO for `weighted_clusters`).
 
 ## Acceptance tests
-- Parser: `accuracy_test.go`, using a synthetic dump, plus e2e assertions on 07 and enterprise 06.
+- Parser: `accuracy_test.go`, using a synthetic dump, plus e2e assertions on 07 and downstream 06.
 - Renderer: unit tests for the three new displays.
 - Filter: e2e tables for 03, 04, 05, 07 and 08.
 - CLI: golden files.
