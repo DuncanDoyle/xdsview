@@ -78,7 +78,8 @@ func TestInputs_Status(t *testing.T) {
 }
 
 // TestInputs_Complete: a route's candidate list is complete only when every
-// reading at the highest certainty is Exhaustive and none is Incomplete.
+// reading at the highest certainty is Exhaustive and no listed reading, at
+// any certainty, is Incomplete.
 // An incomplete, unaffirmed or empty list is a gap, never covered.
 func TestInputs_Complete(t *testing.T) {
 	partial := func(r model.Ref) provenance.Claim {
@@ -103,7 +104,8 @@ func TestInputs_Complete(t *testing.T) {
 		{"inferred", []provenance.Claim{source(route0, routeA, model.Inferred)}, true, provenance.InputCovered, ""},
 		{"inferred incomplete", []provenance.Claim{partial(routeA)}, false, provenance.InputGap, provenance.ReasonIncomplete},
 		{"ambiguous incomplete", []provenance.Claim{partial(routeA), partial(routeB)}, false, provenance.InputGap, provenance.ReasonIncomplete},
-		{"exact beats incomplete", []provenance.Claim{partial(routeB), source(route0, routeA, model.Exact)}, true, provenance.InputCovered, ""},
+		{"lower incomplete reading", []provenance.Claim{partial(routeB), source(route0, routeA, model.Exact)}, false, provenance.InputGap, provenance.ReasonIncomplete},
+		{"unknown incomplete reading", []provenance.Claim{with(model.Unknown, provenance.RouteSource{Route: routeB, Incomplete: true}), source(route0, routeA, model.Exact)}, false, provenance.InputGap, provenance.ReasonIncomplete},
 		{"exact incomplete", []provenance.Claim{with(model.Exact, provenance.RouteSource{Route: routeA, Exhaustive: true, Incomplete: true})}, false, provenance.InputGap, provenance.ReasonIncomplete},
 		{"inferred unaffirmed", []provenance.Claim{with(model.Inferred, provenance.RouteSource{Route: routeA})}, false, provenance.InputGap, provenance.ReasonIncomplete},
 		{"exact unaffirmed", []provenance.Claim{with(model.Exact, provenance.RouteSource{Route: routeA})}, false, provenance.InputGap, provenance.ReasonIncomplete},

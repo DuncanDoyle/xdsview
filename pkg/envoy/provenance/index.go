@@ -176,9 +176,9 @@ type Input struct {
 	// Candidates is set for a routeSource input: every RouteSource claim on
 	// the route, at any certainty. Cluster state is never consulted.
 	Candidates []Candidate
-	// Complete is set for a routeSource input whose readings at the highest
-	// certainty name every possible source: the module marks each Exhaustive
-	// and none Incomplete. An input that isn't complete is a gap.
+	// Complete is set for a routeSource input whose readings name every
+	// possible source: the module marks each top-certainty reading Exhaustive
+	// and no reading, at any certainty, Incomplete. An input that isn't complete is a gap.
 	Complete bool
 }
 
@@ -703,8 +703,8 @@ func (ix *Index) cover(id model.ID, kind, mirror string) input {
 	return in
 }
 
-// complete reports whether a route's readings at the highest certainty name
-// every possible source: each is Exhaustive and none is Incomplete.
+// complete reports whether a route's readings name every possible source:
+// each at the highest certainty is Exhaustive, and none at any certainty is Incomplete.
 func complete(res Resolution[RouteSource]) bool {
 	top := model.Unknown
 	for _, c := range res.Claims {
@@ -714,7 +714,7 @@ func complete(res Resolution[RouteSource]) bool {
 		return false
 	}
 	for _, c := range res.Claims {
-		if a := c.Assertion.(RouteSource); c.Certainty == top && (a.Incomplete || !a.Exhaustive) {
+		if a := c.Assertion.(RouteSource); a.Incomplete || (c.Certainty == top && !a.Exhaustive) {
 			return false
 		}
 	}
