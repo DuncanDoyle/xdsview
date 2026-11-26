@@ -240,7 +240,7 @@ Snapshots are read-only once shared: `model.Prune` returns a view that shares da
 
 ```go
 // Claims about where each occurrence came from. A vendor module is another
-// provenance.Module; Compose gives each one its own copy of the snapshot.
+// provenance.Module. A module must not modify the snapshot.
 ix, err := provenance.Compose(snap, kgateway.New(), vendorModule)
 if err != nil {
 	return err // duplicate module names

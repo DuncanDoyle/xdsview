@@ -9,8 +9,8 @@ import (
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 )
 
-// Module makes claims about a snapshot. Claims gets the module's own deep copy
-// of the snapshot, so it may change it freely; changes reach no one else.
+// Module makes claims about a snapshot. Claims must not modify the snapshot;
+// [Compose] may pass it a copy.
 type Module interface {
 	Name() string
 	Claims(snap *model.Snapshot) []Claim
@@ -20,7 +20,8 @@ type Module interface {
 // into an [Index]. It fails only on a programming error: duplicate module
 // names. Claims that break a rule are dropped with a warning on the index:
 //
-//  1. Each module gets its own deep copy of snap; snap is not changed.
+//  1. Each module gets its own deep copy of snap, so snap is not changed.
+//     A module must still not rely on the copy (see [Module]).
 //  2. Claims keep module order, then emission order, within a subject.
 //  3. A pointer assertion is read as its value, and a nil one is dropped.
 //     A claim is dropped when its assertion's type is not one of this
