@@ -66,7 +66,7 @@ Order (D-015): certainty first, because kgwctl `proxy routes` already ships unla
 2. Restrict `PolicyFilter` to `gateway.kgateway.dev/TrafficPolicy`. Remove `transformationType` and its sides entry.
 3. Direct `PolicyFilter` tests in `origin_test.go` pass full refs, and the downstream-type cases move to the plugin test.
 
-**Done:** the tests above pass. OSS goldens are unchanged. A scan of Go code for the downstream transformation type name finds nothing (the plugin test uses a synthetic type, phase review #4, D-019). The 8.2 scan for vendor and edition names finds nothing in `pkg cmd internal` outside that test. Vet passes.
+**Done:** the tests above pass. OSS goldens are unchanged. A scan of Go code for the downstream transformation type name finds nothing (the plugin test uses a synthetic type, phase review #4, D-019). The 8.2 scan finds nothing in `pkg cmd internal` outside that test. Vet passes.
 
 ## Close
 
