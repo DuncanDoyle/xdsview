@@ -359,11 +359,14 @@ func TestStaticListenerRDS(t *testing.T) {
 	if r := provenance.Resolve[provenance.PolicyRecord](ix, hcm.RouteConfigUse.Source); len(r.Candidates) != 1 || r.Candidates[0].Policy.Name != "rc" {
 		t.Errorf("source records = %+v, want rc", r.Candidates)
 	}
-	want := map[provenance.Gap]bool{
-		{Subject: vh.ID, Kind: provenance.KindHostSource}:   true,
-		{Subject: route, Kind: provenance.KindRouteSource}:   true,
-		{Subject: route, Kind: provenance.KindBackendSource}: true,
-		{Subject: route, Kind: provenance.KindPolicyRecord, Slot: hcm.HTTPFilters[0].ID, Level: provenance.LevelRoute}: true,
+	want := map[provenance.Gap]bool{}
+	for _, g := range []provenance.Gap{
+		{Subject: vh.ID, Kind: provenance.KindHostSource},
+		{Subject: route, Kind: provenance.KindRouteSource},
+		{Subject: route, Kind: provenance.KindBackendSource},
+		{Subject: route, Kind: provenance.KindPolicyRecord, Slot: hcm.HTTPFilters[0].ID, Level: provenance.LevelRoute},
+	} {
+		want[g] = true
 	}
 	for _, in := range ix.Inputs(route) {
 		if want[in.Gap] && in.Status != provenance.InputCovered {
