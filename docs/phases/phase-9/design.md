@@ -332,7 +332,10 @@ type Candidate struct {
 - Every network filter other than the HCM in a filter chain in or above the block.
 - Every HTTP filter slot, downstream and router upstream, of every HCM serving the block: the HCM in or above it, or for a route config source block, every HCM whose use resolves to it.
 - Every per-filter config entry on the source a use in or above the block resolves to (or the source block itself), and on every virtual host, route and weighted backend in or above the block. An entry with no matching installed slot is an input too.
-- A static source that an inline source reports is that inline source: its block has the inline source's inputs, the inline source's listener lineage included. A source with no use is a block of its per-filter config entries.
+- Every route config use in or above the block whose state is not `found` (`missing`, `ambiguous`, `unknown`, scoped routes). Its routes are not in the dump, so it is always a gap, reason `unresolved`, with an empty `Kind`.
+- A route config source block holds every use that resolves to it: the inputs of each use's block (its listener, filter chain, HCM, virtual hosts, routes, backends and mirrors) are its inputs. A static source that an inline source reports is that inline source, with the inline source's uses. A source with no use is a block of its per-filter config entries.
+
+A source block is the union of its uses' blocks. That duplicates the use blocks on purpose: a consumer that shows a shared source once, by `SourcePath`, needs one decision that is never weaker than the decision for any use.
 
 **Bootstrap.** A static listener, everything in it, its inline route configs and the static sources only they report come from the proxy's startup config, not from Kubernetes. They are inputs with status `bootstrap`: never a gap, and they add no objects. Route config that a static listener fetches over RDS is dynamic: its virtual hosts, routes, backends and per-filter config keep their normal inputs and gaps.
 
@@ -341,7 +344,8 @@ type Candidate struct {
 | Input | Covered by |
 |---|---|
 | listener | `gatewaySource` |
-| filter chain, HCM, use | nothing expected |
+| filter chain, HCM, joined use | nothing expected |
+| use not `found` | nothing: always a gap (`unresolved`) |
 | virtual host | `hostSource` |
 | route | `routeSource`, with a complete candidate list |
 | route or weighted backend with a cluster | `backendSource` |
@@ -366,6 +370,7 @@ A claim in scope that Compose rule 3 dropped gives its subject a gap of the drop
 | `dropped` | Compose dropped a claim of this kind on the subject |
 | `incomplete` | the route's readings may miss its source |
 | `notCoverable` | no claim kind can cover it: a network filter, a per-request cluster, a per-filter entry with no installed downstream slot |
+| `unresolved` | a route config use joined no source: the routes it serves are unknown |
 
 **Complete.** A route's candidate list is complete only when the module affirms it: every reading at the highest certainty is marked `Exhaustive`, and no listed reading at any certainty, `unknown` included, is marked `Incomplete`. A lower-certainty incomplete reading therefore keeps an exact one from covering the route. A module marks a reading `Exhaustive` when it comes from exact metadata or its parser enumerated every reading of a name. It marks one `Incomplete` when it could not enumerate every reading, such as a name outside the expected format. A list that isn't complete is a gap: `noEvidence` when no reading is at ambiguous or better (an empty list, or only `unknown` readings), otherwise `incomplete`, which wins over `ambiguous`. Candidates are listed whether or not their objects exist in a cluster: xdsview never reads cluster state.
 

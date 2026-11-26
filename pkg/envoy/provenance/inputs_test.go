@@ -118,6 +118,65 @@ func TestInputs_Complete(t *testing.T) {
 	}
 }
 
+// TestInputs_UnresolvedUse: a route config use that joined no source hides
+// routes the index can't see, so it is a gap in every block that holds it.
+func TestInputs_UnresolvedUse(t *testing.T) {
+	use := model.ID("L0/C0/N0/RC")
+	for _, tc := range []struct {
+		name   string
+		state  model.RouteConfigState
+		scoped bool
+		static bool
+	}{
+		{"missing", model.RouteConfigMissing, false, false},
+		{"ambiguous", model.RouteConfigAmbiguous, false, false},
+		{"unknown", model.RouteConfigUnknown, false, false},
+		{"scoped", model.RouteConfigUnknown, true, false},
+		{"static listener over RDS", model.RouteConfigUnknown, false, true},
+	} {
+		snap := twoListeners()
+		hcm := snap.Listeners[0].FilterChains[0].HCM
+		hcm.RouteConfigUse = model.RouteConfigUse{ID: use, State: tc.state}
+		hcm.RouteConfig, hcm.ScopedRoutes = nil, tc.scoped
+		snap.Listeners[0].Static = tc.static
+		ix := compose(t, snap, fixed{"m", nil})
+		for _, block := range []model.ID{l0, use} {
+			in := input(t, ix, block, provenance.Gap{Subject: use})
+			if in.Status != provenance.InputGap || in.Reason != provenance.ReasonUnresolved {
+				t.Errorf("%s: %s: use is %s/%s, want gap/unresolved", tc.name, block, in.Status, in.Reason)
+			}
+		}
+	}
+	// A joined use is no input of its own.
+	ix := compose(t, twoListeners(), fixed{"m", nil})
+	for _, in := range ix.Inputs(l0) {
+		if in.Subject == use {
+			t.Errorf("found use has input %+v", in)
+		}
+	}
+}
+
+// TestInputs_SourceBlock: a route config source block holds every use of
+// it, so its inputs include each use's listener, virtual hosts, routes and backends.
+func TestInputs_SourceBlock(t *testing.T) {
+	ix := compose(t, twoListeners(), fixed{"m", nil})
+	for _, g := range []provenance.Gap{
+		{Subject: l0, Kind: provenance.KindGatewaySource},
+		{Subject: vhost0, Kind: provenance.KindHostSource},
+		{Subject: route0, Kind: provenance.KindRouteSource},
+		{Subject: route1, Kind: provenance.KindBackendSource},
+	} {
+		if in := input(t, ix, "RD0", g); in.Status != provenance.InputGap {
+			t.Errorf("RD0 %+v is %s, want gap", g, in.Status)
+		}
+	}
+	for _, in := range ix.Inputs("RD0") {
+		if in.Subject.Within(l1) {
+			t.Errorf("RD0 has an input of L1: %+v", in)
+		}
+	}
+}
+
 // TestInputs_DroppedMirror (Codex r6 P2): a dropped mirror BackendSource
 // claim is a gap on the mirror input, not on the route's primary backend.
 func TestInputs_DroppedMirror(t *testing.T) {

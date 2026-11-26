@@ -202,6 +202,7 @@ const (
 	ReasonDropped      GapReason = "dropped"      // Compose dropped a claim of this kind on the subject
 	ReasonIncomplete   GapReason = "incomplete"   // the route's readings may miss its source
 	ReasonNotCoverable GapReason = "notCoverable" // no claim kind can cover it, e.g. a network filter
+	ReasonUnresolved   GapReason = "unresolved"   // a route config use joined no source: its routes are unknown
 )
 
 // Candidate is one reading of a route: the HTTPRoute it names and the claim,
@@ -239,16 +240,18 @@ func (ix *Index) Inputs(block model.ID) []Input {
 //   - each per-filter config entry on the route config source of a use in or
 //     above the block (or the source block itself), and on each virtual
 //     host, route and weighted backend in or above it, including entries no
-//     installed slot takes. A source no HCM uses is a block of its entries.
-//     A static source that an inline source reports counts as that source,
-//     the inline source's listener lineage included.
+//     installed slot takes. A source no HCM uses is a block of its entries;
+//   - each route config use in or above the block that joined no source;
+//   - for a route config source block, the inputs of every use's block. A
+//     static source that an inline source reports counts as that source.
 //
 // An input is covered only by claims at inferred or exact:
 //   - listener: GatewaySource; virtual host: HostSource; route: RouteSource;
 //     route or weighted backend with a cluster: BackendSource; mirror
 //     cluster: BackendSource for that mirror ([ResolveMirror]);
 //   - a route whose cluster is picked per request (header or specifier
-//     plugin), or a network filter other than the HCM: nothing;
+//     plugin), a network filter other than the HCM, or a use that joined no
+//     source ([ReasonUnresolved]): nothing;
 //   - a slot other than the router: ExtensionSource. A downstream slot that
 //     runs by default and is no helper also needs, for each route checked, a
 //     kept FilterLink on that route placing a listener-level PolicyRecord on it;
@@ -494,9 +497,12 @@ func (ix *Index) inputs(block model.ID) (map[model.ID]bool, []input) {
 	d := ix.deps()
 	in := ix.lineage(block)
 	if ix.st.kinds[block] == subjectSource {
-		// A reported static source is its inline source, listener lineage included.
-		for _, t := range d.reports[block] {
+		// A source block holds every use of it, and a reported static source is its inline source.
+		for _, t := range append([]model.ID{block}, d.reports[block]...) {
 			maps.Copy(in, ix.lineage(t))
+			for _, h := range d.users[t] {
+				maps.Copy(in, ix.lineage(h.hcm.RouteConfigUse.ID))
+			}
 		}
 	}
 	scope := maps.Clone(in)
@@ -520,6 +526,10 @@ func (ix *Index) inputs(block model.ID) (map[model.ID]bool, []input) {
 		case subjectUse:
 			if src := ix.st.useSource[id]; src != "" {
 				scope[src] = true
+			}
+			if d.hcms[d.parent[id]].hcm.RouteConfigUse.State != model.RouteConfigFound {
+				// Missing, ambiguous, unknown or scoped: routes the index can't see.
+				out = append(out, input{Input: Input{Gap: Gap{Subject: id}, Status: InputGap, Reason: ReasonUnresolved}})
 			}
 		case subjectVirtualHost:
 			out = append(out, ix.alternative(id, KindHostSource))

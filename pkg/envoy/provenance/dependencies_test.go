@@ -242,8 +242,10 @@ func TestDependencies_ReportedSource(t *testing.T) {
 	ix := compose(t, snap, fixed{"m", []provenance.Claim{rec, link("src", route0, slot0), link("src", route1, slot0)}})
 	for _, block := range []model.ID{"RS0", inline} {
 		d := ix.Dependencies(block)
-		if slices.ContainsFunc(d.Gaps, func(g provenance.Gap) bool { return g.Kind == provenance.KindPolicyRecord }) {
-			t.Errorf("%s has policyRecord gaps: %v", block, d.Gaps)
+		if slices.ContainsFunc(d.Gaps, func(g provenance.Gap) bool {
+			return g.Kind == provenance.KindPolicyRecord && g.Level == provenance.LevelRouteConfig
+		}) {
+			t.Errorf("%s has route config policyRecord gaps: %v", block, d.Gaps)
 		}
 		if !hasObject(d, policyA, provenance.KindPolicyRecord) {
 			t.Errorf("%s objects %v lack the inline source's record", block, d.Objects)
