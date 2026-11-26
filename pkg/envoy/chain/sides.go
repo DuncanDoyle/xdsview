@@ -30,12 +30,14 @@ var sides = map[string][2]model.Tri{
 	"envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication":         decoder, // jwt_authn/filter_factory.cc:49
 	"envoy.extensions.filters.http.lua.v3.Lua":                             both,    // lua/config.cc:24
 	"envoy.extensions.filters.http.header_mutation.v3.HeaderMutation":      both,    // header_mutation/config.cc:21
-	"envoy.extensions.filters.http.compressor.v3.Compressor":               both,    // compressor/config.cc:39
-	"envoy.extensions.filters.http.oauth2.v3.OAuth2":                       both,    // oauth2/config.cc:152
-	"envoy.extensions.filters.http.basic_auth.v3.BasicAuth":                decoder, // basic_auth/config.cc:80
-	"envoy.extensions.filters.http.api_key_auth.v3.ApiKeyAuth":             decoder, // api_key_auth/config.cc:21
-	"envoy.extensions.filters.http.stateful_session.v3.StatefulSession":    both,    // stateful_session/config.cc:21
-	"envoy.extensions.filters.http.health_check.v3.HealthCheck":            both,    // health_check/config.cc:58
+	// The per-route type also selects this factory (envoy/server/filter_config.h:291).
+	"envoy.extensions.filters.http.header_mutation.v3.HeaderMutationPerRoute": both,    // header_mutation/config.cc:21
+	"envoy.extensions.filters.http.compressor.v3.Compressor":                  both,    // compressor/config.cc:39
+	"envoy.extensions.filters.http.oauth2.v3.OAuth2":                          both,    // oauth2/config.cc:152
+	"envoy.extensions.filters.http.basic_auth.v3.BasicAuth":                   decoder, // basic_auth/config.cc:80
+	"envoy.extensions.filters.http.api_key_auth.v3.ApiKeyAuth":                decoder, // api_key_auth/config.cc:21
+	"envoy.extensions.filters.http.stateful_session.v3.StatefulSession":       both,    // stateful_session/config.cc:21
+	"envoy.extensions.filters.http.health_check.v3.HealthCheck":               both,    // health_check/config.cc:58
 }
 
 var (
