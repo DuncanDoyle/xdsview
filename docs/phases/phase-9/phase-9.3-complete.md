@@ -149,6 +149,15 @@ Fail-closed `Dependencies` (Codex re-review 4), rerun on the same machine. `Benc
 
 `Dependencies` on all route blocks costs about 27 ms (5.5 µs and 89 allocations per block). The first call builds the per-HCM structure and link placements, so the cost is linear in routes.
 
+Static listeners with RDS (Codex re-review 7, P2). `BenchmarkDependencies` now has two cases: `dynamic` is the dump above, `staticRDS` is 5,000 static listeners, each fetching its own one-route config over RDS. Same machine, `-count 3`, median:
+
+| Case | Before (per-check scan) | After (bootstrap set built once) | Memory/op | Allocs/op |
+|---|---|---|---|---|
+| `dynamic` | 74.4 ms | 69.7 ms | 155.2 MB | 1,047,975 |
+| `staticRDS` | 2,788 ms | 63.2 ms | 134.8 MB | 842,965 |
+
+The bootstrap check is now a map lookup, so `staticRDS` is linear in routes too.
+
 Not measured: the kind capture for scoped `merge.*`; that is for the owner (R5 tested on hand-built fixtures, design Risks).
 
 ## Corpus gaps

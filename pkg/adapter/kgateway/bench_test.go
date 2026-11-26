@@ -85,17 +85,56 @@ func BenchmarkCompose(b *testing.B) {
 	}
 }
 
-// BenchmarkDependencies composes and checks every route block, as Snellius does.
+// staticRDSDump is a dump of n static listeners, each fetching its own
+// one-route config over RDS with route_source metadata.
+func staticRDSDump(n int) []byte {
+	var b strings.Builder
+	b.WriteString(`{"configs": [{"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump", "static_listeners": [`)
+	for i := range n {
+		if i > 0 {
+			b.WriteString(",")
+		}
+		fmt.Fprintf(&b, `{"listener": {"name": "boot%d", "filter_chains": [{"filters": [
+ {"name": "envoy.filters.network.http_connection_manager", "typed_config": {"rds": {"route_config_name": "listener~%d"}, "http_filters": [
+  {"name": "envoy.filters.http.router", "typed_config": {"@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"}}]}}]}]}}`, i, i)
+	}
+	b.WriteString(`]}, {"@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump", "dynamic_route_configs": [`)
+	for i := range n {
+		if i > 0 {
+			b.WriteString(",")
+		}
+		fmt.Fprintf(&b, `{"route_config": {"name": "listener~%d", "virtual_hosts": [{"name": "listener~%d~h_example_com", "domains": ["h.example.com"], "routes": [
+ {"name": "r", "match": {"prefix": "/"}, "route": {"cluster": "kube_ns_r%d_80"},
+  "metadata": {"filter_metadata": {"dev.kgateway.route_source": {"group": "gateway.networking.k8s.io", "kind": "HTTPRoute", "namespace": "ns", "name": "r%d", "rule": "_rule-0", "match": "_match-0"}}}}]}]}}`, i, i, i, i)
+	}
+	b.WriteString("]}]}")
+	return []byte(b.String())
+}
+
+// BenchmarkDependencies composes and checks every route block, as Snellius
+// does: on one dynamic listener, and on static listeners fetching over RDS.
 func BenchmarkDependencies(b *testing.B) {
-	snap, err := parser.Parse(bytes.NewReader(benchDump(benchVhosts, benchRoutes)), parser.Options{})
+	b.Run("dynamic", func(b *testing.B) { benchDependencies(b, benchDump(benchVhosts, benchRoutes)) })
+	b.Run("staticRDS", func(b *testing.B) { benchDependencies(b, staticRDSDump(benchVhosts*benchRoutes)) })
+}
+
+func benchDependencies(b *testing.B, dump []byte) {
+	snap, err := parser.Parse(bytes.NewReader(dump), parser.Options{})
 	if err != nil {
 		b.Fatal(err)
 	}
 	var routes []model.ID
-	for _, vh := range snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts {
-		for _, r := range vh.Routes {
-			routes = append(routes, r.ID)
+	for _, l := range snap.Listeners {
+		for _, fc := range l.FilterChains {
+			for _, vh := range fc.HCM.RouteConfig.VirtualHosts {
+				for _, r := range vh.Routes {
+					routes = append(routes, r.ID)
+				}
+			}
 		}
+	}
+	if len(routes) != benchVhosts*benchRoutes {
+		b.Fatalf("%d routes", len(routes))
 	}
 	for b.Loop() {
 		ix, err := provenance.Compose(snap, kgateway.New())

@@ -348,29 +348,13 @@ type depIndex struct {
 	routes   map[model.ID]*model.Route
 	backends map[model.ID]*model.WeightedCluster
 	placed   map[[3]model.ID][]int // (route, record subject, slot) → kept link and record, both at inferred or exact
-	static   map[model.ID]bool     // static (bootstrap) listeners
-	fetched  map[model.ID]bool     // uses in static listeners whose content is not inline, e.g. RDS
-	bootSrc  map[model.ID]bool     // static sources only static listeners' inline sources report
+	boot     map[model.ID]bool     // bootstrap subjects, built once (see bootstrap)
 }
 
 // bootstrap reports whether id comes from the proxy's startup config: a static
 // listener and anything in it except fetched route config content, or a
 // static source only its inline sources report.
-func (d *depIndex) bootstrap(id model.ID) bool {
-	if d.bootSrc[id] {
-		return true
-	}
-	l, _, _ := strings.Cut(string(id), "/")
-	if !d.static[model.ID(l)] {
-		return false
-	}
-	for use := range d.fetched {
-		if id.Within(use) {
-			return false
-		}
-	}
-	return true
-}
+func (d *depIndex) bootstrap(id model.ID) bool { return d.boot[id] }
 
 // hcmInfo is one HCM, its listener, its routes and its slots by filter name.
 type hcmInfo struct {
@@ -391,15 +375,12 @@ func newDepIndex(ix *Index) *depIndex {
 	d := &depIndex{parent: map[model.ID]model.ID{}, children: map[model.ID][]model.ID{}, hcms: map[model.ID]*hcmInfo{},
 		owner: map[model.ID]*hcmInfo{}, users: map[model.ID][]*hcmInfo{}, reports: map[model.ID][]model.ID{}, chains: map[model.ID]*model.NetworkFilterChain{},
 		sources: map[model.ID]*model.RouteConfigSource{}, vhosts: map[model.ID]*model.VirtualHost{}, routes: map[model.ID]*model.Route{},
-		backends: map[model.ID]*model.WeightedCluster{}, placed: map[[3]model.ID][]int{}, static: map[model.ID]bool{}, fetched: map[model.ID]bool{}, bootSrc: map[model.ID]bool{}}
-	for _, l := range ix.snap.Listeners {
-		if l.Static {
-			d.static[l.ID] = true
-		}
-	}
+		backends: map[model.ID]*model.WeightedCluster{}, placed: map[[3]model.ID][]int{}, boot: map[model.ID]bool{}}
+	// A child is bootstrap when its parent is; a fetched use overrides that below.
 	tie := func(parent, child model.ID) {
 		d.parent[child] = parent
 		d.children[parent] = append(d.children[parent], child)
+		d.boot[child] = d.boot[parent]
 	}
 	for i := range ix.snap.RouteConfigs {
 		s := &ix.snap.RouteConfigs[i]
@@ -410,10 +391,14 @@ func newDepIndex(ix *Index) *depIndex {
 	}
 	for li := range ix.snap.Listeners {
 		l := &ix.snap.Listeners[li]
+		d.boot[l.ID] = l.Static
 		for fi := range l.FilterChains {
 			fc := &l.FilterChains[fi]
 			d.chains[fc.ID] = fc
 			tie(l.ID, fc.ID)
+			for _, nf := range fc.NetworkFilters {
+				d.boot[nf.ID] = l.Static
+			}
 			hcm := fc.HCM
 			if hcm == nil {
 				continue
@@ -436,8 +421,10 @@ func newDepIndex(ix *Index) *depIndex {
 			if src := hcm.RouteConfigUse.Source; src != "" {
 				d.users[src] = append(d.users[src], h)
 			}
-			if s := d.sources[hcm.RouteConfigUse.Source]; l.Static && (s == nil || s.Kind != model.SourceInline) {
-				d.fetched[use] = true
+			if s := d.sources[hcm.RouteConfigUse.Source]; s != nil && s.Kind == model.SourceInline {
+				d.boot[s.ID] = l.Static
+			} else {
+				d.boot[use] = false // fetched content, e.g. RDS, is never bootstrap
 			}
 			if hcm.RouteConfig == nil {
 				continue
@@ -461,7 +448,7 @@ func newDepIndex(ix *Index) *depIndex {
 		}
 	}
 	for src, inl := range d.reports {
-		d.bootSrc[src] = !slices.ContainsFunc(inl, func(id model.ID) bool { return !d.bootstrap(id) })
+		d.boot[src] = !slices.ContainsFunc(inl, func(id model.ID) bool { return !d.boot[id] })
 	}
 	for i, c := range ix.claims {
 		if l, ok := c.Assertion.(FilterLink); ok && c.Certainty >= model.Inferred {
