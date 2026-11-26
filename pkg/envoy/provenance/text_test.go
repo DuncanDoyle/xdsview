@@ -67,7 +67,7 @@ func TestText_Levels(t *testing.T) {
 			record("b", route0, provenance.LevelRoute, policyB),
 			link("a", route0, slot0), link("rc", route0, slot0), link("b", route0, slot0),
 		}, []string{
-			"enabled by route · Policy ns/a (f, inferred; route config, listener) · Policy ns/b (f, inferred)\n",
+			"enabled by route · Policy ns/a (f, inferred; route config, listener; overridden by route) · Policy ns/b (f, inferred)\n",
 			"inherited policies: Policy ns/a (f; route config, listener)\n",
 		}},
 		{"vhost decides", func(s *model.Snapshot) {
@@ -78,7 +78,7 @@ func TestText_Levels(t *testing.T) {
 			record("rc", "RD0", provenance.LevelRouteConfig, policyA),
 			link("v", route0, slot0), link("rc", route0, slot0),
 		}, []string{
-			"enabled by vhost · Policy ns/a (f, inferred; vhost, route config)\n",
+			"enabled by vhost · Policy ns/a (f, inferred; vhost, route config; route config overridden by vhost)\n",
 		}},
 	}
 	for _, c := range cases {
