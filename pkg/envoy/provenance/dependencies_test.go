@@ -444,6 +444,40 @@ func TestDependencies_ClosersObjects(t *testing.T) {
 	}
 }
 
+// TestDependencies_Bootstrap: a static listener, everything under it, its
+// inline source and that source's reported static copy come from the proxy's
+// startup config. They add no gaps and no objects; a dynamic listener keeps both.
+func TestDependencies_Bootstrap(t *testing.T) {
+	snap := twoListeners()
+	l := &snap.Listeners[0]
+	l.Static = true
+	hcm := l.FilterChains[0].HCM
+	inline := model.ID("L0/C0/N0/RCI")
+	authz := map[string]any{"authz": map[string]any{}}
+	hcm.HTTPFilters[0].Disabled = false
+	hcm.RouteConfigUse.Source = inline
+	hcm.RouteConfig.TypedPerFilterConfig = authz
+	hcm.RouteConfig.VirtualHosts[0].Routes[1].MirrorClusters = []string{"m"}
+	hcm.RouteConfig.VirtualHosts[0].Routes[1].WeightedClusters = []model.WeightedCluster{{ID: route1 + "/W0", Name: "c", Weight: 1, TypedPerFilterConfig: authz}}
+	l.FilterChains[0].NetworkFilters = []model.NetworkFilter{{ID: "L0/C0/N0", Name: "hcm"}, {ID: "L0/C0/N1", Name: "rbac"}}
+	snap.RouteConfigs[0] = model.RouteConfigSource{ID: inline, Kind: model.SourceInline, Name: "l0", Reported: "RS0", TypedPerFilterConfig: authz}
+	snap.RouteConfigs = append(snap.RouteConfigs, model.RouteConfigSource{ID: "RS0", Kind: model.SourceStatic, Name: "l0", TypedPerFilterConfig: authz})
+	// A route claim, and a dropped claim, on bootstrap subjects.
+	claims := []provenance.Claim{source(route0, routeA, model.Exact),
+		{Subject: vhost0, Assertion: provenance.ListenerSource{Port: 80}, Certainty: model.Inferred}}
+	ix := compose(t, snap, fixed{"m", claims})
+
+	for _, block := range []model.ID{l0, vhost0, route0, route1, route1 + "/W0", inline, "RS0"} {
+		d := ix.Dependencies(block)
+		if len(d.Gaps) != 0 || len(d.Objects) != 0 {
+			t.Errorf("%s: gaps %v, objects %v, want none", block, d.Gaps, d.Objects)
+		}
+	}
+	if d := ix.Dependencies(otherR); !hasGap(d, l1, provenance.KindGatewaySource) || !hasGap(d, otherR, provenance.KindRouteSource) {
+		t.Errorf("dynamic route gaps %v lack its listener and route gaps", d.Gaps)
+	}
+}
+
 // TestRecords lists a route's records at every level, most specific first.
 func TestRecords(t *testing.T) {
 	snap, _ := parser.Parse(strings.NewReader(depsDump), parser.Options{})

@@ -23,7 +23,7 @@ func Covers(ix *Index, block model.ID) []Cover {
 	_, inputs := ix.inputs(block)
 	var out []Cover
 	for _, in := range inputs {
-		if !in.covered {
+		if !in.covered || in.bootstrap {
 			continue
 		}
 		c := Cover{Gap: in.gap}

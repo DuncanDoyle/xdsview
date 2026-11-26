@@ -157,8 +157,13 @@ type Gap struct {
 //
 // Objects holds the evidence objects of the claims on every subject above,
 // and of every claim that covers an input, wherever its subject lives.
+//
+// A bootstrap subject comes from the proxy's startup config: a static listener,
+// anything in it, or a static source only its inline sources report. It is
+// never a gap and adds no objects.
 func (ix *Index) Dependencies(block model.ID) Dependencies {
 	scope, inputs := ix.inputs(block)
+	d := ix.deps()
 	objects := map[Dependent]bool{}
 	add := func(c Claim) {
 		for _, e := range c.Evidence {
@@ -168,12 +173,18 @@ func (ix *Index) Dependencies(block model.ID) Dependencies {
 		}
 	}
 	for id := range scope {
+		if d.bootstrap(id) {
+			continue
+		}
 		for _, i := range ix.bySubject[id] {
 			add(ix.claims[i])
 		}
 	}
 	gaps := map[Gap]bool{}
 	for _, in := range inputs {
+		if in.bootstrap {
+			continue
+		}
 		if !in.covered {
 			gaps[in.gap] = true
 			continue
@@ -183,7 +194,7 @@ func (ix *Index) Dependencies(block model.ID) Dependencies {
 		}
 	}
 	for _, c := range ix.dropped {
-		if scope[c.Subject] && c.Assertion != nil {
+		if scope[c.Subject] && c.Assertion != nil && !d.bootstrap(c.Subject) {
 			gaps[Gap{Subject: c.Subject, Kind: kindOf(c.Assertion)}] = true
 		}
 	}
@@ -215,9 +226,10 @@ func refKey(r model.Ref) string {
 
 // input is one thing a block shows or relies on, and the claims covering it.
 type input struct {
-	gap     Gap   // reported when not covered
-	covered bool  // claims at inferred or exact cover it
-	covers  []int // indices of the claims that can cover it
+	gap       Gap   // reported when not covered
+	covered   bool  // claims at inferred or exact cover it
+	covers    []int // indices of the claims that can cover it
+	bootstrap bool  // from the proxy's startup config: never a gap
 }
 
 // depIndex is the snapshot's structure as Dependencies reads it.
@@ -234,6 +246,15 @@ type depIndex struct {
 	routes   map[model.ID]*model.Route
 	backends map[model.ID]*model.WeightedCluster
 	placed   map[[3]model.ID][]int // (route, record subject, slot) → kept link and record, both at inferred or exact
+	static   map[model.ID]bool     // static (bootstrap) listeners
+	bootSrc  map[model.ID]bool     // static sources only static listeners' inline sources report
+}
+
+// bootstrap reports whether id comes from the proxy's startup config: a static
+// listener, anything in it, or a static source only its inline sources report.
+func (d *depIndex) bootstrap(id model.ID) bool {
+	l, _, _ := strings.Cut(string(id), "/")
+	return d.static[model.ID(l)] || d.bootSrc[id]
 }
 
 // hcmInfo is one HCM, its listener, its routes and its slots by filter name.
@@ -255,7 +276,12 @@ func newDepIndex(ix *Index) *depIndex {
 	d := &depIndex{parent: map[model.ID]model.ID{}, children: map[model.ID][]model.ID{}, hcms: map[model.ID]*hcmInfo{},
 		owner: map[model.ID]*hcmInfo{}, users: map[model.ID][]*hcmInfo{}, reports: map[model.ID][]model.ID{}, chains: map[model.ID]*model.NetworkFilterChain{},
 		sources: map[model.ID]*model.RouteConfigSource{}, vhosts: map[model.ID]*model.VirtualHost{}, routes: map[model.ID]*model.Route{},
-		backends: map[model.ID]*model.WeightedCluster{}, placed: map[[3]model.ID][]int{}}
+		backends: map[model.ID]*model.WeightedCluster{}, placed: map[[3]model.ID][]int{}, static: map[model.ID]bool{}, bootSrc: map[model.ID]bool{}}
+	for _, l := range ix.snap.Listeners {
+		if l.Static {
+			d.static[l.ID] = true
+		}
+	}
 	tie := func(parent, child model.ID) {
 		d.parent[child] = parent
 		d.children[parent] = append(d.children[parent], child)
@@ -315,6 +341,9 @@ func newDepIndex(ix *Index) *depIndex {
 				}
 			}
 		}
+	}
+	for src, inl := range d.reports {
+		d.bootSrc[src] = !slices.ContainsFunc(inl, func(id model.ID) bool { return !d.bootstrap(id) })
 	}
 	for i, c := range ix.claims {
 		if l, ok := c.Assertion.(FilterLink); ok && c.Certainty >= model.Inferred {
@@ -481,6 +510,9 @@ func (ix *Index) inputs(block model.ID) (map[model.ID]bool, []input) {
 				out = append(out, input{gap: Gap{Subject: id, Kind: KindPolicyRecord, Slot: slot}})
 			}
 		}
+	}
+	for i := range out {
+		out[i].bootstrap = d.bootstrap(out[i].gap.Subject)
 	}
 	return scope, out
 }
