@@ -139,6 +139,31 @@ func TestFilterLink(t *testing.T) {
 	}
 }
 
+// TestFilterLink_HeaderModifiers: headerModifiers links to the header_mutation
+// slot, whose HCM config kgateway writes as a HeaderMutationPerRoute.
+func TestFilterLink_HeaderModifiers(t *testing.T) {
+	dump := `{"configs": [
+ {"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump", "dynamic_listeners": [
+  {"name": "listener~80", "active_state": {"listener": {"name": "listener~80", "filter_chains": [{"name": "listener~80", "filters": [
+   {"name": "envoy.filters.network.http_connection_manager", "typed_config": {"rds": {"route_config_name": "listener~80"}, "http_filters": [
+    {"name": "envoy.extensions.filters.http.header_mutation", "disabled": true, "typed_config": {"@type": "type.googleapis.com/envoy.extensions.filters.http.header_mutation.v3.HeaderMutationPerRoute"}},
+    {"name": "envoy.filters.http.router", "typed_config": {"@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"}}]}}]}]}}}]},
+ {"@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump", "dynamic_route_configs": [
+  {"route_config": {"name": "listener~80", "virtual_hosts": [{"name": "listener~80~example_com", "domains": ["example.com"], "routes": [
+   {"name": "listener~80~example_com-route-0-httproute-web-ns-0-0-matcher-0", "match": {"prefix": "/"}, "route": {"cluster": "kube_ns_web_80"},
+    "typed_per_filter_config": {"envoy.extensions.filters.http.header_mutation": {}}, ` + mergeMD("headerModifiers", "hm") + `}]}]}}]}]}`
+	ix := compose(t, parse(t, dump))
+	var slots []model.ID
+	for _, c := range ix.About("L0/C0/N0/RC/V0/R0") {
+		if l, ok := c.Assertion.(provenance.FilterLink); ok {
+			slots = append(slots, l.Slot)
+		}
+	}
+	if !slices.Equal(slots, []model.ID{"L0/C0/N0/F0"}) {
+		t.Errorf("links to %v, want the header_mutation slot L0/C0/N0/F0", slots)
+	}
+}
+
 // TestP1Fixes (R13): Phase 8 deferred #2, #4 and #5. Each fails on the
 // replaced origin package (cmd/krp TestParity_P1Fixes).
 func TestP1Fixes(t *testing.T) {

@@ -20,6 +20,7 @@ var policyFilterKinds = map[string]string{
 	"rateLimit.global": "ratelimit",       // global_rate_limit_policy.go
 	"rateLimit.local":  "local_ratelimit", // local_rate_limit_policy.go
 	"cors":             "cors",            // cors_policy.go
+	"headerModifiers":  "header_mutation", // header_modifiers.go:93, traffic_policy_plugin.go:668
 }
 
 // globalDisable maps a field to the helper filter kgateway enables per route
