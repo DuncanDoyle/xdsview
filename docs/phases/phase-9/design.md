@@ -441,8 +441,8 @@ type Narrowing struct {
 Selection rules:
 1. `Query.Route` is an HTTPRoute. Other route kinds are not selected; they are additive later.
 2. A reading matches when its HTTPRoute equals `Query.Route`, and its rule index and rule name match where set.
-3. `Routes`: the route resolves to one reading at inferred or exact, it matches, and Known removed no reading.
-4. `Ambiguous`: several readings and at least one matches, counting those Known removed; or one reading left only because Known removed the others. Ambiguous routes are never selected.
+3. `Routes`: the route resolves to one reading at inferred or exact, it matches, and Known removed no reading. Readings are counted as `Resolve` merges them: one reading is one HTTPRoute, rule index, rule name and match index, so claims that differ only in `IndexCertainty`, `Incomplete` or `Exhaustive` are one reading.
+4. `Ambiguous`: several readings and at least one matches, counting those Known removed; or one reading left only because Known removed the others; or one matching reading whose claims are at `ambiguous` certainty (the module itself says it is unsure). Ambiguous routes are never selected.
 5. Known removes a reading only when its HTTPRoute is absent from Known. It never removes an exact reading, and never the last one: when every reading is outside Known, Known is ignored for that route and no narrowing is recorded.
 6. Known never raises certainty. There is no `narrowed` certainty: a narrowed route stays ambiguous, and its `Narrowing` names what was kept.
 

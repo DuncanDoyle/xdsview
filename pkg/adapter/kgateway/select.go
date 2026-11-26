@@ -2,7 +2,6 @@ package kgateway
 
 import (
 	"fmt"
-	"reflect"
 	"slices"
 	"strings"
 
@@ -35,7 +34,8 @@ type Narrowing = provenance.Narrowing
 //  2. A reading matches when its HTTPRoute is q.Route, and its rule index and
 //     rule name are q's where set.
 //  3. Routes: the route resolves to one reading at inferred or exact, which
-//     matches, and Known removed no reading.
+//     matches, and Known removed no reading. Readings are counted as
+//     [provenance.Resolve] merges them; one rated ambiguous stays ambiguous.
 //  4. Ambiguous: several readings and at least one matches, Known's removals
 //     included; or one reading left only because Known removed the others.
 //  5. Known removes a reading whose HTTPRoute it lacks, never an exact one,
@@ -62,7 +62,8 @@ func Select(ix *provenance.Index, snap *model.Snapshot, q Query) Selection {
 			return
 		}
 		n, narrowed := narrow(r.ID, readings, q.Known)
-		if !narrowed && distinct(readings) == 1 && top >= model.Inferred {
+		// Resolve rates several distinct readings, or one rated ambiguous, as ambiguous.
+		if !narrowed && top >= model.Inferred {
 			sel.Routes = append(sel.Routes, r.ID)
 			return
 		}
@@ -93,31 +94,21 @@ func Narrow(ix *provenance.Index, known []model.Ref) []Narrowing {
 	return out
 }
 
-// readingsOf returns the RouteSource claims at the highest certainty, and it.
+// readingsOf returns the RouteSource claims at the highest certainty, and the
+// route's resolved certainty: ambiguous unless they merge into one reading.
 func readingsOf(ix *provenance.Index, route model.ID) ([]provenance.Claim, model.Certainty) {
-	claims := provenance.Resolve[provenance.RouteSource](ix, route).Claims
+	res := provenance.Resolve[provenance.RouteSource](ix, route)
 	top := model.Unknown
-	for _, c := range claims {
+	for _, c := range res.Claims {
 		top = max(top, c.Certainty)
 	}
 	var out []provenance.Claim
-	for _, c := range claims {
+	for _, c := range res.Claims {
 		if c.Certainty == top && top > model.Unknown {
 			out = append(out, c)
 		}
 	}
-	return out, top
-}
-
-// distinct counts the different readings among claims.
-func distinct(claims []provenance.Claim) int {
-	var seen []provenance.Assertion
-	for _, c := range claims {
-		if !slices.ContainsFunc(seen, func(a provenance.Assertion) bool { return reflect.DeepEqual(a, c.Assertion) }) {
-			seen = append(seen, c.Assertion)
-		}
-	}
-	return len(seen)
+	return out, res.Certainty
 }
 
 // narrow applies rule 5 to one route's readings.

@@ -91,6 +91,45 @@ func TestSelect(t *testing.T) {
 	}
 }
 
+// claims is a module that returns the claims it holds.
+type claims []provenance.Claim
+
+func (claims) Name() string                                { return "m" }
+func (c claims) Claims(*model.Snapshot) []provenance.Claim { return c }
+
+// TestSelect_Identity: Select counts readings as Resolve merges them, so two
+// readings that differ only in IndexCertainty, Incomplete or Exhaustive select
+// the route. A single reading the module itself rates ambiguous stays ambiguous.
+func TestSelect_Identity(t *testing.T) {
+	snap := selectSnap()
+	web := httpRoute("ns", "web")
+	reading := func(c model.Certainty, a provenance.RouteSource) provenance.Claim {
+		a.Route = web
+		return provenance.Claim{Subject: route(4), Assertion: a, Certainty: c,
+			Evidence: []provenance.Evidence{{Kind: provenance.EvidenceName, Subject: route(4), Field: "name", Object: &web}}}
+	}
+	for _, tc := range []struct {
+		name              string
+		claims            claims
+		routes, ambiguous []model.ID
+	}{
+		{"same reading, different flags", claims{
+			reading(model.Inferred, provenance.RouteSource{Exhaustive: true, IndexCertainty: model.Exact}),
+			reading(model.Inferred, provenance.RouteSource{Incomplete: true, IndexCertainty: model.Inferred}),
+		}, []model.ID{route(4)}, nil},
+		{"one reading at ambiguous", claims{reading(model.Ambiguous, provenance.RouteSource{Exhaustive: true})}, nil, []model.ID{route(4)}},
+	} {
+		ix, err := provenance.Compose(snap, tc.claims)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sel := kgateway.Select(ix, snap, kgateway.Query{Route: web})
+		if !slices.Equal(sel.Routes, tc.routes) || !slices.Equal(sel.Ambiguous, tc.ambiguous) {
+			t.Errorf("%s: routes %v ambiguous %v, want %v %v", tc.name, sel.Routes, sel.Ambiguous, tc.routes, tc.ambiguous)
+		}
+	}
+}
+
 // TestNarrow: live mode without a query narrows every route Known decides.
 func TestNarrow(t *testing.T) {
 	ix := compose(t, selectSnap())
