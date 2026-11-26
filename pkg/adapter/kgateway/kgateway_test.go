@@ -85,8 +85,8 @@ func TestPolicyOrder(t *testing.T) {
 }
 
 // TestMergeLevels (R5): records at listener, route config and vhost level are
-// PolicyRecord claims on those subjects, level-local. Hand-built: no OSS
-// capture shows merge metadata above route level.
+// PolicyRecord claims on those subjects, level-local. Scenario 10 is a real
+// capture with records at every level.
 func TestMergeLevels(t *testing.T) {
 	snap := parse(t, levelsDump)
 	ix := compose(t, snap)

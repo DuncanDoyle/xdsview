@@ -1,0 +1,1949 @@
+{
+  "schemaVersion": "v1alpha2",
+  "snapshot": {
+    "capture": "unverified",
+    "listeners": [
+      {
+        "id": "L0",
+        "name": "listener~8080",
+        "address": ":::8080",
+        "filterChains": [
+          {
+            "id": "L0/C0",
+            "name": "listener~8080",
+            "networkFilters": [
+              {
+                "id": "L0/C0/N0",
+                "name": "envoy.filters.network.http_connection_manager",
+                "type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+              }
+            ],
+            "hcm": {
+              "id": "L0/C0/N0",
+              "routeConfigName": "listener~8080",
+              "httpFilters": [
+                {
+                  "id": "L0/C0/N0/F0",
+                  "name": "envoy.filters.http.cors",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors"
+                  },
+                  "disabled": true
+                },
+                {
+                  "id": "L0/C0/N0/F1",
+                  "name": "ratelimit/local",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit",
+                    "stat_prefix": "http_local_rate_limiter"
+                  },
+                  "disabled": true
+                },
+                {
+                  "id": "L0/C0/N0/F2",
+                  "name": "envoy.extensions.filters.http.header_mutation",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.header_mutation.v3.HeaderMutationPerRoute",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.header_mutation.v3.HeaderMutationPerRoute"
+                  },
+                  "disabled": true
+                },
+                {
+                  "id": "L0/C0/N0/F3",
+                  "name": "envoy.filters.http.router",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  }
+                }
+              ],
+              "routeConfigUse": {
+                "id": "L0/C0/N0/RC",
+                "source": "RD1",
+                "state": "found"
+              },
+              "routeConfig": {
+                "name": "listener~8080",
+                "virtualHosts": [
+                  {
+                    "id": "L0/C0/N0/RC/V0",
+                    "sourcePath": "RD1/V0",
+                    "name": "listener~8080~app_example_com",
+                    "domains": [
+                      "app.example.com"
+                    ],
+                    "routes": [
+                      {
+                        "id": "L0/C0/N0/RC/V0/R0",
+                        "sourcePath": "RD1/V0/R0",
+                        "name": "listener~8080~app_example_com-route-0-httproute-route-http-demo-0-0-matcher-0",
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "action": {
+                          "kind": "route"
+                        },
+                        "cluster": "kube_demo_echo_8080",
+                        "typedPerFilterConfig": {
+                          "envoy.extensions.filters.http.header_mutation": {
+                            "@type": "type.googleapis.com/envoy.extensions.filters.http.header_mutation.v3.HeaderMutationPerRoute",
+                            "mutations": {
+                              "request_mutations": [
+                                {
+                                  "append": {
+                                    "header": {
+                                      "key": "x-route-policy",
+                                      "value": "on"
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          },
+                          "ratelimit/local": {
+                            "@type": "type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit",
+                            "filter_enabled": {
+                              "default_value": {
+                                "numerator": 100
+                              },
+                              "runtime_key": "local_rate_limit_enabled"
+                            },
+                            "filter_enforced": {
+                              "default_value": {
+                                "numerator": 100
+                              },
+                              "runtime_key": "local_rate_limit_enforced"
+                            },
+                            "stat_prefix": "http_local_rate_limiter",
+                            "token_bucket": {
+                              "fill_interval": "10s",
+                              "max_tokens": 5,
+                              "tokens_per_fill": 5
+                            }
+                          }
+                        },
+                        "metadata": {
+                          "dev.kgateway.route_source": {
+                            "group": "gateway.networking.k8s.io",
+                            "kind": "HTTPRoute",
+                            "match": "_match-0",
+                            "name": "route-http",
+                            "namespace": "demo",
+                            "rule": "_rule-0"
+                          },
+                          "merge.TrafficPolicy.gateway.kgateway.dev": {
+                            "headerModifiers": [
+                              "gateway.kgateway.dev/TrafficPolicy/demo/tp-route-http"
+                            ],
+                            "rateLimit.local": [
+                              "gateway.kgateway.dev/TrafficPolicy/demo/tp-route-http"
+                            ]
+                          }
+                        }
+                      }
+                    ],
+                    "typedPerFilterConfig": {
+                      "envoy.filters.http.cors": {
+                        "@type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.CorsPolicy",
+                        "allow_origin_string_match": [
+                          {
+                            "exact": "https://listener.example.com"
+                          }
+                        ],
+                        "forward_not_matching_preflights": false,
+                        "max_age": "5"
+                      }
+                    },
+                    "metadata": {
+                      "merge.TrafficPolicy.gateway.kgateway.dev": {
+                        "cors": [
+                          "gateway.kgateway.dev/TrafficPolicy/demo/tp-listener-http"
+                        ]
+                      }
+                    }
+                  }
+                ],
+                "typedPerFilterConfig": {
+                  "envoy.filters.http.cors": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.CorsPolicy",
+                    "allow_origin_string_match": [
+                      {
+                        "exact": "https://gw.example.com"
+                      }
+                    ],
+                    "forward_not_matching_preflights": false,
+                    "max_age": "5"
+                  },
+                  "ratelimit/local": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit",
+                    "filter_enabled": {
+                      "default_value": {
+                        "numerator": 100
+                      },
+                      "runtime_key": "local_rate_limit_enabled"
+                    },
+                    "filter_enforced": {
+                      "default_value": {
+                        "numerator": 100
+                      },
+                      "runtime_key": "local_rate_limit_enforced"
+                    },
+                    "stat_prefix": "http_local_rate_limiter",
+                    "token_bucket": {
+                      "fill_interval": "60s",
+                      "max_tokens": 100,
+                      "tokens_per_fill": 100
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "state": {
+          "status": "active",
+          "lastUpdated": "2026-11-26T07:02:53.763Z"
+        },
+        "metadata": {
+          "merge.TrafficPolicy.gateway.kgateway.dev": {
+            "cors": [
+              "gateway.kgateway.dev/TrafficPolicy/demo/tp-gateway"
+            ],
+            "rateLimit.local": [
+              "gateway.kgateway.dev/TrafficPolicy/demo/tp-gateway"
+            ]
+          }
+        }
+      },
+      {
+        "id": "L1",
+        "name": "listener~8081",
+        "address": ":::8081",
+        "filterChains": [
+          {
+            "id": "L1/C0",
+            "name": "listener~8081",
+            "networkFilters": [
+              {
+                "id": "L1/C0/N0",
+                "name": "envoy.filters.network.http_connection_manager",
+                "type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+              }
+            ],
+            "hcm": {
+              "id": "L1/C0/N0",
+              "routeConfigName": "listener~8081",
+              "httpFilters": [
+                {
+                  "id": "L1/C0/N0/F0",
+                  "name": "envoy.filters.http.cors",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors"
+                  },
+                  "disabled": true
+                },
+                {
+                  "id": "L1/C0/N0/F1",
+                  "name": "ratelimit/local",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit",
+                    "stat_prefix": "http_local_rate_limiter"
+                  },
+                  "disabled": true
+                },
+                {
+                  "id": "L1/C0/N0/F2",
+                  "name": "envoy.filters.http.router",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  }
+                }
+              ],
+              "routeConfigUse": {
+                "id": "L1/C0/N0/RC",
+                "source": "RD0",
+                "state": "found"
+              },
+              "routeConfig": {
+                "name": "listener~8081",
+                "virtualHosts": [
+                  {
+                    "id": "L1/C0/N0/RC/V0",
+                    "sourcePath": "RD0/V0",
+                    "name": "listener~8081~admin_example_com",
+                    "domains": [
+                      "admin.example.com"
+                    ],
+                    "routes": [
+                      {
+                        "id": "L1/C0/N0/RC/V0/R0",
+                        "sourcePath": "RD0/V0/R0",
+                        "name": "listener~8081~admin_example_com-route-0-httproute-route-admin-demo-0-0-matcher-0",
+                        "match": {
+                          "prefix": "/"
+                        },
+                        "action": {
+                          "kind": "route"
+                        },
+                        "cluster": "kube_demo_echo_8080",
+                        "metadata": {
+                          "dev.kgateway.route_source": {
+                            "group": "gateway.networking.k8s.io",
+                            "kind": "HTTPRoute",
+                            "match": "_match-0",
+                            "name": "route-admin",
+                            "namespace": "demo",
+                            "rule": "_rule-0"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "typedPerFilterConfig": {
+                  "envoy.filters.http.cors": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.CorsPolicy",
+                    "allow_origin_string_match": [
+                      {
+                        "exact": "https://gw.example.com"
+                      }
+                    ],
+                    "forward_not_matching_preflights": false,
+                    "max_age": "5"
+                  },
+                  "ratelimit/local": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit",
+                    "filter_enabled": {
+                      "default_value": {
+                        "numerator": 100
+                      },
+                      "runtime_key": "local_rate_limit_enabled"
+                    },
+                    "filter_enforced": {
+                      "default_value": {
+                        "numerator": 100
+                      },
+                      "runtime_key": "local_rate_limit_enforced"
+                    },
+                    "stat_prefix": "http_local_rate_limiter",
+                    "token_bucket": {
+                      "fill_interval": "60s",
+                      "max_tokens": 100,
+                      "tokens_per_fill": 100
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "state": {
+          "status": "active",
+          "lastUpdated": "2026-11-26T07:02:53.764Z"
+        },
+        "metadata": {
+          "merge.TrafficPolicy.gateway.kgateway.dev": {
+            "cors": [
+              "gateway.kgateway.dev/TrafficPolicy/demo/tp-gateway"
+            ],
+            "rateLimit.local": [
+              "gateway.kgateway.dev/TrafficPolicy/demo/tp-gateway"
+            ]
+          }
+        }
+      },
+      {
+        "id": "L2",
+        "name": "readiness_listener",
+        "address": ":::8082",
+        "filterChains": [
+          {
+            "id": "L2/C0",
+            "name": "",
+            "networkFilters": [
+              {
+                "id": "L2/C0/N0",
+                "name": "envoy.filters.network.http_connection_manager",
+                "type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+              }
+            ],
+            "hcm": {
+              "id": "L2/C0/N0",
+              "routeConfigName": "",
+              "httpFilters": [
+                {
+                  "id": "L2/C0/N0/F0",
+                  "name": "envoy.filters.http.health_check",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck",
+                    "headers": [
+                      {
+                        "name": ":path",
+                        "string_match": {
+                          "exact": "/envoy-hc"
+                        }
+                      }
+                    ],
+                    "pass_through_mode": false
+                  }
+                },
+                {
+                  "id": "L2/C0/N0/F1",
+                  "name": "envoy.filters.http.router",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  }
+                }
+              ],
+              "routeConfigUse": {
+                "id": "L2/C0/N0/RC",
+                "source": "L2/C0/N0/RCI",
+                "state": "found"
+              },
+              "routeConfig": {
+                "name": "main_route",
+                "virtualHosts": [
+                  {
+                    "id": "L2/C0/N0/RC/V0",
+                    "sourcePath": "L2/C0/N0/RCI/V0",
+                    "name": "local_service",
+                    "domains": [
+                      "*"
+                    ],
+                    "routes": [
+                      {
+                        "id": "L2/C0/N0/RC/V0/R0",
+                        "sourcePath": "L2/C0/N0/RCI/V0/R0",
+                        "name": "",
+                        "match": {
+                          "path": "/ready",
+                          "headers": [
+                            {
+                              "name": ":method",
+                              "value": "GET",
+                              "kind": "exact"
+                            }
+                          ]
+                        },
+                        "action": {
+                          "kind": "route"
+                        },
+                        "cluster": "admin_port_cluster"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "state": {
+          "status": "active",
+          "lastUpdated": "2026-11-26T07:02:24.600Z"
+        },
+        "static": true
+      },
+      {
+        "id": "L3",
+        "name": "prometheus_listener",
+        "address": ":::9091",
+        "filterChains": [
+          {
+            "id": "L3/C0",
+            "name": "",
+            "networkFilters": [
+              {
+                "id": "L3/C0/N0",
+                "name": "envoy.filters.network.http_connection_manager",
+                "type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+              }
+            ],
+            "hcm": {
+              "id": "L3/C0/N0",
+              "routeConfigName": "",
+              "httpFilters": [
+                {
+                  "id": "L3/C0/N0/F0",
+                  "name": "envoy.filters.http.router",
+                  "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+                  "typedConfig": {
+                    "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
+                  }
+                }
+              ],
+              "routeConfigUse": {
+                "id": "L3/C0/N0/RC",
+                "source": "L3/C0/N0/RCI",
+                "state": "found"
+              },
+              "routeConfig": {
+                "name": "prometheus_route",
+                "virtualHosts": [
+                  {
+                    "id": "L3/C0/N0/RC/V0",
+                    "sourcePath": "L3/C0/N0/RCI/V0",
+                    "name": "prometheus_host",
+                    "domains": [
+                      "*"
+                    ],
+                    "routes": [
+                      {
+                        "id": "L3/C0/N0/RC/V0/R0",
+                        "sourcePath": "L3/C0/N0/RCI/V0/R0",
+                        "name": "",
+                        "match": {
+                          "path": "/ready",
+                          "headers": [
+                            {
+                              "name": ":method",
+                              "value": "GET",
+                              "kind": "exact"
+                            }
+                          ]
+                        },
+                        "action": {
+                          "kind": "route"
+                        },
+                        "cluster": "admin_port_cluster"
+                      },
+                      {
+                        "id": "L3/C0/N0/RC/V0/R1",
+                        "sourcePath": "L3/C0/N0/RCI/V0/R1",
+                        "name": "",
+                        "match": {
+                          "prefix": "/metrics",
+                          "headers": [
+                            {
+                              "name": ":method",
+                              "value": "GET",
+                              "kind": "exact"
+                            }
+                          ]
+                        },
+                        "action": {
+                          "kind": "route"
+                        },
+                        "cluster": "admin_port_cluster",
+                        "rewrite": {
+                          "regexPattern": "",
+                          "substitution": "",
+                          "prefix": "/stats/prometheus?usedonly"
+                        }
+                      },
+                      {
+                        "id": "L3/C0/N0/RC/V0/R2",
+                        "sourcePath": "L3/C0/N0/RCI/V0/R2",
+                        "name": "",
+                        "match": {
+                          "prefix": "/stats",
+                          "headers": [
+                            {
+                              "name": ":method",
+                              "value": "GET",
+                              "kind": "exact"
+                            }
+                          ]
+                        },
+                        "action": {
+                          "kind": "route"
+                        },
+                        "cluster": "admin_port_cluster",
+                        "rewrite": {
+                          "regexPattern": "",
+                          "substitution": "",
+                          "prefix": "/stats"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "state": {
+          "status": "active",
+          "lastUpdated": "2026-11-26T07:02:24.601Z"
+        },
+        "static": true
+      }
+    ],
+    "routeConfigs": [
+      {
+        "id": "L2/C0/N0/RCI",
+        "kind": "inline",
+        "name": "main_route",
+        "reported": "RS0"
+      },
+      {
+        "id": "L3/C0/N0/RCI",
+        "kind": "inline",
+        "name": "prometheus_route",
+        "reported": "RS1"
+      },
+      {
+        "id": "RS0",
+        "kind": "static",
+        "name": "main_route"
+      },
+      {
+        "id": "RS1",
+        "kind": "static",
+        "name": "prometheus_route"
+      },
+      {
+        "id": "RD0",
+        "kind": "dynamic",
+        "name": "listener~8081",
+        "metadata": {
+          "merge.TrafficPolicy.gateway.kgateway.dev": {
+            "cors": [
+              "gateway.kgateway.dev/TrafficPolicy/demo/tp-gateway"
+            ],
+            "rateLimit.local": [
+              "gateway.kgateway.dev/TrafficPolicy/demo/tp-gateway"
+            ]
+          }
+        },
+        "typedPerFilterConfig": {
+          "envoy.filters.http.cors": {
+            "@type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.CorsPolicy",
+            "allow_origin_string_match": [
+              {
+                "exact": "https://gw.example.com"
+              }
+            ],
+            "forward_not_matching_preflights": false,
+            "max_age": "5"
+          },
+          "ratelimit/local": {
+            "@type": "type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit",
+            "filter_enabled": {
+              "default_value": {
+                "numerator": 100
+              },
+              "runtime_key": "local_rate_limit_enabled"
+            },
+            "filter_enforced": {
+              "default_value": {
+                "numerator": 100
+              },
+              "runtime_key": "local_rate_limit_enforced"
+            },
+            "stat_prefix": "http_local_rate_limiter",
+            "token_bucket": {
+              "fill_interval": "60s",
+              "max_tokens": 100,
+              "tokens_per_fill": 100
+            }
+          }
+        }
+      },
+      {
+        "id": "RD1",
+        "kind": "dynamic",
+        "name": "listener~8080",
+        "metadata": {
+          "merge.TrafficPolicy.gateway.kgateway.dev": {
+            "cors": [
+              "gateway.kgateway.dev/TrafficPolicy/demo/tp-gateway"
+            ],
+            "rateLimit.local": [
+              "gateway.kgateway.dev/TrafficPolicy/demo/tp-gateway"
+            ]
+          }
+        },
+        "typedPerFilterConfig": {
+          "envoy.filters.http.cors": {
+            "@type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.CorsPolicy",
+            "allow_origin_string_match": [
+              {
+                "exact": "https://gw.example.com"
+              }
+            ],
+            "forward_not_matching_preflights": false,
+            "max_age": "5"
+          },
+          "ratelimit/local": {
+            "@type": "type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit",
+            "filter_enabled": {
+              "default_value": {
+                "numerator": 100
+              },
+              "runtime_key": "local_rate_limit_enabled"
+            },
+            "filter_enforced": {
+              "default_value": {
+                "numerator": 100
+              },
+              "runtime_key": "local_rate_limit_enforced"
+            },
+            "stat_prefix": "http_local_rate_limiter",
+            "token_bucket": {
+              "fill_interval": "60s",
+              "max_tokens": 100,
+              "tokens_per_fill": 100
+            }
+          }
+        }
+      }
+    ],
+    "coverage": {
+      "sections": [
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.BootstrapConfigDump",
+          "status": "ignored"
+        },
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.ClustersConfigDump",
+          "status": "ignored"
+        },
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump",
+          "status": "parsed"
+        },
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.ScopedRoutesConfigDump",
+          "status": "ignored"
+        },
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump",
+          "status": "parsed"
+        },
+        {
+          "type": "type.googleapis.com/envoy.admin.v3.SecretsConfigDump",
+          "status": "ignored"
+        }
+      ]
+    }
+  },
+  "chains": {
+    "L0/C0/N0/RC/V0/R0": {
+      "filters": [
+        {
+          "slot": "L0/C0/N0/F0",
+          "name": "envoy.filters.http.cors",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors",
+          "runs": "yes",
+          "state": "enabled",
+          "level": "virtualHost",
+          "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.CorsPolicy",
+          "request": "yes",
+          "response": "yes",
+          "configSource": "inline"
+        },
+        {
+          "slot": "L0/C0/N0/F1",
+          "name": "ratelimit/local",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit",
+          "runs": "yes",
+          "state": "enabled",
+          "level": "route",
+          "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit",
+          "request": "yes",
+          "response": "yes",
+          "configSource": "inline"
+        },
+        {
+          "slot": "L0/C0/N0/F2",
+          "name": "envoy.extensions.filters.http.header_mutation",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.header_mutation.v3.HeaderMutationPerRoute",
+          "runs": "yes",
+          "state": "enabled",
+          "level": "route",
+          "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.header_mutation.v3.HeaderMutationPerRoute",
+          "request": "yes",
+          "response": "yes",
+          "configSource": "inline"
+        },
+        {
+          "slot": "L0/C0/N0/F3",
+          "name": "envoy.filters.http.router",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "no",
+          "configSource": "inline"
+        }
+      ]
+    },
+    "L1/C0/N0/RC/V0/R0": {
+      "filters": [
+        {
+          "slot": "L1/C0/N0/F0",
+          "name": "envoy.filters.http.cors",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors",
+          "runs": "yes",
+          "state": "enabled",
+          "level": "routeConfig",
+          "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.cors.v3.CorsPolicy",
+          "request": "yes",
+          "response": "yes",
+          "configSource": "inline"
+        },
+        {
+          "slot": "L1/C0/N0/F1",
+          "name": "ratelimit/local",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit",
+          "runs": "yes",
+          "state": "enabled",
+          "level": "routeConfig",
+          "perFilterType": "type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit",
+          "request": "yes",
+          "response": "yes",
+          "configSource": "inline"
+        },
+        {
+          "slot": "L1/C0/N0/F2",
+          "name": "envoy.filters.http.router",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "no",
+          "configSource": "inline"
+        }
+      ]
+    },
+    "L2/C0/N0/RC/V0/R0": {
+      "filters": [
+        {
+          "slot": "L2/C0/N0/F0",
+          "name": "envoy.filters.http.health_check",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "yes",
+          "configSource": "inline"
+        },
+        {
+          "slot": "L2/C0/N0/F1",
+          "name": "envoy.filters.http.router",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "no",
+          "configSource": "inline"
+        }
+      ]
+    },
+    "L3/C0/N0/RC/V0/R0": {
+      "filters": [
+        {
+          "slot": "L3/C0/N0/F0",
+          "name": "envoy.filters.http.router",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "no",
+          "configSource": "inline"
+        }
+      ]
+    },
+    "L3/C0/N0/RC/V0/R1": {
+      "filters": [
+        {
+          "slot": "L3/C0/N0/F0",
+          "name": "envoy.filters.http.router",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "no",
+          "configSource": "inline"
+        }
+      ]
+    },
+    "L3/C0/N0/RC/V0/R2": {
+      "filters": [
+        {
+          "slot": "L3/C0/N0/F0",
+          "name": "envoy.filters.http.router",
+          "type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+          "runs": "yes",
+          "state": "on",
+          "request": "yes",
+          "response": "no",
+          "configSource": "inline"
+        }
+      ]
+    }
+  },
+  "claims": [
+    {
+      "id": "kgateway/6",
+      "subject": "L0",
+      "assertion": {
+        "kind": "listenerSource",
+        "port": 8080
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/7",
+      "ref": "policy/5",
+      "subject": "L0",
+      "assertion": {
+        "kind": "policyRecord",
+        "policy": {
+          "group": "gateway.kgateway.dev",
+          "kind": "TrafficPolicy",
+          "namespace": "demo",
+          "name": "tp-gateway"
+        },
+        "field": "cors",
+        "level": "listener"
+      },
+      "certainty": "exact",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "L0",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-gateway"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/8",
+      "ref": "policy/6",
+      "subject": "L0",
+      "assertion": {
+        "kind": "policyRecord",
+        "policy": {
+          "group": "gateway.kgateway.dev",
+          "kind": "TrafficPolicy",
+          "namespace": "demo",
+          "name": "tp-gateway"
+        },
+        "field": "rateLimit.local",
+        "level": "listener"
+      },
+      "certainty": "exact",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "L0",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-gateway"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/9",
+      "subject": "L0/C0",
+      "assertion": {
+        "kind": "listenerSource",
+        "port": 8080
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/10",
+      "subject": "L0/C0/N0/F0",
+      "assertion": {
+        "kind": "extensionSource",
+        "filterKind": "cors"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "structure",
+          "subject": "L0/C0/N0/F0",
+          "field": "type"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/11",
+      "subject": "L0/C0/N0/F1",
+      "assertion": {
+        "kind": "extensionSource",
+        "filterKind": "local_ratelimit"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "structure",
+          "subject": "L0/C0/N0/F1",
+          "field": "type"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/12",
+      "subject": "L0/C0/N0/F2",
+      "assertion": {
+        "kind": "extensionSource",
+        "filterKind": "header_mutation"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "structure",
+          "subject": "L0/C0/N0/F2",
+          "field": "type"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/13",
+      "subject": "L0/C0/N0/F3",
+      "assertion": {
+        "kind": "extensionSource",
+        "filterKind": "router"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "structure",
+          "subject": "L0/C0/N0/F3",
+          "field": "type"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/14",
+      "subject": "L0/C0/N0/RC/V0",
+      "assertion": {
+        "kind": "listenerSource",
+        "port": 8080
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0/N0/RC/V0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/15",
+      "subject": "L0/C0/N0/RC/V0",
+      "assertion": {
+        "kind": "hostSource",
+        "hostname": "app.example.com"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0/N0/RC/V0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/16",
+      "ref": "policy/7",
+      "subject": "L0/C0/N0/RC/V0",
+      "assertion": {
+        "kind": "policyRecord",
+        "policy": {
+          "group": "gateway.kgateway.dev",
+          "kind": "TrafficPolicy",
+          "namespace": "demo",
+          "name": "tp-listener-http"
+        },
+        "field": "cors",
+        "level": "virtualHost"
+      },
+      "certainty": "exact",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "L0/C0/N0/RC/V0",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-listener-http"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/17",
+      "subject": "L0/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "routeSource",
+        "route": {
+          "group": "gateway.networking.k8s.io",
+          "kind": "HTTPRoute",
+          "namespace": "demo",
+          "name": "route-http"
+        },
+        "ruleIndex": 0,
+        "matchIndex": 0
+      },
+      "certainty": "exact",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "L0/C0/N0/RC/V0/R0",
+          "field": "metadata.filter_metadata.dev.kgateway.route_source",
+          "object": {
+            "group": "gateway.networking.k8s.io",
+            "kind": "HTTPRoute",
+            "namespace": "demo",
+            "name": "route-http"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/18",
+      "subject": "L0/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "backendSource",
+        "backend": {
+          "kind": "Service",
+          "namespace": "demo",
+          "name": "echo"
+        },
+        "port": 8080
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0/N0/RC/V0/R0",
+          "field": "cluster",
+          "object": {
+            "kind": "Service",
+            "namespace": "demo",
+            "name": "echo"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/19",
+      "ref": "policy/8",
+      "subject": "L0/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "policyRecord",
+        "policy": {
+          "group": "gateway.kgateway.dev",
+          "kind": "TrafficPolicy",
+          "namespace": "demo",
+          "name": "tp-route-http"
+        },
+        "field": "headerModifiers",
+        "level": "route"
+      },
+      "certainty": "exact",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "L0/C0/N0/RC/V0/R0",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-route-http"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/20",
+      "ref": "policy/9",
+      "subject": "L0/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "policyRecord",
+        "policy": {
+          "group": "gateway.kgateway.dev",
+          "kind": "TrafficPolicy",
+          "namespace": "demo",
+          "name": "tp-route-http"
+        },
+        "field": "rateLimit.local",
+        "level": "route"
+      },
+      "certainty": "exact",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "L0/C0/N0/RC/V0/R0",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-route-http"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/21",
+      "subject": "L0/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "filterLink",
+        "record": "policy/8",
+        "slot": "L0/C0/N0/F2"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "L0/C0/N0/RC/V0/R0",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-route-http"
+          }
+        },
+        {
+          "kind": "table",
+          "subject": "L0/C0/N0/F2",
+          "field": "policy field table v2.5.1: headerModifiers"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/22",
+      "subject": "L0/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "filterLink",
+        "record": "policy/9",
+        "slot": "L0/C0/N0/F1"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "L0/C0/N0/RC/V0/R0",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-route-http"
+          }
+        },
+        {
+          "kind": "table",
+          "subject": "L0/C0/N0/F1",
+          "field": "policy field table v2.5.1: rateLimit.local"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/23",
+      "subject": "L0/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "filterLink",
+        "record": "policy/7",
+        "slot": "L0/C0/N0/F0"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "L0/C0/N0/RC/V0",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-listener-http"
+          }
+        },
+        {
+          "kind": "table",
+          "subject": "L0/C0/N0/F0",
+          "field": "policy field table v2.5.1: cors"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/24",
+      "subject": "L0/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "filterLink",
+        "record": "policy/3",
+        "slot": "L0/C0/N0/F0"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "RD1",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-gateway"
+          }
+        },
+        {
+          "kind": "table",
+          "subject": "L0/C0/N0/F0",
+          "field": "policy field table v2.5.1: cors"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/25",
+      "subject": "L0/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "filterLink",
+        "record": "policy/4",
+        "slot": "L0/C0/N0/F1"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "RD1",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-gateway"
+          }
+        },
+        {
+          "kind": "table",
+          "subject": "L0/C0/N0/F1",
+          "field": "policy field table v2.5.1: rateLimit.local"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/26",
+      "subject": "L0/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "filterLink",
+        "record": "policy/5",
+        "slot": "L0/C0/N0/F0"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "L0",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-gateway"
+          }
+        },
+        {
+          "kind": "table",
+          "subject": "L0/C0/N0/F0",
+          "field": "policy field table v2.5.1: cors"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/27",
+      "subject": "L0/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "filterLink",
+        "record": "policy/6",
+        "slot": "L0/C0/N0/F1"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "L0",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-gateway"
+          }
+        },
+        {
+          "kind": "table",
+          "subject": "L0/C0/N0/F1",
+          "field": "policy field table v2.5.1: rateLimit.local"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/28",
+      "subject": "L1",
+      "assertion": {
+        "kind": "listenerSource",
+        "port": 8081
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L1",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/29",
+      "ref": "policy/10",
+      "subject": "L1",
+      "assertion": {
+        "kind": "policyRecord",
+        "policy": {
+          "group": "gateway.kgateway.dev",
+          "kind": "TrafficPolicy",
+          "namespace": "demo",
+          "name": "tp-gateway"
+        },
+        "field": "cors",
+        "level": "listener"
+      },
+      "certainty": "exact",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "L1",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-gateway"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/30",
+      "ref": "policy/11",
+      "subject": "L1",
+      "assertion": {
+        "kind": "policyRecord",
+        "policy": {
+          "group": "gateway.kgateway.dev",
+          "kind": "TrafficPolicy",
+          "namespace": "demo",
+          "name": "tp-gateway"
+        },
+        "field": "rateLimit.local",
+        "level": "listener"
+      },
+      "certainty": "exact",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "L1",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-gateway"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/31",
+      "subject": "L1/C0",
+      "assertion": {
+        "kind": "listenerSource",
+        "port": 8081
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L1/C0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/32",
+      "subject": "L1/C0/N0/F0",
+      "assertion": {
+        "kind": "extensionSource",
+        "filterKind": "cors"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "structure",
+          "subject": "L1/C0/N0/F0",
+          "field": "type"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/33",
+      "subject": "L1/C0/N0/F1",
+      "assertion": {
+        "kind": "extensionSource",
+        "filterKind": "local_ratelimit"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "structure",
+          "subject": "L1/C0/N0/F1",
+          "field": "type"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/34",
+      "subject": "L1/C0/N0/F2",
+      "assertion": {
+        "kind": "extensionSource",
+        "filterKind": "router"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "structure",
+          "subject": "L1/C0/N0/F2",
+          "field": "type"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/35",
+      "subject": "L1/C0/N0/RC/V0",
+      "assertion": {
+        "kind": "listenerSource",
+        "port": 8081
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L1/C0/N0/RC/V0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/36",
+      "subject": "L1/C0/N0/RC/V0",
+      "assertion": {
+        "kind": "hostSource",
+        "hostname": "admin.example.com"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L1/C0/N0/RC/V0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/37",
+      "subject": "L1/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "routeSource",
+        "route": {
+          "group": "gateway.networking.k8s.io",
+          "kind": "HTTPRoute",
+          "namespace": "demo",
+          "name": "route-admin"
+        },
+        "ruleIndex": 0,
+        "matchIndex": 0
+      },
+      "certainty": "exact",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "L1/C0/N0/RC/V0/R0",
+          "field": "metadata.filter_metadata.dev.kgateway.route_source",
+          "object": {
+            "group": "gateway.networking.k8s.io",
+            "kind": "HTTPRoute",
+            "namespace": "demo",
+            "name": "route-admin"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/38",
+      "subject": "L1/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "backendSource",
+        "backend": {
+          "kind": "Service",
+          "namespace": "demo",
+          "name": "echo"
+        },
+        "port": 8080
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L1/C0/N0/RC/V0/R0",
+          "field": "cluster",
+          "object": {
+            "kind": "Service",
+            "namespace": "demo",
+            "name": "echo"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/39",
+      "subject": "L1/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "filterLink",
+        "record": "policy/1",
+        "slot": "L1/C0/N0/F0"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "RD0",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-gateway"
+          }
+        },
+        {
+          "kind": "table",
+          "subject": "L1/C0/N0/F0",
+          "field": "policy field table v2.5.1: cors"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/40",
+      "subject": "L1/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "filterLink",
+        "record": "policy/2",
+        "slot": "L1/C0/N0/F1"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "RD0",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-gateway"
+          }
+        },
+        {
+          "kind": "table",
+          "subject": "L1/C0/N0/F1",
+          "field": "policy field table v2.5.1: rateLimit.local"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/41",
+      "subject": "L1/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "filterLink",
+        "record": "policy/10",
+        "slot": "L1/C0/N0/F0"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "L1",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-gateway"
+          }
+        },
+        {
+          "kind": "table",
+          "subject": "L1/C0/N0/F0",
+          "field": "policy field table v2.5.1: cors"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/42",
+      "subject": "L1/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "filterLink",
+        "record": "policy/11",
+        "slot": "L1/C0/N0/F1"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "L1",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-gateway"
+          }
+        },
+        {
+          "kind": "table",
+          "subject": "L1/C0/N0/F1",
+          "field": "policy field table v2.5.1: rateLimit.local"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/0",
+      "subject": "RD0",
+      "assertion": {
+        "kind": "listenerSource",
+        "port": 8081
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "RD0",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/1",
+      "ref": "policy/1",
+      "subject": "RD0",
+      "assertion": {
+        "kind": "policyRecord",
+        "policy": {
+          "group": "gateway.kgateway.dev",
+          "kind": "TrafficPolicy",
+          "namespace": "demo",
+          "name": "tp-gateway"
+        },
+        "field": "cors",
+        "level": "routeConfig"
+      },
+      "certainty": "exact",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "RD0",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-gateway"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/2",
+      "ref": "policy/2",
+      "subject": "RD0",
+      "assertion": {
+        "kind": "policyRecord",
+        "policy": {
+          "group": "gateway.kgateway.dev",
+          "kind": "TrafficPolicy",
+          "namespace": "demo",
+          "name": "tp-gateway"
+        },
+        "field": "rateLimit.local",
+        "level": "routeConfig"
+      },
+      "certainty": "exact",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "RD0",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-gateway"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/3",
+      "subject": "RD1",
+      "assertion": {
+        "kind": "listenerSource",
+        "port": 8080
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "RD1",
+          "field": "name"
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/4",
+      "ref": "policy/3",
+      "subject": "RD1",
+      "assertion": {
+        "kind": "policyRecord",
+        "policy": {
+          "group": "gateway.kgateway.dev",
+          "kind": "TrafficPolicy",
+          "namespace": "demo",
+          "name": "tp-gateway"
+        },
+        "field": "cors",
+        "level": "routeConfig"
+      },
+      "certainty": "exact",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "RD1",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-gateway"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
+      "id": "kgateway/5",
+      "ref": "policy/4",
+      "subject": "RD1",
+      "assertion": {
+        "kind": "policyRecord",
+        "policy": {
+          "group": "gateway.kgateway.dev",
+          "kind": "TrafficPolicy",
+          "namespace": "demo",
+          "name": "tp-gateway"
+        },
+        "field": "rateLimit.local",
+        "level": "routeConfig"
+      },
+      "certainty": "exact",
+      "evidence": [
+        {
+          "kind": "metadata",
+          "subject": "RD1",
+          "field": "metadata.filter_metadata.merge.TrafficPolicy.gateway.kgateway.dev",
+          "object": {
+            "group": "gateway.kgateway.dev",
+            "kind": "TrafficPolicy",
+            "namespace": "demo",
+            "name": "tp-gateway"
+          }
+        }
+      ],
+      "module": "kgateway"
+    }
+  ],
+  "warnings": []
+}

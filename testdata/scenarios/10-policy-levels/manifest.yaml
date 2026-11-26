@@ -1,0 +1,116 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo
+  namespace: demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: echo}
+  template:
+    metadata:
+      labels: {app: echo}
+    spec:
+      containers:
+        - name: echo
+          image: hashicorp/http-echo:1.0
+          args: ["-text=hello", "-listen=:8080"]
+          ports: [{containerPort: 8080}]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: demo
+spec:
+  selector: {app: echo}
+  ports: [{name: http, port: 8080, targetPort: 8080}]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gw
+  namespace: demo
+spec:
+  gatewayClassName: kgateway
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 8080
+      allowedRoutes: {namespaces: {from: Same}}
+    - name: admin
+      protocol: HTTP
+      port: 8081
+      allowedRoutes: {namespaces: {from: Same}}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: route-http
+  namespace: demo
+spec:
+  parentRefs: [{name: gw, sectionName: http}]
+  hostnames: ["app.example.com"]
+  rules:
+    - matches: [{path: {type: PathPrefix, value: /}}]
+      backendRefs: [{name: echo, port: 8080}]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: route-admin
+  namespace: demo
+spec:
+  parentRefs: [{name: gw, sectionName: admin}]
+  hostnames: ["admin.example.com"]
+  rules:
+    - matches: [{path: {type: PathPrefix, value: /}}]
+      backendRefs: [{name: echo, port: 8080}]
+---
+# (a) Gateway level
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: TrafficPolicy
+metadata:
+  name: tp-gateway
+  namespace: demo
+spec:
+  targetRefs:
+    - {group: gateway.networking.k8s.io, kind: Gateway, name: gw}
+  cors:
+    allowOrigins: ["https://gw.example.com"]
+  rateLimit:
+    local:
+      tokenBucket: {maxTokens: 100, tokensPerFill: 100, fillInterval: 60s}
+---
+# (b) listener level (sectionName http)
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: TrafficPolicy
+metadata:
+  name: tp-listener-http
+  namespace: demo
+spec:
+  targetRefs:
+    - {group: gateway.networking.k8s.io, kind: Gateway, name: gw, sectionName: http}
+  cors:
+    allowOrigins: ["https://listener.example.com"]
+---
+# (c) route level
+apiVersion: gateway.kgateway.dev/v1alpha1
+kind: TrafficPolicy
+metadata:
+  name: tp-route-http
+  namespace: demo
+spec:
+  targetRefs:
+    - {group: gateway.networking.k8s.io, kind: HTTPRoute, name: route-http}
+  rateLimit:
+    local:
+      tokenBucket: {maxTokens: 5, tokensPerFill: 5, fillInterval: 10s}
+  headerModifiers:
+    request:
+      add: [{name: x-route-policy, value: "on"}]
