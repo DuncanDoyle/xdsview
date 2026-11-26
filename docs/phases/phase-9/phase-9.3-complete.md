@@ -161,10 +161,20 @@ Fail-closed `Dependencies` on the 279 route blocks of the 51 scenario dumps (kga
 | `routeSource` | 271 | 271 | 67 | 204 | 67 | `ambiguous` | b | kgateway: no `route_source` metadata, and the name reads two to five ways; krp prints `ambiguous` too. The 8 routes with metadata resolve. |
 | `hostSource` | 0 | 204 | 0 | 204 | 0 | | b | Bootstrap vhosts `local_service`, `prometheus_host`; kgateway vhosts all resolve. |
 | `backendSource` | 204 | 204 | 0 | 204 | 0 | | b | `admin_port_cluster` is bootstrap; kgateway backends all resolve. |
-| `backendSource` (mirror) | 0 | 2 | 2 | 0 | 2 | `notCoverable` | a | `httpbin-mirror` in both `02_4-single-policy` dumps. No Phase 9 kind covers a mirror (§5). |
+| `backendSource` (mirror) | 0 | 2 | 2 | 0 | 2 | `notCoverable` | a | `httpbin-mirror` in both `02_4-single-policy` dumps. Now covered: see below. |
 | `extensionSource` | 0 | 51 | 0 | 51 | 0 | | b | `envoy.filters.http.health_check` on the readiness listener. |
 | `policyRecord` | 51 | 51 | 0 | 51 | 0 | | b | Same slot runs by default at listener level, with no `merge.*` record. |
 
 One (a) cause, now fixed: mirror clusters, which both renderers show, were no input, so a route could hide a mirror Service the viewer cannot read. The JSON oracle test also found per-request cluster selectors, non-HCM network filters and a reported static source's listener missing; none occurs on a scenario route block. Static inputs are still enumerated, with status `bootstrap`, so the oracle and fail-closed tests keep covering them.
+
+After the visibility-strategies fixes (route-name anchoring, `Input.Complete`, mirror claims), `.agents-tmp/gapcount` reports:
+
+| Gap kind | kgateway blocks | Reason |
+|---|---|---|
+| `gatewaySource` | 75 | `noEvidence` |
+| `routeSource` | 67 | `ambiguous` |
+| `backendSource` (mirror) | 0 | both mirrors covered by a `BackendSource` naming the mirror |
+
+Still 204 of 279 blocks are gap-free: the two mirror routes keep their `gatewaySource` and `routeSource` gaps. No corpus route name lacks its vhost prefix, so no input is `incomplete`. All 79 non-bootstrap `backendSource` inputs are covered.
 
 (c), not on the corpus: `placement` reports a gap when the routes checked are empty, as for a default-on slot of an HCM with no routes. §5's "for each route checked" would hold vacuously there. This predates the fail-closed rewrite.
