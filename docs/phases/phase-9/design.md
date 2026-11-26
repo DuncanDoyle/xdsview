@@ -194,6 +194,7 @@ type Index struct{ /* unexported */ }
 func (ix *Index) About(id model.ID) []Claim
 func Resolve[T Assertion](ix *Index, id model.ID) Resolution[T]
 func (ix *Index) Dependencies(block model.ID) Dependencies
+func (ix *Index) Inputs(block model.ID) []Input
 func (ix *Index) Warnings() []model.Warning
 
 type Resolution[T Assertion] struct {
@@ -225,6 +226,8 @@ type Gap struct {
 - Every per-filter config entry at route config level (the source a use in or above the block resolves to, inline or RDS, or the source block itself), and at virtual host, route and weighted backend level in or above the block. An entry with no matching installed slot is an input too.
 - A static source that an inline source records as `Reported` is the same source as that inline config: its block has the inline source's inputs, the inline source's listener lineage included, not those of an unused source. A source with no use is its own block of inputs: its per-filter config entries.
 
+**Bootstrap.** A static listener (`Listener.Static`), everything in it, its inline route configs and their `Reported` static copies come from the proxy's startup config, not from Kubernetes, so no claim can cover them. They are still inputs, with status `bootstrap`: never a gap, and they add no objects. Dynamic (xDS) listeners are unaffected.
+
 **2. Cover.** An input is covered only by claims at inferred or exact. A filter link covers only on the route being checked; the routes checked are the block's routes beneath the input, or all of them when the block holds none.
 
 | Input | Covered by |
@@ -245,6 +248,33 @@ Alternatives kinds cover when they resolve at inferred or exact (`Resolve`), so 
 
 **3. Objects.** `Objects` holds the evidence objects of every claim on an input's subject, on the route config sources in scope and on the serving HCMs' slots, inherited policy records included. Every claim that covers an input adds its evidence objects too, wherever its subject lives.
 
+**Inputs.** `Dependencies` flattens evidence and gap causes. A consumer visibility strategy needs them per input, so the index also lists the inputs themselves ([visibility-strategies-codex.md](reviews/visibility-strategies-codex.md) §1):
+
+```go
+func (ix *Index) Inputs(block model.ID) []Input // sorted like Gaps
+
+type Input struct {
+	Gap                     // subject, expected kind, slot, level, cluster
+	Status     InputStatus  // covered, gap, bootstrap
+	Reason     GapReason    // gap only
+	Candidates []Candidate  // routeSource only: every RouteSource claim on the route
+}
+
+type Candidate struct {
+	Ref   model.Ref // the HTTPRoute the claim names
+	Claim Claim     // with its evidence and certainty
+}
+```
+
+| Reason | Meaning |
+|---|---|
+| `ambiguous` | several candidates at the highest certainty |
+| `noEvidence` | no claim at inferred or better |
+| `dropped` | Compose dropped a claim of the kind on the subject (rule 3) |
+| `notCoverable` | no claim kind can cover it: a network filter, a mirror, a per-request cluster, a per-filter entry with no installed downstream slot |
+
+`Dependencies` derives from the same enumeration: its `Gaps` are the inputs with status `gap`. A route's candidates are listed whether or not their objects exist in any cluster: xdsview never consults cluster state, and the consumer's strategy decides what a missing candidate means.
+
 **4. Cost.** The index builds its per-HCM structure and the link placements once, on the first call. A route block's inputs are its lineage and its HCM's slots, so checking every route block is linear in routes.
 
 kgwctl's route lookup is `Resolve[RouteSource](ix, routeID)`. Snellius withholds a block when the viewer can't read every object in `Dependencies(block).Objects`, or when `Gaps` is not empty (R6).
@@ -260,7 +290,7 @@ type Dependent struct {
 1. `dropped`: a claim in scope that Compose rule 3 dropped also gives its subject a gap of the dropped claim's kind.
 2. `gatewaySource`: a consumer that knows the Gateway it captured may close a listener's gap itself, as its own context. Listeners from a ListenerSet are not attributed in Phase 9: they show this gap.
 
-Two tests check the rule on the corpus, for every dump and fixture and every listener, virtual host, route and route config source block. An oracle walks krp's JSON output, independently of the index, and requires an input for every item the block shows: each cluster (primary, weighted, mirror, per-request selector), network filter, HTTP slot, per-filter config entry, listener, virtual host and route. And removing any single claim that covers an input from the kgateway module's output adds that input's own gap.
+Two tests check the rule on the corpus, for every dump and fixture and every listener, virtual host, route and route config source block. An oracle walks krp's JSON output, independently of the index, and requires an input for every item the block shows: each cluster (primary, weighted, mirror, per-request selector), network filter, HTTP slot, per-filter config entry, listener, virtual host and route. And removing any single claim that covers an input from the kgateway module's output adds that input's own gap. A third test checks, for every such block, that `Dependencies(block).Gaps` equals the gap-status inputs of `Inputs(block)`.
 
 ### 6. kgateway module (R5, R8, R9, R13)
 

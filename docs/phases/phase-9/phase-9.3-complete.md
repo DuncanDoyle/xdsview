@@ -153,18 +153,18 @@ Not measured: the kind capture for scoped `merge.*`; that is for the owner (R5 t
 
 ## Corpus gaps
 
-Fail-closed `Dependencies` on the 279 route blocks of the 51 scenario dumps (kgateway module only, file capture). None is gap-free. 204 blocks sit on the static `readiness_listener` and `prometheus_listener` (51 dumps each); 75 sit on kgateway listeners.
+Fail-closed `Dependencies` on the 279 route blocks of the 51 scenario dumps (kgateway module only, file capture). 204 blocks sit on the static `readiness_listener` and `prometheus_listener` (51 dumps each); 75 sit on kgateway listeners. "Bootstrap" is the count once static listeners became bootstrap inputs (§5): all 204 static blocks are now gap-free, and none of the 75 kgateway blocks is.
 
-| Gap kind | Before | After | Static | kgateway | Class | Reason |
-|---|---|---|---|---|---|---|
-| `gatewaySource` | 279 | 279 | 204 | 75 | b | No corpus listener has metadata. A consumer may close a kgateway listener's gap with its captured Gateway (§5 note 2). Captured Gateway context cannot close a static listener's gap: no Gateway owns it. |
-| `routeSource` | 271 | 271 | 204 | 67 | b | Static: bootstrap routes have no HTTPRoute. kgateway: no `route_source` metadata, and the name reads two to five ways; krp prints `ambiguous` too. The 8 routes with metadata resolve. |
-| `hostSource` | 0 | 204 | 204 | 0 | b | The base had no host gap rule. Bootstrap vhosts `local_service`, `prometheus_host` have no Kubernetes origin; kgateway vhosts all resolve. |
-| `backendSource` | 204 | 204 | 204 | 0 | b | `admin_port_cluster` is bootstrap, with no Kubernetes origin; kgateway backends all resolve. |
-| `backendSource` (mirror) | 0 | 2 | 0 | 2 | a | `httpbin-mirror` in both `02_4-single-policy` dumps. No input listed mirrors; no Phase 9 kind covers one (§5). |
-| `extensionSource` | 0 | 51 | 51 | 0 | b | The base required per-filter overrides for an extension gap. `envoy.filters.http.health_check` on the readiness listener has no Kubernetes origin. |
-| `policyRecord` | 51 | 51 | 51 | 0 | b | Same slot runs by default at listener level, with no `merge.*` record. |
+| Gap kind | Before | After | Bootstrap | Static | kgateway | Reason (`Inputs`) | Class | Note |
+|---|---|---|---|---|---|---|---|---|
+| `gatewaySource` | 279 | 279 | 75 | 204 | 75 | `noEvidence` | b | No corpus listener has metadata. A consumer may close a kgateway listener's gap with its captured Gateway (§5 note 2). |
+| `routeSource` | 271 | 271 | 67 | 204 | 67 | `ambiguous` | b | kgateway: no `route_source` metadata, and the name reads two to five ways; krp prints `ambiguous` too. The 8 routes with metadata resolve. |
+| `hostSource` | 0 | 204 | 0 | 204 | 0 | | b | Bootstrap vhosts `local_service`, `prometheus_host`; kgateway vhosts all resolve. |
+| `backendSource` | 204 | 204 | 0 | 204 | 0 | | b | `admin_port_cluster` is bootstrap; kgateway backends all resolve. |
+| `backendSource` (mirror) | 0 | 2 | 2 | 0 | 2 | `notCoverable` | a | `httpbin-mirror` in both `02_4-single-policy` dumps. No Phase 9 kind covers a mirror (§5). |
+| `extensionSource` | 0 | 51 | 0 | 51 | 0 | | b | `envoy.filters.http.health_check` on the readiness listener. |
+| `policyRecord` | 51 | 51 | 0 | 51 | 0 | | b | Same slot runs by default at listener level, with no `merge.*` record. |
 
-One (a) cause, now fixed: mirror clusters, which both renderers show, were no input, so a route could hide a mirror Service the viewer cannot read. The JSON oracle test also found per-request cluster selectors, non-HCM network filters and a reported static source's listener missing; none occurs on a scenario route block. Static gaps follow §5, which lists every listener as an input (part A deviation 9), so static route blocks can never be gap-free.
+One (a) cause, now fixed: mirror clusters, which both renderers show, were no input, so a route could hide a mirror Service the viewer cannot read. The JSON oracle test also found per-request cluster selectors, non-HCM network filters and a reported static source's listener missing; none occurs on a scenario route block. Static inputs are still enumerated, with status `bootstrap`, so the oracle and fail-closed tests keep covering them.
 
 (c), not on the corpus: `placement` reports a gap when the routes checked are empty, as for a default-on slot of an HCM with no routes. §5's "for each route checked" would hold vacuously there. This predates the fail-closed rewrite.
