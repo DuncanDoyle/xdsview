@@ -12,7 +12,7 @@ package model
 type Snapshot struct {
 	Capture      Capture             `json:"capture"`
 	Listeners    []Listener          `json:"listeners"`
-	RouteConfigs []RouteConfigSource `json:"routeConfigs,omitempty"` // every route config source, in dump order
+	RouteConfigs []RouteConfigSource `json:"routeConfigs,omitempty"` // every route config source, in section order; static before dynamic in a section
 	Coverage     Coverage            `json:"coverage"`
 	Warnings     []Warning           `json:"warnings,omitempty"`
 }
