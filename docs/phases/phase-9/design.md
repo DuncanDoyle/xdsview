@@ -298,6 +298,10 @@ type Dependent struct {
 
 Two tests check the rule on the corpus, for every dump and fixture and every listener, virtual host, route and route config source block. An oracle walks krp's JSON output, independently of the index, and requires an input for every item the block shows: each cluster (primary, weighted, mirror, per-request selector), network filter, HTTP slot, per-filter config entry, listener, virtual host and route. And removing any single claim that covers an input from the kgateway module's output adds that input's own gap. A third test checks, for every such block, that `Dependencies(block).Gaps` equals the gap-status inputs of `Inputs(block)`.
 
+**Stability.** The Go shapes of `Dependencies` and `Inputs` follow P-010 rule 7, but their results do not yet. The cover table, the input list and the gap reasons may change in a minor release until Snellius Phase 12 is designed. A new claim kind, parsed section or model field can then show or hide a block with no Go break. Until that design, these results are outside rule 7's additive promise.
+
+**Raw metadata.** Listener, virtual host and route `Metadata` stays in the snapshot and in krp's JSON as Envoy data. It is not an attribution input: no input or gap derives from it, so a `merge.*` entry the module skips leaves its name in `Metadata` without a claim. A consumer that applies per-object visibility must not render raw `Metadata` to a restricted viewer.
+
 ### 6. kgateway module (R5, R8, R9, R13)
 
 `kgateway.New() provenance.Module`. It takes no caller context. `KgatewayOptions.Gateway` is gone: a consumer that knows which Gateway it captured shows that itself, labelled as its own context. `Known` moves to selection.
