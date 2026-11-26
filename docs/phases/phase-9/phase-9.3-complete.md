@@ -178,3 +178,27 @@ After the visibility-strategies fixes (route-name anchoring, `Input.Complete`, m
 Still 204 of 279 blocks are gap-free: the two mirror routes keep their `gatewaySource` and `routeSource` gaps. No corpus route name lacks its vhost prefix, so no input is `incomplete`. All 79 non-bootstrap `backendSource` inputs are covered.
 
 (c), not on the corpus: `placement` reports a gap when the routes checked are empty, as for a default-on slot of an HCM with no routes. §5's "for each route checked" would hold vacuously there. This predates the fail-closed rewrite.
+
+## Kind capture
+
+A kind cluster with kgateway v2.5.2, Envoy 1.39.6 (`aacd0340`, `Clean`), Gateway API v1.7.0 and `route_source` metadata on. It is the new scenario `testdata/scenarios/10-policy-levels`: TrafficPolicies on the Gateway, on listener `http`, and on an HTTPRoute. The scan found no secrets, real hosts or vendor names; the `SecretsConfigDump` holds only a file path and a redacted filename, as in the other dumps. The manifest is `manifest.yaml`, outside `k8s/`, because it uses its own namespace and Gateway, so `hack/record-dumps.sh` skips it.
+
+The listener, route config, vhost and route records match the hand-built fixtures (`levelsDump`, `TestMergeLevels`): the same `merge.TrafficPolicy.gateway.kgateway.dev` key and value shape at each level, giving 11 `PolicyRecord`s. The Gateway-targeted `tp-gateway` is recorded at listener and route config level on both listeners; `tp-listener-http` at its vhost; `tp-route-http` at the route.
+
+| Change | Test |
+|---|---|
+| `headerModifiers` → `header_mutation` in the policy field table: a filter, not a route action (kgateway v2.5.1 and v2.5.2 `header_modifiers.go:93`, `traffic_policy_plugin.go:668`) | `TestFilterLink_HeaderModifiers` |
+| Sides entry for `HeaderMutationPerRoute`: kgateway writes it as the HCM filter config, and it selects the same factory (Envoy `filter_config.h:291`) | `TestSides_CoverCorpus` failed on the new dump |
+| Text shows each policy field once per filter row, with its levels most specific first; `inherited policies:` groups the same way. A route-only link prints no level | `TestText_Levels` |
+| A link from a level less specific than `chain.Effective`'s deciding level is labelled `overridden by <level>`. Claims and gaps are unchanged | `TestText_Levels` |
+
+Text uses the existing level words (`vhost`, `route config`), not the JSON `routeConfig`, e.g. `TrafficPolicy demo/tp-gateway (cors, inferred; route config, listener; overridden by vhost)`.
+
+### Golden changes
+
+1. `golden/scenarios/10-policy-levels/kgateway-v2.5.2-route-source.json`: new. It keeps every claim, including both `tp-gateway` records per listener.
+2. `golden/scenarios/10-policy-levels/kgateway-v2.5.2-route-source.txt`: new, then changed twice: duplicates grouped with their levels, then the overridden labels.
+
+No other golden changed: no older dump has records above route level, and route level is never overridden.
+
+Gap count with scenario 10 (`.agents-tmp/gapcount`): 285 route blocks, 208 gap-free. The two new kgateway blocks keep a `gatewaySource` gap (`noEvidence`); their `routeSource` resolves from metadata.
