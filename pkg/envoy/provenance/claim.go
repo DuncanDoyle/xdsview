@@ -120,6 +120,9 @@ type RouteSource struct {
 	// Incomplete says the module's readings of the route may miss its
 	// source, e.g. a name not in the expected format.
 	Incomplete bool `json:"incomplete,omitempty"`
+	// Exhaustive affirms that the module's readings name every possible
+	// source: read from exact metadata, or every split of a name enumerated.
+	Exhaustive bool `json:"exhaustive,omitempty"`
 }
 
 // ExtensionSource says what an HTTP filter slot is and which object defines it.

@@ -953,7 +953,8 @@
           "name": "orders"
         },
         "ruleIndex": 0,
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -983,7 +984,8 @@
           "name": "orders-kgwctl"
         },
         "ruleIndex": 0,
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -1074,7 +1076,8 @@
           "name": "orders"
         },
         "ruleIndex": 0,
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -1104,7 +1107,8 @@
           "name": "orders-kgwctl"
         },
         "ruleIndex": 0,
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -1375,7 +1379,8 @@
           "name": "public"
         },
         "ruleIndex": 0,
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -1405,7 +1410,8 @@
           "name": "public-kgwctl"
         },
         "ruleIndex": 0,
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [

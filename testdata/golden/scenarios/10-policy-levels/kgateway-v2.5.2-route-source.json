@@ -1122,7 +1122,8 @@
           "name": "route-http"
         },
         "ruleIndex": 0,
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "exact",
       "evidence": [
@@ -1625,7 +1626,8 @@
           "name": "route-admin"
         },
         "ruleIndex": 0,
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "exact",
       "evidence": [

@@ -619,7 +619,8 @@
           "name": "api"
         },
         "ruleIndex": 0,
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -649,7 +650,8 @@
           "name": "api-example"
         },
         "ruleIndex": 0,
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -679,7 +681,8 @@
           "name": "api-example-com"
         },
         "ruleIndex": 0,
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -709,7 +712,8 @@
           "name": "api-example-com-kgateway"
         },
         "ruleIndex": 0,
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -851,7 +855,8 @@
           "name": "api"
         },
         "ruleIndex": 0,
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -881,7 +886,8 @@
           "name": "api-example"
         },
         "ruleIndex": 0,
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -911,7 +917,8 @@
           "name": "api-example-com"
         },
         "ruleIndex": 0,
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -941,7 +948,8 @@
           "name": "api-example-com-kgateway"
         },
         "ruleIndex": 0,
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [

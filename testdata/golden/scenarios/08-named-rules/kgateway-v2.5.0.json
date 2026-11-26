@@ -580,7 +580,8 @@
         },
         "ruleIndex": 2,
         "ruleName": "a-matcher-b",
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -611,7 +612,8 @@
         },
         "ruleIndex": 2,
         "ruleName": "a-matcher-b",
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -642,7 +644,8 @@
         },
         "ruleIndex": 2,
         "ruleName": "a-matcher-b",
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -673,7 +676,8 @@
         },
         "ruleIndex": 2,
         "ruleName": "a-matcher-b",
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -731,7 +735,8 @@
         },
         "ruleIndex": 1,
         "ruleName": "a-b",
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -762,7 +767,8 @@
         },
         "ruleIndex": 1,
         "ruleName": "a-b",
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -793,7 +799,8 @@
         },
         "ruleIndex": 1,
         "ruleName": "a-b",
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -824,7 +831,8 @@
         },
         "ruleIndex": 1,
         "ruleName": "a-b",
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -882,7 +890,8 @@
         },
         "ruleIndex": 0,
         "ruleName": "a",
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -913,7 +922,8 @@
         },
         "ruleIndex": 0,
         "ruleName": "a",
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -944,7 +954,8 @@
         },
         "ruleIndex": 0,
         "ruleName": "a",
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -975,7 +986,8 @@
         },
         "ruleIndex": 0,
         "ruleName": "a",
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [

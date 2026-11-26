@@ -652,7 +652,8 @@
           "name": "api-example-com"
         },
         "ruleIndex": 0,
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "exact",
       "evidence": [
@@ -709,7 +710,8 @@
           "name": "api-example-com"
         },
         "ruleIndex": 1,
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "exact",
       "evidence": [
@@ -766,7 +768,8 @@
           "name": "api-example-com"
         },
         "ruleIndex": 1,
-        "matchIndex": 1
+        "matchIndex": 1,
+        "exhaustive": true
       },
       "certainty": "exact",
       "evidence": [
@@ -823,7 +826,8 @@
           "name": "api-example-com"
         },
         "ruleIndex": 2,
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "exact",
       "evidence": [

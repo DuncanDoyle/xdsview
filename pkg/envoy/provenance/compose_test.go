@@ -78,7 +78,7 @@ func link(record string, route, slot model.ID) provenance.Claim {
 }
 
 func source(subject model.ID, r model.Ref, c model.Certainty) provenance.Claim {
-	return provenance.Claim{Subject: subject, Assertion: provenance.RouteSource{Route: r, RuleIndex: 0, MatchIndex: 0}, Certainty: c, Evidence: ev(subject, &r)}
+	return provenance.Claim{Subject: subject, Assertion: provenance.RouteSource{Route: r, RuleIndex: 0, MatchIndex: 0, Exhaustive: true}, Certainty: c, Evidence: ev(subject, &r)}
 }
 
 func compose(t *testing.T, snap *model.Snapshot, modules ...provenance.Module) *provenance.Index {

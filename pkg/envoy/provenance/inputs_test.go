@@ -77,14 +77,19 @@ func TestInputs_Status(t *testing.T) {
 	}
 }
 
-// TestInputs_Complete: a route's candidate list is complete for an exact
-// reading, or inferred readings none marks incomplete. An incomplete or empty
-// list is a gap, never covered.
+// TestInputs_Complete: a route's candidate list is complete only when every
+// reading at the highest certainty is Exhaustive and none is Incomplete.
+// An incomplete, unaffirmed or empty list is a gap, never covered.
 func TestInputs_Complete(t *testing.T) {
 	partial := func(r model.Ref) provenance.Claim {
 		c := source(route0, r, model.Inferred)
 		c.Assertion = provenance.RouteSource{Route: r, Incomplete: true}
 		return c
+	}
+	with := func(c model.Certainty, a provenance.RouteSource) provenance.Claim {
+		cl := source(route0, a.Route, c)
+		cl.Assertion = a
+		return cl
 	}
 	rs := provenance.Gap{Subject: route0, Kind: provenance.KindRouteSource}
 	for _, tc := range []struct {
@@ -99,6 +104,9 @@ func TestInputs_Complete(t *testing.T) {
 		{"inferred incomplete", []provenance.Claim{partial(routeA)}, false, provenance.InputGap, provenance.ReasonIncomplete},
 		{"ambiguous incomplete", []provenance.Claim{partial(routeA), partial(routeB)}, false, provenance.InputGap, provenance.ReasonIncomplete},
 		{"exact beats incomplete", []provenance.Claim{partial(routeB), source(route0, routeA, model.Exact)}, true, provenance.InputCovered, ""},
+		{"exact incomplete", []provenance.Claim{with(model.Exact, provenance.RouteSource{Route: routeA, Exhaustive: true, Incomplete: true})}, false, provenance.InputGap, provenance.ReasonIncomplete},
+		{"inferred unaffirmed", []provenance.Claim{with(model.Inferred, provenance.RouteSource{Route: routeA})}, false, provenance.InputGap, provenance.ReasonIncomplete},
+		{"exact unaffirmed", []provenance.Claim{with(model.Exact, provenance.RouteSource{Route: routeA})}, false, provenance.InputGap, provenance.ReasonIncomplete},
 		{"none", nil, false, provenance.InputGap, provenance.ReasonNoEvidence},
 	} {
 		in := input(t, compose(t, twoListeners(), fixed{"m", tc.claims}), route0, rs)

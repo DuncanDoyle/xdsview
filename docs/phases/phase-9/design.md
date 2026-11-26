@@ -174,7 +174,7 @@ func Compose(snap *model.Snapshot, modules ...Module) (*Index, error)
 | `ListenerSource` | listener, filter chain, route config source | port, section (from the name) | alternatives | as read |
 | `GatewaySource` | listener, route config source | Gateway ref (from metadata only) | alternatives | as read |
 | `HostSource` | virtual host | hostname | alternatives | as read |
-| `RouteSource` | route | HTTPRoute ref, rule index, rule name, match index, index certainty, incomplete | alternatives | as read |
+| `RouteSource` | route | HTTPRoute ref, rule index, rule name, match index, index certainty, incomplete, exhaustive | alternatives | as read |
 | `ExtensionSource` | HTTP filter slot | extension ref, filter kind, helper | alternatives | as read |
 | `BackendSource` | route or weighted backend | backend ref, port, mirror cluster (empty for the subject's own cluster) | alternatives, per mirror cluster | as read |
 | `PolicyRecord` | listener, route config source, virtual host, route | policy ref, field, level | cumulative | exact (validated `merge.*`) |
@@ -274,10 +274,10 @@ type Candidate struct {
 | `ambiguous` | several candidates at the highest certainty |
 | `noEvidence` | no claim at inferred or better |
 | `dropped` | Compose dropped a claim of the kind on the subject (rule 3) |
-| `incomplete` | the route's readings may miss its source: a reading at the highest certainty is marked `Incomplete` |
+| `incomplete` | the route's readings may miss its source: a reading at the highest certainty is marked `Incomplete` or not `Exhaustive` |
 | `notCoverable` | no claim kind can cover it: a network filter, a per-request cluster, a per-filter entry with no installed downstream slot |
 
-A route's candidate list is complete (`Complete`) when its highest-certainty readings are exact, or are readings no module marks `Incomplete` (Codex visibility-strategies review, P1). A module marks a reading `Incomplete` when it could not enumerate every reading, such as a route name outside the expected format. An empty or incomplete list is a gap, never covered: `noEvidence` when empty, otherwise `incomplete`, which wins over `ambiguous`.
+A route's candidate list is complete (`Complete`) only when the module affirms it: every highest-certainty reading is marked `Exhaustive` and none `Incomplete`, at any certainty (Codex visibility-strategies review, P1; Codex r6 P1). A module marks a reading `Exhaustive` when it comes from exact metadata or when its parser enumerated every split of a name, and `Incomplete` when it could not enumerate every reading, such as a route name outside the expected format. A reading with neither mark is not complete. An empty or incomplete list is a gap, never covered: `noEvidence` when empty, otherwise `incomplete`, which wins over `ambiguous`.
 
 `Dependencies` derives from the same enumeration: its `Gaps` are the inputs with status `gap`. A route's candidates are listed whether or not their objects exist in any cluster: xdsview never consults cluster state, and the consumer's strategy decides what a missing candidate means.
 

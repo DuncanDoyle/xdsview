@@ -176,11 +176,13 @@ func (e *emitter) route(vhost string, r model.Route) {
 		if fromName {
 			ev = append(ev, nameEvidence(r.ID, "name", &o.Route))
 		}
+		o.Exhaustive = true // the metadata names the route
 		e.add(r.ID, o, model.Exact, ev...)
 	} else {
+		// An anchored name's parser enumerates every split; an unanchored one may miss some.
 		readings, anchored := parseRouteName(vhost, r.Name)
 		for _, o := range readings {
-			o.Incomplete = !anchored
+			o.Incomplete, o.Exhaustive = !anchored, anchored
 			e.add(r.ID, o, model.Inferred, nameEvidence(r.ID, "name", &o.Route))
 		}
 	}

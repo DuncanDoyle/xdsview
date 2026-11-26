@@ -360,7 +360,8 @@
           "name": "app"
         },
         "ruleIndex": 0,
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
@@ -417,7 +418,8 @@
           "name": "app"
         },
         "ruleIndex": 1,
-        "matchIndex": 0
+        "matchIndex": 0,
+        "exhaustive": true
       },
       "certainty": "inferred",
       "evidence": [
