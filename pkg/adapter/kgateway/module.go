@@ -30,17 +30,15 @@ type module struct{}
 
 func (module) Name() string { return ModuleName }
 
-// Claims reads snap. Static (bootstrap) listeners, and the route configs
-// only they use, get no claims: kgateway didn't produce them.
+// Claims reads snap. Static (bootstrap) listeners and their static or inline
+// route configs get no claims: kgateway didn't produce them. Route config a
+// static listener fetches, e.g. over RDS, gets the claims a dynamic one does.
 func (module) Claims(snap *model.Snapshot) []provenance.Claim {
 	e := &emitter{}
-	static := map[model.ID]bool{}
+	static := map[model.ID]bool{} // sources static listeners use
 	for _, l := range snap.Listeners {
-		if !l.Static {
-			continue
-		}
 		for _, fc := range l.FilterChains {
-			if fc.HCM != nil && fc.HCM.RouteConfigUse.Source != "" {
+			if l.Static && fc.HCM != nil && fc.HCM.RouteConfigUse.Source != "" {
 				static[fc.HCM.RouteConfigUse.Source] = true
 			}
 		}
@@ -48,7 +46,7 @@ func (module) Claims(snap *model.Snapshot) []provenance.Claim {
 	sources := map[model.ID]model.RouteConfigSource{}
 	for _, s := range snap.RouteConfigs {
 		sources[s.ID] = s
-		if s.Kind == model.SourceStatic || static[s.ID] {
+		if s.Kind == model.SourceStatic || s.Kind == model.SourceInline && static[s.ID] {
 			continue
 		}
 		if ls, ok := listenerFromName(s.Name); ok {
@@ -58,6 +56,14 @@ func (module) Claims(snap *model.Snapshot) []provenance.Claim {
 	}
 	for _, l := range snap.Listeners {
 		if l.Static {
+			for _, fc := range l.FilterChains {
+				if fc.HCM == nil {
+					continue
+				}
+				if s, ok := sources[fc.HCM.RouteConfigUse.Source]; !ok || s.Kind != model.SourceInline {
+					e.routes(*fc.HCM, s, nil) // fetched content; the listener and its slots stay bootstrap
+				}
+			}
 			continue
 		}
 		if port, ok := strings.CutPrefix(l.Name, "listener~"); ok {
@@ -111,6 +117,12 @@ func (e *emitter) hcm(hcm model.HCMConfig, src model.RouteConfigSource, listener
 			e.extension(f)
 		}
 	}
+	e.routes(hcm, src, listenerRecords)
+}
+
+// routes claims the virtual hosts and routes of hcm's route config, and links
+// the policy records that apply to each route.
+func (e *emitter) routes(hcm model.HCMConfig, src model.RouteConfigSource, listenerRecords []record) {
 	rc := hcm.RouteConfig
 	if rc == nil {
 		return

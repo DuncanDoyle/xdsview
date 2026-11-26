@@ -338,6 +338,44 @@ func TestPolicyTable_CoversCorpus(t *testing.T) {
 	}))
 }
 
+// TestStaticListenerRDS (Codex r7 #1): route config a static listener fetches
+// over RDS gets the claims a dynamic listener's does, and they cover its inputs.
+func TestStaticListenerRDS(t *testing.T) {
+	dump := `{"configs": [
+ {"@type": "type.googleapis.com/envoy.admin.v3.ListenersConfigDump", "static_listeners": [
+  {"listener": {"name": "boot", "filter_chains": [{"filters": [
+   {"name": "envoy.filters.network.http_connection_manager", "typed_config": {"rds": {"route_config_name": "listener~80"}, "http_filters": [
+    {"name": "ext_auth/ns/one", "disabled": true, "typed_config": {"@type": "` + authzType + `"}},
+    {"name": "envoy.filters.http.router", "typed_config": {"@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"}}]}}]}]}}]},
+ {"@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump", "dynamic_route_configs": [
+  {"route_config": {"name": "listener~80", ` + mergeMD("cors", "rc") + `, "virtual_hosts": [{"name": "listener~80~example_com", "domains": ["example.com"], "routes": [
+   {"name": "listener~80~example_com-route-0-httproute-web-ns-0-0-matcher-0", "match": {"prefix": "/"}, "route": {"cluster": "kube_ns_web_80"},
+    "typed_per_filter_config": {"ext_auth/ns/one": {}}, ` + mergeMD("extAuth", "route") + `}]}]}}]}]}`
+	snap := parse(t, dump)
+	ix := compose(t, snap)
+	hcm := snap.Listeners[0].FilterChains[0].HCM
+	vh := hcm.RouteConfig.VirtualHosts[0]
+	route := vh.Routes[0].ID
+	if r := provenance.Resolve[provenance.PolicyRecord](ix, hcm.RouteConfigUse.Source); len(r.Candidates) != 1 || r.Candidates[0].Policy.Name != "rc" {
+		t.Errorf("source records = %+v, want rc", r.Candidates)
+	}
+	want := map[provenance.Gap]bool{
+		{Subject: vh.ID, Kind: provenance.KindHostSource}:   true,
+		{Subject: route, Kind: provenance.KindRouteSource}:   true,
+		{Subject: route, Kind: provenance.KindBackendSource}: true,
+		{Subject: route, Kind: provenance.KindPolicyRecord, Slot: hcm.HTTPFilters[0].ID, Level: provenance.LevelRoute}: true,
+	}
+	for _, in := range ix.Inputs(route) {
+		if want[in.Gap] && in.Status != provenance.InputCovered {
+			t.Errorf("input %+v is %s (%s), want covered", in.Gap, in.Status, in.Reason)
+		}
+		delete(want, in.Gap)
+	}
+	if len(want) > 0 {
+		t.Errorf("missing inputs %v", want)
+	}
+}
+
 // TestStaticListeners: bootstrap listeners and their route configs get no claims.
 func TestStaticListeners(t *testing.T) {
 	f, err := os.Open("../../../testdata/scenarios/00-simple/envoy/kgateway-v2.5.0/config_dump.json")
