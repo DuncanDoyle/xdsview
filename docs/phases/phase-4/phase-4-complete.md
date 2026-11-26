@@ -29,7 +29,7 @@ krp's Envoy core is now an importable Go library that kgwctl and kgateway-ui can
 - Decisions D-003, D-004, D-005.
 
 ## Notes for later phases
-- **Filter names are labels, not types.** OSS kgateway emits one filter per `GatewayExtension`, named `<kind>/<ns>/<name>` (`ext_auth/...`, `ext_proc/...`, `ratelimit/...`), plus `global_disable/<kind>` helper filters. All are disabled on the listener and enabled per route. Transformation is the dynamic module `dynamic_modules/simple_mutations`. A downstream distribution uses its own filter names, with a downstream suffix. The Phase 5 mapping should key on `typed_config.@type` plus the name pattern, and leave vendor names to the plugin seam (P-002).
+- **Filter names are labels, not types.** OSS kgateway emits one filter per `GatewayExtension`, named `<kind>/<ns>/<name>` (`ext_auth/...`, `ext_proc/...`, `ratelimit/...`), plus `global_disable/<kind>` helper filters. All are disabled on the listener and enabled per route. Transformation is the dynamic module `dynamic_modules/simple_mutations`. A downstream distribution names its ext auth filter with a downstream suffix, and its transformation filter with a separate vendor name. The Phase 5 mapping should key on `typed_config.@type` plus the name pattern, and leave vendor names to the plugin seam (P-002).
 - HTTPS virtual hosts are named after the listener (`https-api~api_example_com`), not `listener~443`.
 - The former downstream corpus directory must be removed before the move into kgateway (E6).
 - staticcheck wasn't run: the installed version is too old for Go 1.27. `go vet` is clean.

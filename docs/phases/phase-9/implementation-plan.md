@@ -82,7 +82,7 @@ Fixtures are neutral and hand-built where no OSS capture shows the case (P-010).
 
 ## Before 9.3 locks the API
 
-kgwctl and Snellius review the design (program open question 7, D-019). The program puts that review before owner approval; the owner approved first (2026-11-25). Open for the owner: file the requests now, and accept that 9.1 and 9.2 run on a local branch meanwhile (design review #10). The requests are drafted in `.agents-tmp/p9/` and filed only after the owner says yes. 9.1 and 9.2 change no consumer-facing names beyond the snapshot rename; nothing merges to `main` before the consumer review.
+kgwctl and Snellius review the design (program open question 7, D-019). The program puts that review before owner approval; the owner approved first (2026-11-25). Open for the owner: file the requests now, and accept that 9.1 and 9.2 run on a local branch meanwhile (design review #10). The requests are drafted locally (local capture, not published) and filed only after the owner says yes. 9.1 and 9.2 change no consumer-facing names beyond the snapshot rename; nothing merges to `main` before the consumer review.
 
 ## Order and size
 

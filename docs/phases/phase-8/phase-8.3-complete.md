@@ -18,7 +18,7 @@ Tests: `TestVendorNeutral_PolicyKind`, `TestVendorNeutral_Transformation` (`pkg/
 ## Gates
 - `go test ./...` and `go vet ./...` pass. No golden changed.
 - Downstream transformation type name in Go: only the plugin test at close; after the phase review, nowhere (synthetic type).
-- Edition-name scan in Go under `pkg cmd internal`: no match.
+- Scan for vendor names, edition names and an edition-specific suffix in Go under `pkg cmd internal`: no match.
 
 ## Reviews
 Planned sub-phase: reviewed in the phase review before `v0.6.0`.

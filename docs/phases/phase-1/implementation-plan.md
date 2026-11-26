@@ -493,9 +493,8 @@ func TestParse_HTTPSWithSNI(t *testing.T) {
 		if len(fc0.HCM.HTTPFilters) < 2 {
 			t.Fatalf("expected at least 2 HTTP filters, got %d", len(fc0.HCM.HTTPFilters))
 		}
-		if fc0.HCM.HTTPFilters[0].Name != "acme.transformation" {
-			t.Errorf("expected first filter 'acme.transformation', got %q", fc0.HCM.HTTPFilters[0].Name)
-		}
+		// This test asserted that the first filter name equals the downstream
+		// transformation filter name recorded in that dump (name redacted here).
 
 		// RouteConfig should be joined
 		if fc0.HCM.RouteConfig == nil {
@@ -1880,7 +1879,7 @@ git commit -m "docs: add README and .gitignore"
 
 ### Background: how Kgateway registers optional filters
 
-Kgateway installs filters like `acme.transformation` (illustrative name for a downstream filter), `extauth`, and `ratelimit` in the HCM `http_filters` list with `"disabled": true`. This registers the filter in the pipeline without activating it globally. Routes that need the filter opt-in via `typed_per_filter_config` — Envoy activates the filter only for those routes. This pattern avoids per-request overhead on routes where a policy is not configured.
+Kgateway installs filters like `acme.transformation` (an illustrative name: the pattern was seen with a downstream transformation filter), `extauth`, and `ratelimit` in the HCM `http_filters` list with `"disabled": true`. This registers the filter in the pipeline without activating it globally. Routes that need the filter opt-in via `typed_per_filter_config` — Envoy activates the filter only for those routes. This pattern avoids per-request overhead on routes where a policy is not configured.
 
 ### Fix 1 — Route-level policies (issue #1)
 

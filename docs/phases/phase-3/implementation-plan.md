@@ -520,7 +520,7 @@ func interactiveSnapshot() *model.EnvoySnapshot {
 							HTTPFilters: []model.HTTPFilter{
 								{
 									Name:        "acme.transformation",
-									TypedConfig: map[string]any{"@type": "type.googleapis.com/envoy.api.v2.filter.http.RouteTransformations"},
+									TypedConfig: map[string]any{"@type": "type.googleapis.com/example.v1.RouteTransformations"},
 								},
 								{Name: "envoy.filters.http.router"},
 							},

@@ -16,7 +16,7 @@ The module ships downstream dumps, goldens and vendor names (P-002). They leave 
 | 3 | Hand-built `accuracy` fixture, text render | Line `router upstream filters (as configured): …` |
 | 4 | Parser accuracy tests (simple HTTP, HTTPS/SNI, ext auth, header modifiers, mirror, rewrite, CORS, rate limit) | Same assertions on OSS dumps (00, 02_x); downstream-only values replaced by OSS ones |
 | 5 | Narrowing, parse-all, matcher tests | Run on OSS dumps only; no skips for downstream paths |
-| 6 | A case-insensitive scan for edition names over Go code in `pkg cmd internal` | Only `origin/kgateway.go`'s transformation type, `chain/sides.go`'s entry for it, and their tests (8.3 removes them) |
+| 6 | A case-insensitive scan for vendor names, edition names and an edition-specific suffix over Go code in `pkg cmd internal` | Only `origin/kgateway.go`'s transformation type, `chain/sides.go`'s entry for it, and their tests (8.3 removes them) |
 | 7 | Same scan over `testdata/` | Only recorded OSS manifests (image `solo-public/docs/hey`) |
 | 8 | OSS goldens | Unchanged |
 

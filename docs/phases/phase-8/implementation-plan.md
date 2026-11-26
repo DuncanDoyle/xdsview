@@ -50,7 +50,7 @@ Order (D-015): certainty first, because kgwctl `proxy routes` already ships unla
 6. Docs: README corpus section, and a D-003 pointer to D-013.
 
 **Done:**
-- A case-insensitive scan for edition names in Go code under `pkg cmd internal` finds only `origin/kgateway.go`'s transformation type and its tests, which 8.3 removes.
+- A case-insensitive scan for vendor names, edition names and an edition-specific suffix in Go code under `pkg cmd internal` finds only `origin/kgateway.go`'s transformation type and its tests, which 8.3 removes.
 - The same scan over `testdata/` finds only recorded OSS manifests (the `solo-public/docs/hey` image). These are inputs, not library names.
 - OSS goldens are unchanged.
 - All tests and vet pass. Test counts per package are reported before and after, with each dropped test named and the reason given.
@@ -66,7 +66,7 @@ Order (D-015): certainty first, because kgwctl `proxy routes` already ships unla
 2. Restrict `PolicyFilter` to `gateway.kgateway.dev/TrafficPolicy`. Remove `transformationType` and its sides entry.
 3. Direct `PolicyFilter` tests in `origin_test.go` pass full refs, and the downstream-type cases move to the plugin test.
 
-**Done:** the tests above pass. OSS goldens are unchanged. A scan of Go code for the downstream transformation type name finds nothing (the plugin test uses a synthetic type, phase review #4, D-019). The 8.2 edition-name scan finds nothing in `pkg cmd internal` outside that test. Vet passes.
+**Done:** the tests above pass. OSS goldens are unchanged. A scan of Go code for the downstream transformation type name finds nothing (the plugin test uses a synthetic type, phase review #4, D-019). The 8.2 scan for vendor and edition names finds nothing in `pkg cmd internal` outside that test. Vet passes.
 
 ## Close
 

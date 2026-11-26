@@ -25,7 +25,7 @@ Both replacement tests passed before the deletion. Hand-built fixtures use neutr
 Every dropped case ran on a downstream dump. No OSS golden changed.
 
 ## Greps
-- Edition-name scan in Go under `pkg cmd internal`: only `origin/kgateway.go:295` and `chain/sides.go:34`, which 8.3 removes.
+- Scan for vendor names, edition names and an edition-specific suffix in Go under `pkg cmd internal`: only `origin/kgateway.go:295` and `chain/sides.go:34`, which 8.3 removes.
 - The same scan over `testdata/`: only `gcr.io/solo-public/docs/hey` in recorded OSS manifests.
 
 ## Reviews

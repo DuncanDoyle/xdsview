@@ -182,7 +182,7 @@ func Text(w io.Writer, snap *model.EnvoySnapshot, opts Options) error
 
 If `snap` has no chains, `Text` computes them with `chain.Effective` and no mapper, so `render` imports `chain` and `origin`, both stdlib-only core. Origins print when the snapshot is annotated. A `Conditional` chain prints "baseline before backend selection" and names the backends that override it. Side `unknown` prints as `?` in response order.
 
-Text shape (plain, LF-terminated, no trailing spaces, input order everywhere):
+Text shape (plain, LF-terminated, no trailing spaces, input order everywhere; illustrative, `acme.transformation` stands in for a downstream filter name):
 
 ```
 Gateway team-a/team-a · pod team-a-86d49b69c4-m86x6 · 2026-11-20 19:40:12 UTC

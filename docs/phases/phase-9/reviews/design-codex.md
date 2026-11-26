@@ -4,7 +4,7 @@ Local file links and vendor names redacted; reviewer text otherwise unchanged.
 
 **Scope:** design + plan, `design.md` and `implementation-plan.md` at `ac3cb72`
 **Cross-model:** yes. cli: codex; resolved_model: gpt-6.2-sol; status: ok
-**Prompt:** `.agents-tmp/p9/design-review-prompt.md`; links program.md "Architecture guidelines"
+**Prompt:** design review prompt (local capture, not published); links program.md "Architecture guidelines"
 **Date:** 2026-11-25
 
 Phase 9 needs design changes before the API is locked. The main blockers are Snellius’s evidence boundary, missing-RDS detection on offline dumps, and the distinction between an installed filter slot and its per-route execution.
