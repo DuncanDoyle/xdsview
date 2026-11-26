@@ -163,6 +163,26 @@ func TestCompose_Alternatives(t *testing.T) {
 	}
 }
 
+// TestResolve_AgreeingReadings (Codex r7 P1): readings that differ only in
+// Exhaustive or Incomplete agree. The merged reading is exhaustive only if all
+// are, and incomplete if any is.
+func TestResolve_AgreeingReadings(t *testing.T) {
+	partial := source(route0, routeA, model.Inferred)
+	a := partial.Assertion.(provenance.RouteSource)
+	a.Exhaustive, a.Incomplete = false, true
+	partial.Assertion = a
+	ix := compose(t, twoListeners(),
+		fixed{"a", []provenance.Claim{source(route0, routeA, model.Inferred)}},
+		fixed{"b", []provenance.Claim{partial}})
+	r := provenance.Resolve[provenance.RouteSource](ix, route0)
+	if r.Certainty != model.Inferred || len(r.Candidates) != 1 || len(r.Claims) != 2 {
+		t.Fatalf("R0 = %+v, want one inferred candidate from both claims", r)
+	}
+	if c := r.Candidates[0]; c.Route != routeA || c.Exhaustive || !c.Incomplete {
+		t.Errorf("candidate = %+v, want a, not exhaustive, incomplete", c)
+	}
+}
+
 // TestCompose_Rule4 resolves filter links: a dangling or rejected record, a
 // slot on another HCM, a route with no per-filter config for the slot, a
 // record on an unrelated listener, and two links from one record on one route

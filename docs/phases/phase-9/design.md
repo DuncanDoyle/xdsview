@@ -180,7 +180,7 @@ func Compose(snap *model.Snapshot, modules ...Module) (*Index, error)
 | `PolicyRecord` | listener, route config source, virtual host, route | policy ref, field, level | cumulative | exact (validated `merge.*`) |
 | `FilterLink` | route | record ref, slot ID | cumulative | inferred |
 
-Alternatives compete: for one subject and kind, the highest certainty wins, and several distinct values at that certainty resolve as ambiguous. Cumulative claims are a list; two policy records on one route are two facts.
+Alternatives compete: for one subject and kind, the highest certainty wins, and several distinct values at that certainty resolve as ambiguous. `RouteSource` values are distinct by route, rule index, rule name and match index only; agreeing readings merge into one candidate, exhaustive only if all are, incomplete if any is (Codex r7 P1). Cumulative claims are a list; two policy records on one route are two facts.
 
 Compose rules:
 1. Each module gets its own deep copy of `snap`. A test runs two modules, one of which mutates nested maps, slices and pointers, and checks the original is unchanged (R2).

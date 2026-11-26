@@ -58,7 +58,8 @@ func (ix *Index) Record(link Claim) (Claim, bool) {
 //
 // For an alternatives kind, Candidates are the distinct assertions at the
 // highest certainty, in claim order; Certainty is that certainty, or
-// [model.Ambiguous] when they disagree. For a cumulative kind ([PolicyRecord],
+// [model.Ambiguous] when they disagree. [RouteSource] readings that differ only
+// in IndexCertainty, Incomplete or Exhaustive merge into one candidate. For a cumulative kind ([PolicyRecord],
 // [FilterLink]) every assertion is a candidate and Certainty is the highest.
 // Claims lists every claim of the kind, the outranked ones too.
 type Resolution[T Assertion] struct {
@@ -103,7 +104,12 @@ func resolve[T Assertion](ix *Index, id model.ID, mirror string) Resolution[T] {
 			res.Candidates = append(res.Candidates, a)
 			continue
 		}
-		if c.Certainty == res.Certainty && !slices.ContainsFunc(res.Candidates, func(b T) bool { return reflect.DeepEqual(a, b) }) {
+		if c.Certainty != res.Certainty {
+			continue
+		}
+		if j := slices.IndexFunc(res.Candidates, func(b T) bool { return sameReading(a, b) }); j >= 0 {
+			res.Candidates[j] = combine(res.Candidates[j], a)
+		} else {
 			res.Candidates = append(res.Candidates, a)
 		}
 	}
@@ -111,6 +117,31 @@ func resolve[T Assertion](ix *Index, id model.ID, mirror string) Resolution[T] {
 		res.Certainty = model.Ambiguous
 	}
 	return res
+}
+
+// sameReading reports whether a and b name the same source. RouteSource
+// readings compare on route, rule index, rule name and match index only.
+func sameReading[T Assertion](a, b T) bool {
+	x, ok := any(a).(RouteSource)
+	if !ok {
+		return reflect.DeepEqual(a, b)
+	}
+	y := any(b).(RouteSource)
+	return x.Route == y.Route && x.RuleIndex == y.RuleIndex && x.RuleName == y.RuleName && x.MatchIndex == y.MatchIndex
+}
+
+// combine merges two agreeing readings: a RouteSource is exhaustive only if
+// both are, incomplete if either is, and keeps the higher index certainty.
+func combine[T Assertion](a, b T) T {
+	x, ok := any(a).(RouteSource)
+	if !ok {
+		return a
+	}
+	y := any(b).(RouteSource)
+	x.Exhaustive = x.Exhaustive && y.Exhaustive
+	x.Incomplete = x.Incomplete || y.Incomplete
+	x.IndexCertainty = max(x.IndexCertainty, y.IndexCertainty)
+	return any(x).(T)
 }
 
 // Dependencies is the evidence scope of a block: what its view rests on.
