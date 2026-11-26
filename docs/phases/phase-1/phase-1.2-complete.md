@@ -39,7 +39,7 @@
 **Type:** Missing tests
 
 **Changes:**
-- `parser/parser_test.go`: Added `TestParse_URLRewrite` (02_5 — path_separated_prefix + regex_rewrite), `TestParse_CORSPolicy` (02_6 — cors typed_per_filter_config), `TestParse_RateLimit` (02_8 — ratelimit_ee/default typed_per_filter_config).
+- `parser/parser_test.go`: Added `TestParse_URLRewrite` (02_5 — path_separated_prefix + regex_rewrite), `TestParse_CORSPolicy` (02_6 — cors typed_per_filter_config), `TestParse_RateLimit` (02_8 — a downstream rate-limit filter's typed_per_filter_config).
 - Also fixed pre-existing bug: `TestParse_SimpleHTTP` referenced `01-simple` instead of `00-simple`.
 
 ---

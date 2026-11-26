@@ -2,9 +2,11 @@
 
 **Scope:** Phase 9 at 8209553, plus the xdsview repo as a whole
 **Advisor:** Fable, via the program session
-**Source:** two reports in the program repo (kgateway-tooling), not copied here: `.agents-tmp/fable/reports/2-phase9-advisory-fable.md` (Phase 9, F1–F6) and `.agents-tmp/fable/reports/3-xdsview-advisory-fable.md` (xdsview, F1–F5)
+**Source:** two reports in the program repo (kgateway-tooling), not copied here and not published: the Phase 9 advisory report (F1–F6) and the xdsview advisory report (F1–F5)
 **Date:** 2026-11-26
 **Cross-model:** not a required cross-model review. It is an advisory read; the Codex reviews in this folder remain the required ones.
+
+Local file links and vendor names redacted; reviewer text otherwise unchanged.
 
 IDs are the program's. A-items come from the Phase 9 report, B, E and A8 from the xdsview report. A4 is tracked in the program.
 

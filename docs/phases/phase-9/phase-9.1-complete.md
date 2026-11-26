@@ -11,7 +11,7 @@
 ## Tests
 Acceptance tests: `parser/snapshot_test.go`, `model/id_test.go`, `model/prune_test.go`, `source/capture_test.go`, `source/kube/capture_test.go`, `cmd/krp` `TestDump_DuplicateRDSName`.
 
-Before the implementation (skeleton API only), these failed for the expected reason. Output: `.agents-tmp/p9/9.1-tests-before.txt`.
+Before the implementation (skeleton API only), these failed for the expected reason. Output: a local capture, not published.
 - `TestRouteConfigs_DuplicateName`: no sources, and the use joined the later `dup` (vhost `second`).
 - `TestRouteConfigs_SharedSource`, `_SourcesAndUses`, `_Scenario00`: no sources, no uses.
 - `TestIDs_UniqueInEveryDump`, `TestIDs_Within`: empty IDs.

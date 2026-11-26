@@ -4,6 +4,8 @@
 **Cross-model:** yes. cli: codex; resolved_model: gpt-6.2-sol; status: ok
 **Date:** 2026-11-25
 
+Local file links and vendor names redacted; reviewer text otherwise unchanged.
+
 ### Findings 1–9
 
 | # | Status | Re-review |
@@ -20,14 +22,14 @@
 
 ### Listener-level gap
 
-**Yes, it is the same R6 masking problem.** A readable listener policy for CORS can clear the gap on a default-on ext-auth slot whose provenance is unknown. The smallest sound rule is to leave the gap open for every default-on slot subject to the existing router and helper exclusions. Close it only when evidence attributes listener-level config to that exact slot occurrence and includes the contributing objects in `Dependencies`. A route-scoped `FilterLink` establishes per-route placement. [index.go:248](/Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude/pkg/envoy/provenance/index.go:248)
+**Yes, it is the same R6 masking problem.** A readable listener policy for CORS can clear the gap on a default-on ext-auth slot whose provenance is unknown. The smallest sound rule is to leave the gap open for every default-on slot subject to the existing router and helper exclusions. Close it only when evidence attributes listener-level config to that exact slot occurrence and includes the contributing objects in `Dependencies`. A route-scoped `FilterLink` establishes per-route placement. `pkg/envoy/provenance/index.go:248`
 
 ### New findings
 
-- **P1 · correctness · Source blocks can lose their only gap.** `Dependencies("RD0")` puts no HCM slots in scope, and the new check requires an in-scope slot. A source with per-filter config and zero records can now return empty `Gaps`. The old source-level check caught it. [index.go:163](/Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude/pkg/envoy/provenance/index.go:163) · [index.go:233](/Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude/pkg/envoy/provenance/index.go:233)
-- **P1 · correctness · Unknown claims can now close a policy gap.** `placed` checks claim survival alone. An `Unknown` record and link pass the composer’s upper-bound checks and can suppress a gap the previous rule kept open. [index.go:224](/Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude/pkg/envoy/provenance/index.go:224) · [compose.go:227](/Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude/pkg/envoy/provenance/compose.go:227)
-- **P1 · correctness · Pointer normalization can panic.** A downstream type can embed an assertion and override `Kind` on a pointer receiver. The pointer implements `Assertion`, but its dereferenced value fails the unchecked type assertion in `byValue`. [compose.go:119](/Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude/pkg/envoy/provenance/compose.go:119)
-- **P2 · correctness · The ECDS contract is stale.** Design §4 and the plan still promise a name/type join. The fix leaves matching router-upstream entries unresolved by design. [design.md:132](/Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude/docs/phases/phase-9/design.md:132) · [parser.go:738](/Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude/pkg/envoy/parser/parser.go:738)
+- **P1 · correctness · Source blocks can lose their only gap.** `Dependencies("RD0")` puts no HCM slots in scope, and the new check requires an in-scope slot. A source with per-filter config and zero records can now return empty `Gaps`. The old source-level check caught it. `pkg/envoy/provenance/index.go:163` · `pkg/envoy/provenance/index.go:233`
+- **P1 · correctness · Unknown claims can now close a policy gap.** `placed` checks claim survival alone. An `Unknown` record and link pass the composer’s upper-bound checks and can suppress a gap the previous rule kept open. `pkg/envoy/provenance/index.go:224` · `pkg/envoy/provenance/compose.go:227`
+- **P1 · correctness · Pointer normalization can panic.** A downstream type can embed an assertion and override `Kind` on a pointer receiver. The pointer implements `Assertion`, but its dereferenced value fails the unchecked type assertion in `byValue`. `pkg/envoy/provenance/compose.go:119`
+- **P2 · correctness · The ECDS contract is stale.** Design §4 and the plan still promise a name/type join. The fix leaves matching router-upstream entries unresolved by design. `docs/phases/phase-9/design.md:132` · `pkg/envoy/parser/parser.go:738`
 
 The author reports passing `go test ./...` and `go vet ./...`. I reviewed the diff statically, verified that it contains no golden changes, and edited no files.
 

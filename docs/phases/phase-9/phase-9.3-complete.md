@@ -128,7 +128,7 @@ JSON (65 files), all for the `v1alpha2` shape: `snapshot` loses `origin`, `polic
 1. Part A item 6 (`HeaderMatch.Regex`, `QueryParamMatch.Regex`, `Route.Cluster`) is not decided.
 2. The close benchmark needs `Compose` on the largest dump.
 3. Codex review of 9.3 (parts A and B).
-4. `.agents-tmp/tuicheck` still calls the removed API; it is scratch and outside the build.
+4. A local scratch TUI check (not published) still calls the removed API; it is outside the build.
 
 ## Benchmark
 
@@ -176,7 +176,7 @@ Fail-closed `Dependencies` on the 279 route blocks of the 51 scenario dumps (kga
 
 One (a) cause, now fixed: mirror clusters, which both renderers show, were no input, so a route could hide a mirror Service the viewer cannot read. The JSON oracle test also found per-request cluster selectors, non-HCM network filters and a reported static source's listener missing; none occurs on a scenario route block. Static inputs are still enumerated, with status `bootstrap`, so the oracle and fail-closed tests keep covering them.
 
-After the visibility-strategies fixes (route-name anchoring, `Input.Complete`, mirror claims), `.agents-tmp/gapcount` reports:
+After the visibility-strategies fixes (route-name anchoring, `Input.Complete`, mirror claims), a local gap-count script (not published) reports:
 
 | Gap kind | kgateway blocks | Reason |
 |---|---|---|
@@ -210,4 +210,4 @@ Text uses the existing level words (`vhost`, `route config`), not the JSON `rout
 
 No other golden changed: no older dump has records above route level, and route level is never overridden.
 
-Gap count with scenario 10 (`.agents-tmp/gapcount`): 285 route blocks, 208 gap-free. The two new kgateway blocks keep a `gatewaySource` gap (`noEvidence`); their `routeSource` resolves from metadata.
+Gap count with scenario 10 (same local script): 285 route blocks, 208 gap-free. The two new kgateway blocks keep a `gatewaySource` gap (`noEvidence`); their `routeSource` resolves from metadata.

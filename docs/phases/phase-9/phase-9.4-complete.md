@@ -16,7 +16,7 @@
 | 9 | Coverage | `Snapshot.Coverage.Sections`: parsed, partial, ignored, in dump order. Ignored sections are read for `@type` only. `scoped_routes` → `unknown`, `HCMConfig.ScopedRoutes`. Text ends with `ignored dump sections: …`. |
 
 ## Tests
-Each item's tests were written first and failed for the expected reason (`.agents-tmp/p9/9.4-item<N>-before.txt`), then passed (`…-after.txt`). Parser tests in `parser/correctness_test.go`, chain in `chain/ecds_test.go`, krp text and JSON in `cmd/krp/correctness_test.go`. Before, in short:
+Each item's tests were written first and failed for the expected reason, then passed (before and after output: local captures, not published). Parser tests in `parser/correctness_test.go`, chain in `chain/ecds_test.go`, krp text and JSON in `cmd/krp/correctness_test.go`. Before, in short:
 1. Fixture: no listeners; scenario 00: `RS0`/`RS1` unused, no inline source.
 2. `NetworkFilters` empty; text `└─ no HTTP connection manager` only.
 3. Only `L0/C0`; default chain absent from text.
@@ -56,7 +56,7 @@ Reviewed after each `-update`; no line was removed except a trailing comma or th
 - `schemaVersion` is still `v1alpha1`.
 
 ## Review fixes
-Codex review [9.4-codex.md](reviews/9.4-codex.md), triage there. Each test failed first (`.agents-tmp/p9/rf/<finding>-before.txt`), then passed (`…-after.txt`). `go test ./...` and `go vet ./...` pass.
+Codex review [9.4-codex.md](reviews/9.4-codex.md), triage there. Each test failed first, then passed (local captures, not published). `go test ./...` and `go vet ./...` pass.
 
 | # | Commit | Change |
 |---|---|---|

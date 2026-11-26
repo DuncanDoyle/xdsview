@@ -12,7 +12,7 @@
 - `internal/snaptest.IDs` gives hand-built test snapshots parser-style IDs.
 
 ## Tests
-Failing before (`.agents-tmp/p9/9.2-boundary-before.txt`):
+Failing before (local capture, not published):
 ```
 boundary_test.go:53: chain depends on .../pkg/envoy/origin; pure core packages may not import provenance
 boundary_test.go:53: render depends on .../pkg/envoy/origin; pure core packages may not import provenance

@@ -4,15 +4,17 @@
 **Cross-model:** yes. cli: codex; resolved_model: gpt-6.2-sol; status: ok
 **Date:** 2026-11-26
 
-1. **Partly resolved.** Static listeners now expose RDS attribution gaps, but `kgateway.New()` still skips their fetched routes and RDS source metadata. Valid evidence can go unused, even when a dynamic listener shares the source. [module.go:43](/Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude/pkg/adapter/kgateway/module.go:43) · [module.go:60](/Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude/pkg/adapter/kgateway/module.go:60)
+Local file links and vendor names redacted; reviewer text otherwise unchanged.
+
+1. **Partly resolved.** Static listeners now expose RDS attribution gaps, but `kgateway.New()` still skips their fetched routes and RDS source metadata. Valid evidence can go unused, even when a dynamic listener shares the source. `pkg/adapter/kgateway/module.go:43` · `pkg/adapter/kgateway/module.go:60`
 2. **Resolved.** Every highest-certainty reading must affirm `Exhaustive` and clear `Incomplete`.
 3. **Resolved.** Filter rows retain policy levels and drop the override label.
 4. **Resolved.** A dropped mirror claim now sets `Gap.Cluster` to the mirror.
 
 **New findings**
 
-- **P1 · correctness.** `Resolve` compares whole assertions, so two modules that agree on the route and indices but differ only on `Exhaustive` produce a false ambiguity. Text can display `ambiguous:` followed by a single route. [index.go:106](/Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude/pkg/envoy/provenance/index.go:106) · [text.go:222](/Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude/pkg/envoy/provenance/text.go:222)
-- **P2 · correctness.** Each bootstrap check under a static listener scans all fetched uses. With one route per static RDS use, checking every route block becomes quadratic, violating §5’s linear-cost contract. [index.go:336](/Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude/pkg/envoy/provenance/index.go:336) · [design.md:284](/Users/ddoyle/Development/claude/kgateway-filterchain-printer-cli-claude/docs/phases/phase-9/design.md:284)
+- **P1 · correctness.** `Resolve` compares whole assertions, so two modules that agree on the route and indices but differ only on `Exhaustive` produce a false ambiguity. Text can display `ambiguous:` followed by a single route. `pkg/envoy/provenance/index.go:106` · `pkg/envoy/provenance/text.go:222`
+- **P2 · correctness.** Each bootstrap check under a static listener scans all fetched uses. With one route per static RDS use, checking every route block becomes quadratic, violating §5’s linear-cost contract. `pkg/envoy/provenance/index.go:336` · `docs/phases/phase-9/design.md:284`
 
 Static review. Tests and vet passed per the author.
 
