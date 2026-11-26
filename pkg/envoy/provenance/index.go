@@ -231,7 +231,7 @@ func (ix *Index) Inputs(block model.ID) []Input {
 //
 // The inputs are:
 //   - each listener, virtual host, route and weighted backend in or above
-//     the block, and each mirror cluster of such a route;
+//     the block, each mirror cluster of such a route, and its direct response;
 //   - each network filter other than the HCM of every filter chain in or
 //     above the block;
 //   - each HTTP filter slot, downstream and router upstream, of every HCM
@@ -250,8 +250,9 @@ func (ix *Index) Inputs(block model.ID) []Input {
 //     route or weighted backend with a cluster: BackendSource; mirror
 //     cluster: BackendSource for that mirror ([ResolveMirror]);
 //   - a route whose cluster is picked per request (header or specifier
-//     plugin), a network filter other than the HCM, or a use that joined no
-//     source ([ReasonUnresolved]): nothing;
+//     plugin), a route's direct response (its backendSource input), a network
+//     filter other than the HCM, or a use that joined no source
+//     ([ReasonUnresolved]): nothing;
 //   - a slot other than the router: ExtensionSource. A downstream slot that
 //     runs by default and is no helper also needs, for each route checked, a
 //     kept FilterLink on that route placing a listener-level PolicyRecord on it;
@@ -538,8 +539,9 @@ func (ix *Index) inputs(block model.ID) (map[model.ID]bool, []input) {
 			r := d.routes[id]
 			if a := r.Action; r.Cluster != "" {
 				out = append(out, ix.alternative(id, KindBackendSource))
-			} else if a.ClusterHeader != "" || a.ClusterSpecifierPlugin != "" || a.InlineClusterSpecifierPlugin != nil {
-				// The cluster is picked per request: no backend claim covers it.
+			} else if a.ClusterHeader != "" || a.ClusterSpecifierPlugin != "" || a.InlineClusterSpecifierPlugin != nil || a.DirectResponse != nil {
+				// A cluster picked per request, or a direct response that may come from
+				// another object: no backend claim covers it.
 				out = append(out, notCoverable(Gap{Subject: id, Kind: KindBackendSource}))
 			}
 			for _, m := range r.MirrorClusters {

@@ -156,6 +156,36 @@ func TestInputs_UnresolvedUse(t *testing.T) {
 	}
 }
 
+// TestInputs_DirectResponse: a direct response is what serves its route, and
+// may come from an object other than the HTTPRoute, so it is always a
+// backendSource gap. A redirect comes from the HTTPRoute and the listener,
+// which routeSource and gatewaySource cover: it adds no input.
+func TestInputs_DirectResponse(t *testing.T) {
+	snap := twoListeners()
+	routes := snap.Listeners[0].FilterChains[0].HCM.RouteConfig.VirtualHosts[0].Routes
+	routes[0].Cluster, routes[0].Action = "", model.RouteAction{Kind: model.ActionDirectResponse, DirectResponse: &model.DirectResponse{Status: 503}}
+	routes[1].Cluster, routes[1].Action = "", model.RouteAction{Kind: model.ActionRedirect, Redirect: &model.Redirect{ResponseCode: 301}}
+	// Even an exact backend claim doesn't cover the direct response.
+	ix := compose(t, snap, fixed{"m", []provenance.Claim{
+		{Subject: route0, Assertion: provenance.BackendSource{Backend: policyA}, Certainty: model.Exact, Evidence: ev(route0, &policyA)},
+	}})
+	g := provenance.Gap{Subject: route0, Kind: provenance.KindBackendSource}
+	for _, block := range []model.ID{route0, vhost0, l0, "RD0"} {
+		in := input(t, ix, block, g)
+		if in.Status != provenance.InputGap || in.Reason != provenance.ReasonNotCoverable {
+			t.Errorf("%s: direct response is %s/%s, want gap/notCoverable", block, in.Status, in.Reason)
+		}
+		if !slices.Contains(ix.Dependencies(block).Gaps, g) {
+			t.Errorf("%s: Dependencies lacks %+v", block, g)
+		}
+	}
+	for _, in := range ix.Inputs(route1) {
+		if in.Subject == route1 && in.Kind == provenance.KindBackendSource {
+			t.Errorf("redirect has input %+v", in)
+		}
+	}
+}
+
 // TestInputs_SourceBlock: a route config source block holds every use of
 // it, so its inputs include each use's listener, virtual hosts, routes and backends.
 func TestInputs_SourceBlock(t *testing.T) {

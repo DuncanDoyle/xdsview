@@ -164,7 +164,9 @@ func (o *oracle) route(rm map[string]any, vid string) {
 	o.add(rid, provenance.KindRouteSource, "", rid)
 	o.entries(rm, rid, rid)
 	am := obj(rm["action"])
-	if str(rm["cluster"]) != "" || str(am["clusterHeader"]) != "" || str(am["clusterSpecifierPlugin"]) != "" || am["inlineClusterSpecifierPlugin"] != nil {
+	// A direct response serves the route in place of a backend.
+	if str(rm["cluster"]) != "" || str(am["clusterHeader"]) != "" || str(am["clusterSpecifierPlugin"]) != "" || am["inlineClusterSpecifierPlugin"] != nil ||
+		am["directResponse"] != nil {
 		o.add(rid, provenance.KindBackendSource, "", rid)
 	}
 	for _, mc := range list(rm["mirrorClusters"]) {
