@@ -130,10 +130,11 @@ type ExtensionSource struct {
 }
 
 // BackendSource is the backend object and port behind a route's or weighted
-// backend's cluster.
+// backend's cluster, or behind one of a route's mirror clusters.
 type BackendSource struct {
 	Backend model.Ref `json:"backend"`
 	Port    int       `json:"port,omitempty"`
+	Mirror  string    `json:"mirror,omitempty"` // the route's mirror cluster; empty for its own cluster
 }
 
 // Level is where a policy record sits.

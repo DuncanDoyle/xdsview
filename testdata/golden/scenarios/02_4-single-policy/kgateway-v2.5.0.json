@@ -666,6 +666,34 @@
       "module": "kgateway"
     },
     {
+      "id": "kgateway/11",
+      "subject": "L0/C0/N0/RC/V0/R0",
+      "assertion": {
+        "kind": "backendSource",
+        "backend": {
+          "kind": "Service",
+          "namespace": "httpbin",
+          "name": "httpbin-mirror"
+        },
+        "port": 8000,
+        "mirror": "kube_httpbin_httpbin-mirror_8000"
+      },
+      "certainty": "inferred",
+      "evidence": [
+        {
+          "kind": "name",
+          "subject": "L0/C0/N0/RC/V0/R0",
+          "field": "mirrorClusters",
+          "object": {
+            "kind": "Service",
+            "namespace": "httpbin",
+            "name": "httpbin-mirror"
+          }
+        }
+      ],
+      "module": "kgateway"
+    },
+    {
       "id": "kgateway/0",
       "subject": "RD0",
       "assertion": {

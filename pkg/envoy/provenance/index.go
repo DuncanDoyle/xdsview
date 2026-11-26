@@ -67,10 +67,26 @@ type Resolution[T Assertion] struct {
 	Claims     []Claim
 }
 
-// Resolve resolves the assertions of kind T about id.
+// Resolve resolves the assertions of kind T about id. For [BackendSource] it
+// resolves the subject's own cluster; see [ResolveMirror] for mirrors.
 func Resolve[T Assertion](ix *Index, id model.ID) Resolution[T] {
+	return resolve[T](ix, id, "")
+}
+
+// ResolveMirror resolves the [BackendSource] claims about a route's mirror
+// cluster. Each mirror cluster's claims compete only with each other.
+func ResolveMirror(ix *Index, route model.ID, cluster string) Resolution[BackendSource] {
+	return resolve[BackendSource](ix, route, cluster)
+}
+
+// resolve resolves the assertions of kind T about id, keeping only
+// BackendSource claims for the given mirror cluster.
+func resolve[T Assertion](ix *Index, id model.ID, mirror string) Resolution[T] {
 	var res Resolution[T]
 	for _, c := range ix.About(id) {
+		if b, ok := c.Assertion.(BackendSource); ok && b.Mirror != mirror {
+			continue
+		}
 		if _, ok := c.Assertion.(T); ok {
 			res.Claims = append(res.Claims, c)
 			res.Certainty = max(res.Certainty, c.Certainty)
@@ -198,9 +214,10 @@ func (ix *Index) Inputs(block model.ID) []Input {
 //
 // An input is covered only by claims at inferred or exact:
 //   - listener: GatewaySource; virtual host: HostSource; route: RouteSource;
-//     route or weighted backend with a cluster: BackendSource;
-//   - a mirror cluster, a route whose cluster is picked per request (header
-//     or specifier plugin), or a network filter other than the HCM: nothing;
+//     route or weighted backend with a cluster: BackendSource; mirror
+//     cluster: BackendSource for that mirror ([ResolveMirror]);
+//   - a route whose cluster is picked per request (header or specifier
+//     plugin), or a network filter other than the HCM: nothing;
 //   - a slot other than the router: ExtensionSource. A downstream slot that
 //     runs by default and is no helper also needs, for each route checked, a
 //     kept FilterLink on that route placing a listener-level PolicyRecord on it;
@@ -481,7 +498,7 @@ func (ix *Index) inputs(block model.ID) (map[model.ID]bool, []input) {
 				out = append(out, notCoverable(Gap{Subject: id, Kind: KindBackendSource}))
 			}
 			for _, m := range r.MirrorClusters {
-				out = append(out, notCoverable(Gap{Subject: id, Kind: KindBackendSource, Cluster: m}))
+				out = append(out, ix.cover(id, KindBackendSource, m))
 			}
 			inRoutes[d.owner[id].hcm.ID] = append(inRoutes[d.owner[id].hcm.ID], id)
 			inRoutes[d.parent[id]] = append(inRoutes[d.parent[id]], id)
@@ -602,6 +619,12 @@ func merge(d *depIndex, ins []input) []input {
 
 // alternative is the input on id that an alternatives kind covers.
 func (ix *Index) alternative(id model.ID, kind string) input {
+	return ix.cover(id, kind, "")
+}
+
+// cover is the input on id that an alternatives kind covers; for a
+// BackendSource, the one behind the mirror cluster (empty: id's own cluster).
+func (ix *Index) cover(id model.ID, kind, mirror string) input {
 	var c model.Certainty
 	full := false
 	switch kind {
@@ -615,9 +638,9 @@ func (ix *Index) alternative(id model.ID, kind string) input {
 	case KindExtensionSource:
 		c = Resolve[ExtensionSource](ix, id).Certainty
 	case KindBackendSource:
-		c = Resolve[BackendSource](ix, id).Certainty
+		c = resolve[BackendSource](ix, id, mirror).Certainty
 	}
-	in := input{Input: Input{Gap: Gap{Subject: id, Kind: kind}, Status: InputCovered, Complete: full}}
+	in := input{Input: Input{Gap: Gap{Subject: id, Kind: kind, Cluster: mirror}, Status: InputCovered, Complete: full}}
 	switch {
 	case kind == KindRouteSource && !full && c >= model.Ambiguous:
 		in.Status, in.Reason = InputGap, ReasonIncomplete
@@ -630,6 +653,9 @@ func (ix *Index) alternative(id model.ID, kind string) input {
 		cl := ix.claims[i]
 		if r, ok := cl.Assertion.(RouteSource); ok && kind == KindRouteSource {
 			in.Candidates = append(in.Candidates, Candidate{Ref: r.Route, Claim: cl})
+		}
+		if b, ok := cl.Assertion.(BackendSource); ok && b.Mirror != mirror {
+			continue
 		}
 		if in.Status == InputCovered && cl.Assertion.Kind() == kind && cl.Certainty >= model.Inferred {
 			in.covers = append(in.covers, i)

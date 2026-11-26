@@ -192,6 +192,11 @@ func (e *emitter) route(vhost string, r model.Route) {
 			e.add(w.ID, provenance.BackendSource{Backend: b, Port: port}, model.Inferred, nameEvidence(w.ID, "name", &b))
 		}
 	}
+	for _, m := range r.MirrorClusters {
+		if b, port, ok := clusterBackend(m); ok {
+			e.add(r.ID, provenance.BackendSource{Backend: b, Port: port, Mirror: m}, model.Inferred, nameEvidence(r.ID, "mirrorClusters", &b))
+		}
+	}
 }
 
 // policies emits a record for every policy ID in metadata's "merge.<Kind>.<group>"

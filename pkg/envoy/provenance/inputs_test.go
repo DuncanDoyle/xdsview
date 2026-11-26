@@ -53,7 +53,7 @@ func TestInputs_Status(t *testing.T) {
 	}{
 		{route0, provenance.Gap{Subject: route0, Kind: rs}, provenance.InputGap, provenance.ReasonAmbiguous, []model.Ref{routeA, routeB}},
 		{route1, provenance.Gap{Subject: route1, Kind: rs}, provenance.InputGap, provenance.ReasonNoEvidence, []model.Ref{routeB}},
-		{route1, provenance.Gap{Subject: route1, Kind: provenance.KindBackendSource, Cluster: "m"}, provenance.InputGap, provenance.ReasonNotCoverable, nil},
+		{route1, provenance.Gap{Subject: route1, Kind: provenance.KindBackendSource, Cluster: "m"}, provenance.InputGap, provenance.ReasonNoEvidence, nil},
 		{route1, provenance.Gap{Subject: l0, Kind: provenance.KindGatewaySource}, provenance.InputGap, provenance.ReasonDropped, nil},
 		{otherR, provenance.Gap{Subject: otherR, Kind: rs}, provenance.InputBootstrap, "", nil},
 	} {
@@ -103,6 +103,48 @@ func TestInputs_Complete(t *testing.T) {
 		in := input(t, compose(t, twoListeners(), fixed{"m", tc.claims}), route0, rs)
 		if in.Complete != tc.complete || in.Status != tc.status || in.Reason != tc.reason {
 			t.Errorf("%s: got complete=%t %s/%s, want complete=%t %s/%s", tc.name, in.Complete, in.Status, in.Reason, tc.complete, tc.status, tc.reason)
+		}
+	}
+}
+
+// TestInputs_Mirror (scenario 02_4): a mirror cluster is an ordinary backend.
+// The kgateway module claims it, its input is covered, and the route's own
+// backend still resolves to its primary cluster alone.
+func TestInputs_Mirror(t *testing.T) {
+	paths, _ := filepath.Glob("../../../testdata/scenarios/02_4-single-policy/envoy/*/config_dump.json")
+	if len(paths) == 0 {
+		t.Fatal("no 02_4 dumps")
+	}
+	for _, path := range paths {
+		snap := parseFile(t, path)
+		ix := compose(t, snap, kgateway.New())
+		mirrors := 0
+		for _, l := range snap.Listeners {
+			for _, fc := range l.FilterChains {
+				if fc.HCM == nil || fc.HCM.RouteConfig == nil {
+					continue
+				}
+				for _, vh := range fc.HCM.RouteConfig.VirtualHosts {
+					for _, r := range vh.Routes {
+						for _, m := range r.MirrorClusters {
+							mirrors++
+							in := input(t, ix, r.ID, provenance.Gap{Subject: r.ID, Kind: provenance.KindBackendSource, Cluster: m})
+							if in.Status != provenance.InputCovered {
+								t.Errorf("%s: %s mirror %s is %s/%s, want covered", path, r.ID, m, in.Status, in.Reason)
+							}
+							if res := provenance.ResolveMirror(ix, r.ID, m); res.Certainty != model.Inferred || len(res.Candidates) != 1 || res.Candidates[0].Mirror != m {
+								t.Errorf("%s: %s mirror %s resolves to %+v", path, r.ID, m, res)
+							}
+							if res := provenance.Resolve[provenance.BackendSource](ix, r.ID); len(res.Candidates) != 1 || res.Candidates[0].Mirror != "" {
+								t.Errorf("%s: %s primary backend resolves to %+v", path, r.ID, res.Candidates)
+							}
+						}
+					}
+				}
+			}
+		}
+		if mirrors == 0 {
+			t.Errorf("%s: no mirror clusters", path)
 		}
 	}
 }

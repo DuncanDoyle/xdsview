@@ -176,7 +176,7 @@ func Compose(snap *model.Snapshot, modules ...Module) (*Index, error)
 | `HostSource` | virtual host | hostname | alternatives | as read |
 | `RouteSource` | route | HTTPRoute ref, rule index, rule name, match index, index certainty, incomplete | alternatives | as read |
 | `ExtensionSource` | HTTP filter slot | extension ref, filter kind, helper | alternatives | as read |
-| `BackendSource` | route or weighted backend | backend ref, port | alternatives | as read |
+| `BackendSource` | route or weighted backend | backend ref, port, mirror cluster (empty for the subject's own cluster) | alternatives, per mirror cluster | as read |
 | `PolicyRecord` | listener, route config source, virtual host, route | policy ref, field, level | cumulative | exact (validated `merge.*`) |
 | `FilterLink` | route | record ref, slot ID | cumulative | inferred |
 
@@ -192,7 +192,8 @@ Compose rules:
 type Index struct{ /* unexported */ }
 
 func (ix *Index) About(id model.ID) []Claim
-func Resolve[T Assertion](ix *Index, id model.ID) Resolution[T]
+func Resolve[T Assertion](ix *Index, id model.ID) Resolution[T] // BackendSource: the subject's own cluster
+func ResolveMirror(ix *Index, route model.ID, cluster string) Resolution[BackendSource]
 func (ix *Index) Dependencies(block model.ID) Dependencies
 func (ix *Index) Inputs(block model.ID) []Input
 func (ix *Index) Warnings() []model.Warning
@@ -237,14 +238,15 @@ type Gap struct {
 | virtual host | `HostSource` |
 | route | `RouteSource` |
 | route or weighted backend with a cluster | `BackendSource` |
-| mirror cluster; route whose cluster is picked per request (header, specifier plugin) | nothing: always a gap |
+| mirror cluster of a route | `BackendSource` on the route naming that mirror cluster (`ResolveMirror`) |
+| route whose cluster is picked per request (header, specifier plugin) | nothing: always a gap |
 | network filter other than the HCM | nothing: always a gap |
 | HTTP filter slot, downstream or upstream, other than the router | `ExtensionSource` |
 | downstream slot that runs by default, not the router, not marked a helper | also: for each route checked, a kept `FilterLink` on that route placing a listener-level `PolicyRecord` on the slot |
 | per-filter config entry for slot S at level X (route, virtual host, route config) | for each route checked, a kept `FilterLink` on that route placing a level-X `PolicyRecord` on S |
 | per-filter config entry on a weighted backend, or with no installed downstream slot | nothing: always a gap |
 
-Alternatives kinds cover when they resolve at inferred or exact (`Resolve`), so ambiguous readings are gaps. A policy gap names the slot and level (`Gap.Slot`, `Gap.Level`). A readable record for one filter never covers another filter's entry. A default-on slot whose routes have no per-filter config keeps its listener-level gap in Phase 9; a listener-scoped link is the additive fix later (rule 7). Without `merge.*` at a level (U1), a hidden policy could add config there; the gap makes that visible. Router upstream slots need only `ExtensionSource`: rule 4 admits no link to them. A route's `BackendSource` is its primary cluster, so a mirror has no subject a claim could cover without making it ambiguous; its gap names it (`Gap.Cluster`). No Phase 9 kind has a network filter as subject, and a filter such as RBAC or `tcp_proxy` changes what the route serves, so it is a gap rather than Envoy-only infrastructure. Each can gain a claim kind later (rule 7).
+Alternatives kinds cover when they resolve at inferred or exact (`Resolve`), so ambiguous readings are gaps. A policy gap names the slot and level (`Gap.Slot`, `Gap.Level`). A readable record for one filter never covers another filter's entry. A default-on slot whose routes have no per-filter config keeps its listener-level gap in Phase 9; a listener-scoped link is the additive fix later (rule 7). Without `merge.*` at a level (U1), a hidden policy could add config there; the gap makes that visible. Router upstream slots need only `ExtensionSource`: rule 4 admits no link to them. A mirror cluster is an ordinary backend. Its `BackendSource` sits on the route and names the mirror cluster (`Mirror`), so it competes only with claims for that mirror: `Resolve[BackendSource]` resolves the route's own cluster and `ResolveMirror` one mirror. Its input and any gap name the mirror (`Gap.Cluster`). No Phase 9 kind has a network filter as subject, and a filter such as RBAC or `tcp_proxy` changes what the route serves, so it is a gap rather than Envoy-only infrastructure. Each can gain a claim kind later (rule 7).
 
 **3. Objects.** `Objects` holds the evidence objects of every claim on an input's subject, on the route config sources in scope and on the serving HCMs' slots, inherited policy records included. Every claim that covers an input adds its evidence objects too, wherever its subject lives.
 
@@ -273,7 +275,7 @@ type Candidate struct {
 | `noEvidence` | no claim at inferred or better |
 | `dropped` | Compose dropped a claim of the kind on the subject (rule 3) |
 | `incomplete` | the route's readings may miss its source: a reading at the highest certainty is marked `Incomplete` |
-| `notCoverable` | no claim kind can cover it: a network filter, a mirror, a per-request cluster, a per-filter entry with no installed downstream slot |
+| `notCoverable` | no claim kind can cover it: a network filter, a per-request cluster, a per-filter entry with no installed downstream slot |
 
 A route's candidate list is complete (`Complete`) when its highest-certainty readings are exact, or are readings no module marks `Incomplete` (Codex visibility-strategies review, P1). A module marks a reading `Incomplete` when it could not enumerate every reading, such as a route name outside the expected format. An empty or incomplete list is a gap, never covered: `noEvidence` when empty, otherwise `incomplete`, which wins over `ambiguous`.
 
