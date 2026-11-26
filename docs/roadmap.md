@@ -124,6 +124,14 @@ One coordinated contract break, then core correctness. The program's "Control-pl
 - krp JSON `v1alpha2`; one tagged release.
 - Core correctness after the break: static listeners and route configs, non-HCM chains, ECDS and wrapper state, the remaining route matchers and actions, default filter chains, and a coverage policy. OSS output changes; goldens are reviewed.
 
+### Standing — Support a new kgateway minor or Envoy release
+**Starts:** when the program or a consumer moves to a new kgateway minor or Envoy release (program P-012).
+
+1. Re-record the scenario dumps on the new version (`hack/record-dumps.sh`).
+2. Re-read the sides table (`pkg/envoy/chain/sides.go`) and the policy field table (`pkg/adapter/kgateway`) against their cited sources; update their versions and `CheckedMinors()`.
+3. Re-read the HTTPRoute API version `source/kube` lists.
+4. Run the version test (`TestVersionTables_MatchCorpus`) and the table coverage tests.
+
 ---
 
 ## Deferred / out of roadmap
