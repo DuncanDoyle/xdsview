@@ -11,3 +11,12 @@ Local file links and vendor names redacted; reviewer text otherwise unchanged.
 4. **Name the checks directly.** `require-route-metadata`, `require-all-route-candidates`, and `require-dump-access` for the operator view. If an explicit exception is ever approved, call it `trust-current-route-inventory` and put “may expose stale config across namespaces” beside the setting.
 
 5. **Keep operations predictable.** Run one shared D-085 test suite across modes, including hidden-child changes, missing and dropped claims, denied dependencies, and authorization errors. Pin the effective mode per install across Snellius replicas. Cache provenance by cluster, source identity and capture version, and reuse Snellius’s authorization expiry rules for viewer decisions. Audit the mode, capture and internal reason. Give viewers a generic unavailable state on an already-readable page without exposing hidden names or counts. Snellius `snellius/docs/decisions.md:1505`
+## Triage
+
+| # | Recommendation | Dimension | Decision |
+|---|---|---|---|
+| 1 | Evidence in xdsview, policy in Snellius | architecture | accept: `Index.Inputs` with candidates, reasons and `Complete` (ad3dcf6, 5887ced, aefc86c) |
+| 2 | A strategy returns the refs that must be readable | architecture | defer: Snellius owns strategies; in the strategies draft sent to Snellius |
+| 3 | Document guarantees and cost per strategy | architecture | accept: strategies draft, Codex-reviewed, sent to Snellius and the program |
+| 4 | Name the checks directly | architecture | accept: names used in the draft |
+| 5 | One shared D-085 test suite across modes | correctness | defer: Snellius |

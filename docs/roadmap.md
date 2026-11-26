@@ -1,17 +1,17 @@
-# krp — Roadmap
+# xdsview — Roadmap
 
-**Last updated:** 2026-11-22
+**Last updated:** 2026-11-26
 Program: [kgateway-tooling `program.md`](https://github.com/DuncanDoyle/kgateway-tooling/blob/main/program.md)
 
 ## Goal
 
-`krp` (Kgateway Route Printer) visualizes the Envoy configuration that kgateway programs for a Kubernetes Gateway API deployment: listeners, filter chains, HCM, routes and the HTTP filter pipeline, optionally narrowed to one HTTPRoute.
+xdsview is a Go library that reads an Envoy config dump and shows what Envoy runs: listeners, filter chains, route configs, virtual hosts, routes, and the effective HTTP filter chain per route. Its core works for any control plane (program P-010). Knowledge of one control plane lives in a module: `pkg/adapter/kgateway` maps Envoy config back to kgateway and Gateway API objects, with a certainty on every claim.
 
-krp is the **Envoy data-plane library** of the kgateway tooling program. Its packages are consumed by:
-- a new kgateway CLI (first consumer, `proxy routes`-style commands);
-- Snellius (formerly kgateway-ui) Phase 12 "Runtime Filter Chain".
+It is the Envoy data-plane library of the kgateway tooling program. Its consumers:
+- kgwctl (`proxy routes`, and its Phase 6 via E7);
+- Snellius Phase 12 "Runtime Filter Chain".
 
-The `krp` binary stays as the library's reference CLI/TUI and test bed. The Gateway API resource graph, policy attachment and status errors belong to kgateway-ui and the CLI, not to krp (program decisions P-001 to P-005).
+The `krp` CLI in `cmd/krp` is the library's reference CLI and TUI, and its test bed. The Gateway API resource graph, policy attachment, status errors and who may see what belong to Snellius and kgwctl, not to xdsview (program P-001 to P-005).
 
 The project follows the agentic-engineering-sdlc workflow (`docs/phase-status.md`, `docs/phases/phase-<N>/`, `docs/decisions.md`).
 
@@ -111,18 +111,18 @@ Make the module license-clean and vendor-neutral (program P-002, D-013), and mak
 Scope, evidence rules and questions 1–6 are in the program file's "xDS convergence" section. Controller-side captures come from a kind cluster. Snellius is asked which questions its checks already answer. Using the key mirror (M-3) needs owner approval under the program's mirror rules.
 
 ### Phase 9 — Control-Plane-Agnostic Contract (program P-010, E15)
-**Status:** In design (started 2026-11-24, base 40822d0). Starts with design, plan and cross-model review. kgwctl and Snellius review the design before owner approval. Its design also covers the Phase 8 deferred findings (phase-8-complete.md) and the P-009 missing-RDS finding (xds-convergence.md §4.1).
+**Status:** Complete (2026-11-26, `v0.7.0`) — `docs/phases/phase-9/phase-9-complete.md`
+**Docs:** `docs/phases/phase-9/`
 **Unblocks:** program edge E15 (kgwctl `proxy routes` migration, kgwctl Phase 6 via E7, Snellius Phase 12)
 
-One coordinated contract break, then core correctness. The program's "Control-plane-agnostic xdsview" section is the contract; this phase designs the Go API.
+One contract break, then core correctness (D-020).
 
-- Pure execution: the effective chain never calls a module. Execution and provenance are separate results over read-only input.
-- One claim per assertion, with its own certainty, evidence kind and producing module. Results are keyed by snapshot occurrence, not by name.
-- Listener, RouteConfiguration and vhost `merge.*` records beside route records, level-local.
-- The kgateway knowledge in `origin` and `filter` becomes a kgateway module, composed explicitly. Consumers select and prune candidate routes themselves.
-- A separate `NameMapper` for names without a dump (E5).
-- krp JSON `v1alpha2`; one tagged release.
-- Core correctness after the break: static listeners and route configs, non-HCM chains, ECDS and wrapper state, the remaining route matchers and actions, default filter chains, and a coverage policy. OSS output changes; goldens are reviewed.
+- Pure execution: `chain.Effective` never calls a module.
+- `provenance.Compose(snap, modules...)`: one claim per assertion, with its own certainty, evidence and module, keyed by occurrence ID.
+- `Index.Dependencies` and `Index.Inputs`: every input a block depends on, failing closed, with a reason per gap.
+- The kgateway knowledge from `origin` and `filter` is now the kgateway module. Listener, route config and vhost `merge.*` records sit beside route records.
+- Core correctness: static listeners and route configs, non-HCM chains, ECDS and wrapper state, route matchers and actions, default filter chains, missing RDS, coverage.
+- krp JSON `v1alpha2`.
 
 ### Standing — Support a new kgateway minor or Envoy release
 **Starts:** when the program or a consumer moves to a new kgateway minor or Envoy release (program P-012).
@@ -134,74 +134,41 @@ One coordinated contract break, then core correctness. The program's "Control-pl
 
 ---
 
-## Deferred / out of roadmap
+## Ideas not on the roadmap
 
-Ideas not on the phased roadmap, kept for later. Content formerly in `docs/plans/possible-future-phases.md` and `docs/plans/TODO.md`.
-
-### Deferred: Envoy ↔ K8S Correlation
-
-Partly planned as Phase 5 (Envoy → Gateway API mapping). Correlate Envoy filters and routes back to originating K8S resources (Gateway, HTTPRoute, TrafficPolicy, and downstream policy kinds). Uses a layered matching strategy:
-1. kgateway metadata in Envoy config (`filter_metadata`, `typed_per_filter_config` references)
-2. Structural matching (VirtualHost domains, route match config, cluster naming `kube_<ns>_<svc>_<port>`)
-3. Route name conventions (embeds HTTPRoute name/namespace)
-
-Annotates each filter in the Envoy TUI with its K8S source resource, providing a bridge between the low-level Envoy view (Phases 1–3) and the K8S resource view (Phases 4–7).
-
----
-
-### Deferred: Envoy Side-by-Side Detail View
-
-Side-by-side Envoy config + K8S manifest view when selecting a filter in the Envoy TUI. Search, `--json` output, and UX refinements to the existing interactive mode.
-
----
-
-### Superseded: Gateway API Track (former Phases 4–7)
-
-Removed from the krp roadmap on 2026-11-04. kgateway-ui (Phases 2–5) and the planned kgateway CLI cover this ground; see the kgateway-tooling program file. Kept as a record of the original intent.
-
-- **Gateway API DAG Printer (`krp graph`)** — GatewayClass → Gateway → HTTPRoute tree with rules, matches, backend refs, HTTPRoute filters and listener bindings, from a live cluster or a YAML directory.
-- **Policy Support** — Gateway API native policies, kgateway policies and vendor policies attached via `ExtensionRef` / `targetRefs`, as plugin-provided node types.
-- **Status Detection and Error Marking** — mark nodes whose conditions report errors, and flag resources with no status at all (controller has not processed them).
-- **Interactive DAG Detail View** — Phase 3-style expand/collapse of node specs.
-
----
-
-### Future Considerations
-
-- **REST API / server mode:** `RouteGraph` model designed for JSON serialization. Adding `--serve` flag for a Web UI backend requires only a thin HTTP handler.
-- **Config mismatch detection:** Surface K8S policies that exist but are absent from the Envoy config (translator bugs, xDS errors). Partly planned as roadmap Phase 6 (intended vs accepted).
-- **Global Policy Namespace:** Support policy attachment from a designated global namespace to targets in other namespaces.
-
-### From the TODO list
-
-#### Global Policy Namespace
-Kgateway has a feature called "Global Policy Namespace". This feature allows the user to define Kgateway policies (e.g. TrafficPolicy) in a different namespace than its target. Normally, in K8S Gateway API, a `targetRef` is a LocalObjectReference, meaning that the policy needs to be deployed in the same namespace as its target. "Global Policy Namespace" allows you to select a single namespace on your K8S cluster from which policies can attach to any target.
-
-Currently, I don't think `krp` is able to detect global policy attachment from policies deployed in the "Global Policy Namespace" to targets in other namespaces.
-
-
-#### Config Mismatches
-Instead of just presenting the filterchain that is present in Envoy, and linking the filter configuration to K8S Gateway API, we should also be able to detect if an expected filter is not in the filterchain. This should be a very uncommon scenario, but it could occur in the case of bug in the translator, or an error in xDS that therefore is not loaded in the Gateway.
+| Idea | Status |
+|---|---|
+| Envoy ↔ Kubernetes correlation | Done for what the dump says: Phases 5 and 9 (kgateway module). Correlation that needs cluster objects belongs to the consumers (P-001). |
+| Side-by-side Envoy config and Kubernetes manifest | Consumer work (Snellius, kgwctl). |
+| Gateway API graph, policy attachment, status errors (former Phases 4–7) | Superseded on 2026-11-04: Snellius and kgwctl own them. |
+| Global policy namespace attachment | Consumer work: it needs cluster objects. xdsview reports the `merge.*` records kgateway writes, wherever the policy lives. |
+| Config mismatch (intended vs accepted) | Phase 7, deferred (D-011). |
+| REST or server mode | Rejected: consumers embed the library (D-002, P-008). |
+| Vendor policy kinds | Outside this repo (P-002): a downstream module plugs in through `provenance.Compose`. |
 
 ---
 
 ## Architecture
 
 ```
-pkg/envoy/source  ──►  pkg/envoy/parser  ──►  pkg/envoy/model  ──►  pkg/envoy/filter
- (file, port-forward,      (io.Reader →           (JSON-serialisable)    (HTTPRoute narrowing,
-  controller snapshot)      model)                                        Envoy → Gateway API mapping)
-                                                        │
-                       ┌────────────────────────────────┼─────────────────────────┐
-                       ▼                                ▼                         ▼
-             krp CLI / TUI (internal/)          kgateway CLI               kgateway-ui backend
+pkg/envoy/source ──► pkg/envoy/parser ──► pkg/envoy/model (read-only snapshot, occurrence IDs)
+ (file, port-forward)  (io.Reader → snapshot)        │
+                                                     ├──► pkg/envoy/chain   (effective filter chain per route)
+                                                     ├──► pkg/envoy/render  (stdlib text renderer)
+                                                     └──► pkg/envoy/provenance.Compose(snap, modules...)
+                                                                  ▲            (claims, Dependencies, Inputs)
+                                                     pkg/adapter/kgateway (module, Select, Names)
+
+consumers: krp CLI/TUI (cmd/krp, internal/) · kgwctl · Snellius
 ```
+
+Core packages import only the standard library; `provenance` and `adapter/kgateway` too (`boundary_test.go`).
 
 ---
 
 ## Test Scenarios
 
-The corpus in `testdata/scenarios/` is recorded with `hack/record-dumps.sh <version>` on OSS kgateway v2.4.7 and v2.5.0, into `envoy/kgateway-<version>/`. The earlier downstream recordings left the repository in Phase 8.2 (D-013, D-018). Config no recording has is in hand-built dumps under `testdata/fixtures/` (router upstream filters: `upstream-extproc`).
+The recordings in `testdata/scenarios/` come from `hack/record-dumps.sh <version>` on OSS kgateway v2.4.7 and v2.5.0, into `envoy/kgateway-<version>/`. Scenarios 09 and 10 have one recording each (see the table). Config that no recording has is in hand-built dumps under `testdata/fixtures/`: static bootstrap, TCP proxy, default chain, ECDS (HTTP and network), matchers, route actions, cluster selectors, coverage, and router upstream filters.
 
 | Scenario | Description | OSS v2.4.7 / v2.5.0 |
 |----------|-------------|:---:|
@@ -221,3 +188,5 @@ The corpus in `testdata/scenarios/` is recorded with `hack/record-dumps.sh <vers
 | 06-multi-extproc | Two HTTPRoutes, one ext_proc extension each | Yes |
 | 07-traffic-split | One rule, two weighted backends (80/20) | Yes |
 | 08-named-rules | Rules named `a`, `a-b`, `a-matcher-b` | Yes |
+| 09-kgwctl-policies | kgwctl's proxy fixtures: transformation, ext auth, local rate limit; ext auth disabled per route | v2.5.1 only |
+| 10-policy-levels | TrafficPolicies on a Gateway, a listener and an HTTPRoute; route-source metadata on | v2.5.2 only |
