@@ -101,10 +101,8 @@ func (gs policyGroups) add(p PolicyRecord, c model.Certainty) policyGroups {
 }
 
 // texts formats each group, e.g. "TrafficPolicy ns/x (cors, inferred; route config, listener)".
-// Levels print most specific first; a route-only group prints none. Levels
-// less specific than decided, where the deciding per-filter config sits, are
-// marked overridden, e.g. "; listener overridden by route config".
-func (gs policyGroups) texts(decided Level) []string {
+// Levels print most specific first; a route-only group prints none.
+func (gs policyGroups) texts() []string {
 	var out []string
 	for _, g := range gs {
 		var clauses []string
@@ -115,22 +113,12 @@ func (gs policyGroups) texts(decided Level) []string {
 		if !slices.Equal(levels, []Level{LevelRoute}) {
 			clauses = append(clauses, levelText(levels))
 		}
-		var over []Level
-		if decided != "" {
-			over = slices.DeleteFunc(slices.Clone(levels), func(l Level) bool { return specificity[l] >= specificity[decided] })
-		}
-		switch {
-		case len(over) == len(levels) && len(over) > 0:
-			clauses = append(clauses, "overridden by "+levelWords[decided])
-		case len(over) > 0:
-			clauses = append(clauses, levelText(over)+" overridden by "+levelWords[decided])
-		}
 		out = append(out, withClauses(g.policy, clauses))
 	}
 	return out
 }
 
-func (gs policyGroups) text() string { return strings.Join(gs.texts(""), ", ") }
+func (gs policyGroups) text() string { return strings.Join(gs.texts(), ", ") }
 
 func levelText(levels []Level) string {
 	var words []string
@@ -278,16 +266,5 @@ func (ix *Index) filterLabels(r render.Row) []string {
 			linked = linked.add(rec.Assertion.(PolicyRecord), min(rec.Certainty, c.Certainty))
 		}
 	}
-	return append(out, linked.texts(ix.decidingLevel(r.Route, r.Slot))...)
-}
-
-// decidingLevel is where the per-filter config that decides slot on route
-// sits, or "" when the HCM default decides.
-func (ix *Index) decidingLevel(route, slot model.ID) Level {
-	for _, e := range ix.st.chains[route].Filters {
-		if e.Slot == slot {
-			return Level(e.Level)
-		}
-	}
-	return ""
+	return append(out, linked.texts()...)
 }

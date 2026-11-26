@@ -7,7 +7,7 @@ A kgateway v2.5.2 dump (Envoy 1.39.6, Gateway API v1.7.0) from a kind cluster, i
 - `tp-gateway` targets the Gateway: kgateway writes its `merge.*` record at listener and at route config level, on both listeners.
 - `tp-listener-http` targets listener `http`: its record is on that listener's virtual host.
 - `tp-route-http` targets HTTPRoute `route-http`: route-level `rateLimit.local` and `headerModifiers`.
-- On `route-http`, CORS is decided at vhost level and the local rate limit at route level, so the less specific records are overridden.
+- On `route-http`, CORS is enabled at vhost level and the local rate limit at route level. Each policy prints once per filter row with all its levels.
 
 ## K8S resources
 

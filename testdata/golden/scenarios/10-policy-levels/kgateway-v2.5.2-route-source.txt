@@ -2,8 +2,8 @@ listener~8080 [::]:8080 · active · port 8080 (inferred)
 └─ vhost listener~8080~app_example_com [app.example.com] · port 8080 (inferred)
    └─ route / (prefix) · HTTPRoute demo/route-http · rule 0 · match 0
       filters (request order):
-        1 envoy.filters.http.cors                        enabled by vhost · TrafficPolicy demo/tp-listener-http (cors, inferred; vhost) · TrafficPolicy demo/tp-gateway (cors, inferred; route config, listener; overridden by vhost)
-        2 ratelimit/local                                enabled by route · TrafficPolicy demo/tp-route-http (rateLimit.local, inferred) · TrafficPolicy demo/tp-gateway (rateLimit.local, inferred; route config, listener; overridden by route)
+        1 envoy.filters.http.cors                        enabled by vhost · TrafficPolicy demo/tp-listener-http (cors, inferred; vhost) · TrafficPolicy demo/tp-gateway (cors, inferred; route config, listener)
+        2 ratelimit/local                                enabled by route · TrafficPolicy demo/tp-route-http (rateLimit.local, inferred) · TrafficPolicy demo/tp-gateway (rateLimit.local, inferred; route config, listener)
         3 envoy.extensions.filters.http.header_mutation  enabled by route · TrafficPolicy demo/tp-route-http (headerModifiers, inferred)
         4 envoy.filters.http.router                      on
       policies: TrafficPolicy demo/tp-route-http (headerModifiers), TrafficPolicy demo/tp-route-http (rateLimit.local)
@@ -13,8 +13,8 @@ listener~8081 [::]:8081 · active · port 8081 (inferred)
 └─ vhost listener~8081~admin_example_com [admin.example.com] · port 8081 (inferred)
    └─ route / (prefix) · HTTPRoute demo/route-admin · rule 0 · match 0
       filters (request order):
-        1 envoy.filters.http.cors    enabled by route config · TrafficPolicy demo/tp-gateway (cors, inferred; route config, listener; listener overridden by route config)
-        2 ratelimit/local            enabled by route config · TrafficPolicy demo/tp-gateway (rateLimit.local, inferred; route config, listener; listener overridden by route config)
+        1 envoy.filters.http.cors    enabled by route config · TrafficPolicy demo/tp-gateway (cors, inferred; route config, listener)
+        2 ratelimit/local            enabled by route config · TrafficPolicy demo/tp-gateway (rateLimit.local, inferred; route config, listener)
         3 envoy.filters.http.router  on
       inherited policies: TrafficPolicy demo/tp-gateway (cors; route config, listener), TrafficPolicy demo/tp-gateway (rateLimit.local; route config, listener)
       backend: kube_demo_echo_8080
