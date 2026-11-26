@@ -132,7 +132,7 @@ Ideas not on the phased roadmap, kept for later. Content formerly in `docs/plans
 
 ### Deferred: Envoy ↔ K8S Correlation
 
-Partly planned as Phase 5 (Envoy → Gateway API mapping). Correlate Envoy filters and routes back to originating K8S resources (Gateway, HTTPRoute, TrafficPolicy, EnterpriseKgatewayTrafficPolicy, etc.). Uses a layered matching strategy:
+Partly planned as Phase 5 (Envoy → Gateway API mapping). Correlate Envoy filters and routes back to originating K8S resources (Gateway, HTTPRoute, TrafficPolicy, and downstream policy kinds). Uses a layered matching strategy:
 1. kgateway metadata in Envoy config (`filter_metadata`, `typed_per_filter_config` references)
 2. Structural matching (VirtualHost domains, route match config, cluster naming `kube_<ns>_<svc>_<port>`)
 3. Route name conventions (embeds HTTPRoute name/namespace)
@@ -167,7 +167,7 @@ Removed from the krp roadmap on 2026-11-04. kgateway-ui (Phases 2–5) and the p
 ### From the TODO list
 
 #### Global Policy Namespace
-Kgateway has a feature called "Global Policy Namespace". This feature allows the user to define Kgateway policies (e.g. TrafficPolicy, EnterpriseKgatewayTrafficPolicy, etc.) in a different namespace than its target. Normally, in K8S Gateway API, a `targetRef` is a LocalObjectReference, meaning that the policy needs to be deployed in the same namespace as its target. "Global Policy Namespace" allows you to select a single namespace on your K8S cluster from which policies can attach to any target.
+Kgateway has a feature called "Global Policy Namespace". This feature allows the user to define Kgateway policies (e.g. TrafficPolicy, and downstream policy kinds) in a different namespace than its target. Normally, in K8S Gateway API, a `targetRef` is a LocalObjectReference, meaning that the policy needs to be deployed in the same namespace as its target. "Global Policy Namespace" allows you to select a single namespace on your K8S cluster from which policies can attach to any target.
 
 Currently, I don't think `krp` is able to detect global policy attachment from policies deployed in the "Global Policy Namespace" to targets in other namespaces.
 
