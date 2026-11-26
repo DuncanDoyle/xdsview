@@ -76,6 +76,37 @@ func TestInputs_Status(t *testing.T) {
 	}
 }
 
+// TestInputs_Complete: a route's candidate list is complete for an exact
+// reading, or inferred readings none marks incomplete. An incomplete or empty
+// list is a gap, never covered.
+func TestInputs_Complete(t *testing.T) {
+	partial := func(r model.Ref) provenance.Claim {
+		c := source(route0, r, model.Inferred)
+		c.Assertion = provenance.RouteSource{Route: r, Incomplete: true}
+		return c
+	}
+	rs := provenance.Gap{Subject: route0, Kind: provenance.KindRouteSource}
+	for _, tc := range []struct {
+		name     string
+		claims   []provenance.Claim
+		complete bool
+		status   provenance.InputStatus
+		reason   provenance.GapReason
+	}{
+		{"exact", []provenance.Claim{source(route0, routeA, model.Exact)}, true, provenance.InputCovered, ""},
+		{"inferred", []provenance.Claim{source(route0, routeA, model.Inferred)}, true, provenance.InputCovered, ""},
+		{"inferred incomplete", []provenance.Claim{partial(routeA)}, false, provenance.InputGap, provenance.ReasonIncomplete},
+		{"ambiguous incomplete", []provenance.Claim{partial(routeA), partial(routeB)}, false, provenance.InputGap, provenance.ReasonIncomplete},
+		{"exact beats incomplete", []provenance.Claim{partial(routeB), source(route0, routeA, model.Exact)}, true, provenance.InputCovered, ""},
+		{"none", nil, false, provenance.InputGap, provenance.ReasonNoEvidence},
+	} {
+		in := input(t, compose(t, twoListeners(), fixed{"m", tc.claims}), route0, rs)
+		if in.Complete != tc.complete || in.Status != tc.status || in.Reason != tc.reason {
+			t.Errorf("%s: got complete=%t %s/%s, want complete=%t %s/%s", tc.name, in.Complete, in.Status, in.Reason, tc.complete, tc.status, tc.reason)
+		}
+	}
+}
+
 // TestInputs_DerivesDependencies checks, for every block of every corpus dump
 // and fixture, that Dependencies' gaps are exactly the inputs with gap status,
 // and that every route candidate's object is in Objects.

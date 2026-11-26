@@ -178,8 +178,9 @@ func (e *emitter) route(vhost string, r model.Route) {
 		}
 		e.add(r.ID, o, model.Exact, ev...)
 	} else {
-		readings, _ := parseRouteName(vhost, r.Name)
+		readings, anchored := parseRouteName(vhost, r.Name)
 		for _, o := range readings {
+			o.Incomplete = !anchored
 			e.add(r.ID, o, model.Inferred, nameEvidence(r.ID, "name", &o.Route))
 		}
 	}

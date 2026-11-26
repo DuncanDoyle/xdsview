@@ -117,6 +117,9 @@ type RouteSource struct {
 	RuleName       string          `json:"ruleName,omitempty"` // empty when the rule has no name
 	MatchIndex     int             `json:"matchIndex"`         // -1 when unknown
 	IndexCertainty model.Certainty `json:"indexCertainty,omitempty"`
+	// Incomplete says the module's readings of the route may miss its
+	// source, e.g. a name not in the expected format.
+	Incomplete bool `json:"incomplete,omitempty"`
 }
 
 // ExtensionSource says what an HTTP filter slot is and which object defines it.

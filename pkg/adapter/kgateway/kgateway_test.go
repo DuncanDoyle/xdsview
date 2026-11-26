@@ -201,6 +201,30 @@ func TestRouteName_VhostMarker(t *testing.T) {
 	}
 }
 
+// TestRouteName_Unanchored: a route name without its virtual host's prefix
+// still reads, but its candidate list is incomplete, so the route is a gap.
+func TestRouteName_Unanchored(t *testing.T) {
+	route := model.ID("L0/C0/N0/RC/V0/R0")
+	for _, tc := range []struct {
+		dump     string
+		complete bool
+		reason   provenance.GapReason
+	}{
+		{markerDump, true, ""},
+		{strings.Replace(markerDump, markerVhost+"-route-0-", "other-route-0-", 1), false, provenance.ReasonIncomplete},
+	} {
+		ix := compose(t, parse(t, tc.dump))
+		for _, in := range ix.Inputs(route) {
+			if in.Subject != route || in.Kind != provenance.KindRouteSource {
+				continue
+			}
+			if len(in.Candidates) == 0 || in.Complete != tc.complete || in.Reason != tc.reason {
+				t.Errorf("route input = complete %t, %s/%s %d candidates; want complete %t, reason %q", in.Complete, in.Status, in.Reason, len(in.Candidates), tc.complete, tc.reason)
+			}
+		}
+	}
+}
+
 // TestNames (R9): cluster and route names give certainty and candidates,
 // each carrying its kind; an ambiguous route name lists every reading.
 // Route config and listener names carry no object.

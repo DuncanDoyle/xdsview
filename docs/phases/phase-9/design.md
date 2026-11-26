@@ -174,7 +174,7 @@ func Compose(snap *model.Snapshot, modules ...Module) (*Index, error)
 | `ListenerSource` | listener, filter chain, route config source | port, section (from the name) | alternatives | as read |
 | `GatewaySource` | listener, route config source | Gateway ref (from metadata only) | alternatives | as read |
 | `HostSource` | virtual host | hostname | alternatives | as read |
-| `RouteSource` | route | HTTPRoute ref, rule index, rule name, match index, index certainty | alternatives | as read |
+| `RouteSource` | route | HTTPRoute ref, rule index, rule name, match index, index certainty, incomplete | alternatives | as read |
 | `ExtensionSource` | HTTP filter slot | extension ref, filter kind, helper | alternatives | as read |
 | `BackendSource` | route or weighted backend | backend ref, port | alternatives | as read |
 | `PolicyRecord` | listener, route config source, virtual host, route | policy ref, field, level | cumulative | exact (validated `merge.*`) |
@@ -258,6 +258,7 @@ type Input struct {
 	Status     InputStatus  // covered, gap, bootstrap
 	Reason     GapReason    // gap only
 	Candidates []Candidate  // routeSource only: every RouteSource claim on the route
+	Complete   bool         // routeSource only: the readings at the highest certainty name every possible source
 }
 
 type Candidate struct {
@@ -271,7 +272,10 @@ type Candidate struct {
 | `ambiguous` | several candidates at the highest certainty |
 | `noEvidence` | no claim at inferred or better |
 | `dropped` | Compose dropped a claim of the kind on the subject (rule 3) |
+| `incomplete` | the route's readings may miss its source: a reading at the highest certainty is marked `Incomplete` |
 | `notCoverable` | no claim kind can cover it: a network filter, a mirror, a per-request cluster, a per-filter entry with no installed downstream slot |
+
+A route's candidate list is complete (`Complete`) when its highest-certainty readings are exact, or are readings no module marks `Incomplete` (Codex visibility-strategies review, P1). A module marks a reading `Incomplete` when it could not enumerate every reading, such as a route name outside the expected format. An empty or incomplete list is a gap, never covered: `noEvidence` when empty, otherwise `incomplete`, which wins over `ambiguous`.
 
 `Dependencies` derives from the same enumeration: its `Gaps` are the inputs with status `gap`. A route's candidates are listed whether or not their objects exist in any cluster: xdsview never consults cluster state, and the consumer's strategy decides what a missing candidate means.
 
@@ -300,6 +304,7 @@ Two tests check the rule on the corpus, for every dump and fixture and every lis
 - `merge.*` is decoded at listener, route config and virtual host level, beside route level. Each record is a `PolicyRecord` on its own level. Nothing says which level governs (P-008).
 - Field links follow rule 4: one matching slot or none. A Composite's delegates are candidates too (#5). The rustformation check reads the field Envoy loads the module from; when `name` and `module` disagree, there is no link (#4).
 - A route name whose rule name contains dots reads its rule index and name (#2).
+- A route name is parsed after its own `<vhost>-route-<N>-` prefix, so a marker inside the virtual host name can't change the readings. A name without that prefix is read after every possible prefix, and its readings are marked `Incomplete`. `Names` has no virtual host, so it always reads after every possible prefix.
 - The policy-field table names the kgateway version it was checked against. Its check: every field in the corpus's `merge.*` records is in the table or a recorded exclusion (R14, #30).
 
 Selection (R8):

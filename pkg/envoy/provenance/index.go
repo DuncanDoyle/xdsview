@@ -129,6 +129,10 @@ type Input struct {
 	// Candidates is set for a routeSource input: every RouteSource claim on
 	// the route, at any certainty. Cluster state is never consulted.
 	Candidates []Candidate
+	// Complete is set for a routeSource input whose readings at the highest
+	// certainty name every possible source: one exact reading, or inferred
+	// readings none marks Incomplete. An input that isn't complete is a gap.
+	Complete bool
 }
 
 // InputStatus says whether an input is covered.
@@ -149,6 +153,7 @@ const (
 	ReasonAmbiguous    GapReason = "ambiguous"    // several candidates at the highest certainty
 	ReasonNoEvidence   GapReason = "noEvidence"   // no claim at inferred or better
 	ReasonDropped      GapReason = "dropped"      // Compose dropped a claim of this kind on the subject
+	ReasonIncomplete   GapReason = "incomplete"   // the route's readings may miss its source
 	ReasonNotCoverable GapReason = "notCoverable" // no claim kind can cover it, e.g. a network filter
 )
 
@@ -598,20 +603,24 @@ func merge(d *depIndex, ins []input) []input {
 // alternative is the input on id that an alternatives kind covers.
 func (ix *Index) alternative(id model.ID, kind string) input {
 	var c model.Certainty
+	full := false
 	switch kind {
 	case KindGatewaySource:
 		c = Resolve[GatewaySource](ix, id).Certainty
 	case KindHostSource:
 		c = Resolve[HostSource](ix, id).Certainty
 	case KindRouteSource:
-		c = Resolve[RouteSource](ix, id).Certainty
+		res := Resolve[RouteSource](ix, id)
+		c, full = res.Certainty, complete(res)
 	case KindExtensionSource:
 		c = Resolve[ExtensionSource](ix, id).Certainty
 	case KindBackendSource:
 		c = Resolve[BackendSource](ix, id).Certainty
 	}
-	in := input{Input: Input{Gap: Gap{Subject: id, Kind: kind}, Status: InputCovered}}
+	in := input{Input: Input{Gap: Gap{Subject: id, Kind: kind}, Status: InputCovered, Complete: full}}
 	switch {
+	case kind == KindRouteSource && !full && c >= model.Ambiguous:
+		in.Status, in.Reason = InputGap, ReasonIncomplete
 	case c == model.Ambiguous:
 		in.Status, in.Reason = InputGap, ReasonAmbiguous
 	case c < model.Inferred:
@@ -627,6 +636,24 @@ func (ix *Index) alternative(id model.ID, kind string) input {
 		}
 	}
 	return in
+}
+
+// complete reports whether a route's readings at the highest certainty name
+// every possible source: an exact reading, or readings none marks Incomplete.
+func complete(res Resolution[RouteSource]) bool {
+	top := model.Unknown
+	for _, c := range res.Claims {
+		top = max(top, c.Certainty)
+	}
+	if top < model.Ambiguous {
+		return false
+	}
+	for _, c := range res.Claims {
+		if c.Certainty == top && top < model.Exact && c.Assertion.(RouteSource).Incomplete {
+			return false
+		}
+	}
+	return true
 }
 
 // placement is the input that links on each of routes cover by placing a
