@@ -19,7 +19,8 @@ import (
 //
 // Module says who made the claim, for display and diagnostics. Select and
 // hide claims by Assertion, Evidence and Certainty, never by Module: a
-// downstream module may wrap another and rename its claims. ID is unique only
+// downstream module may wrap another and rename its claims. Keep Module as
+// it is: a link joins its record by Module and Ref. ID is unique only
 // within one [Compose] result, and Ref only within its module; neither has a
 // meaning to parse.
 type Claim struct {

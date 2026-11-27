@@ -687,7 +687,28 @@ func TestCompose_WrappedModule(t *testing.T) {
 	if w := ix.Warnings(); len(w) != 0 {
 		t.Errorf("warnings = %+v, want none", w)
 	}
-	links, records := 0, map[model.ID]int{}
+	// The records kgateway itself emits, per route, and the acme_waf slots.
+	original := map[model.ID]string{}
+	for _, c := range kgateway.New().Claims(snap) {
+		if r, ok := c.Assertion.(provenance.PolicyRecord); ok && r.Policy.Kind == "AcmePolicy" {
+			original[c.Subject] = c.Ref
+		}
+	}
+	waf := map[model.ID]bool{}
+	for _, l := range snap.Listeners {
+		for _, fc := range l.FilterChains {
+			if fc.HCM == nil {
+				continue
+			}
+			for _, f := range fc.HCM.HTTPFilters {
+				waf[f.ID] = f.Type == wafType
+			}
+		}
+	}
+	if len(original) != 2 {
+		t.Fatalf("kgateway AcmePolicy records = %v, want one per route use", original)
+	}
+	linked, records := map[model.ID]string{}, map[model.ID]int{}
 	for _, c := range ix.Claims() {
 		if c.Module != "acme-kgateway" {
 			t.Errorf("claim %s: module %q, want the wrapper's name", c.ID, c.Module)
@@ -695,18 +716,17 @@ func TestCompose_WrappedModule(t *testing.T) {
 		if r, ok := c.Assertion.(provenance.PolicyRecord); ok && r.Policy.Kind == "AcmePolicy" {
 			records[c.Subject]++
 		}
-		l, ok := c.Assertion.(provenance.FilterLink)
-		if !ok || !strings.HasSuffix(string(l.Slot), "/F0") { // F0 is acme_waf
-			continue
-		}
-		links++
-		rec, ok := ix.Record(c)
-		if r, _ := rec.Assertion.(provenance.PolicyRecord); !ok || r.Policy.Name != "waf" || rec.Subject != c.Subject {
-			t.Errorf("link %s: record = %+v, %v; want AcmePolicy ns/waf on %s", c.ID, rec, ok, c.Subject)
+		if l, ok := c.Assertion.(provenance.FilterLink); ok && waf[l.Slot] {
+			rec, ok := ix.Record(c)
+			if !ok || rec.Subject != c.Subject {
+				t.Errorf("link %s: record = %+v, %v; want one on %s", c.ID, rec, ok, c.Subject)
+			}
+			linked[c.Subject] = rec.Ref
 		}
 	}
-	if links != 2 {
-		t.Errorf("acme_waf links = %d, want 2 (one per route use)", links)
+	// Each route's link resolves to the record kgateway emitted, not a copy.
+	if !reflect.DeepEqual(linked, original) {
+		t.Errorf("acme_waf links resolve to %v, want kgateway's records %v", linked, original)
 	}
 	for subject, n := range records {
 		if n != 1 {

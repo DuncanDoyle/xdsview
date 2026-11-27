@@ -13,9 +13,11 @@ import (
 // [Compose] may pass it a copy.
 //
 // A module may wrap another: call its Claims, keep, drop or add claims, and
-// return them under its own name. Its new claims link to a wrapped record by
-// that record's Ref, found by what the record asserts, not by the Ref's text;
-// its own Refs must not repeat a wrapped one.
+// return them under its own name. A new link names a wrapped record by that
+// record's Ref, found by what the record asserts, not by the Ref's text. The
+// wrapper must keep that record, and the link must still pass rule 4 of
+// [Compose]. Its own Refs must not repeat a wrapped one, even of a claim it
+// drops.
 type Module interface {
 	Name() string
 	Claims(snap *model.Snapshot) []Claim

@@ -185,15 +185,15 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 **Consequences:** krp output is unchanged for these cases. The JSON `selection` shows which routes krp added this way.
 
 ## D-023 — A downstream module wraps the kgateway module (2026-11-27, after phase 9)
-**Context:** The kgateway module emits a policy record for every `merge.*` key, whatever the policy kind, but links only the kinds and fields its own table knows. A downstream module that knows a downstream filter can't link to that record when both run side by side in `Compose`: a link names a `Ref`, and rule 4 requires the record to be from the same module (program item A4). Owner proposal, reviewed by Codex (consult, not published: it names a downstream product).
+**Context:** The kgateway module emits a policy record for every valid policy ID and field in a `merge.*` entry, whatever the policy kind, but links only the kinds and fields its own table knows. A downstream module that knows a downstream filter can't link to that record when both run side by side in `Compose`: a link names a `Ref`, and rule 4 requires the record to be from the same module (program item A4). Owner proposal, reviewed by Codex (consult, not published: it names a downstream product).
 **Decision:**
-1. A downstream module wraps the kgateway module: it calls the wrapped module's `Claims`, keeps, drops or adds claims, and is the only module the consumer passes to `Compose`, under its own name. It finds a wrapped record by what the record asserts and links to its actual `Ref`; its own Refs don't repeat a wrapped one.
-2. `Claim.Module` labels who made a claim, for display and diagnostics. Consumers select and hide claims by assertion, evidence and certainty, never by module name. Claim IDs are unique only within one `Compose` result; `Ref`s have no meaning to parse.
+1. A downstream module wraps the kgateway module: it calls the wrapped module's `Claims`, keeps, drops or adds claims, and is the only module the consumer passes to `Compose`, under its own name. It finds a wrapped record by subject, policy, field and level (one `merge.*` entry can give several records, or none), keeps that record, and links to its actual `Ref`. The link must still pass rule 4. Its own Refs don't repeat a wrapped one, even of a claim it drops.
+2. `Claim.Module` labels who made a claim, for display and diagnostics. Consumers select and hide claims by assertion, evidence and certainty, never by module name. They keep `Module` on a claim as it is: `Index.Record` and JSON readers join a link to its record by module and `Ref`. Claim IDs are unique only within one `Compose` result; `Ref`s have no meaning to parse.
 3. No API change. A4 (a cross-module link) stays open for a third module that must link to another module's records; it needs a way to obtain those Refs, not just a field.
 
 **Alternatives:**
 - Side by side with a cross-module link (A4): rejected for now. The second module never sees the other's Refs, so it also needs a hand-off; and it can't withdraw a wrong claim.
-- Side by side, the downstream module copies the record: rejected. Every such policy shows twice in text and JSON.
+- Side by side, the downstream module copies the record: rejected. Every such policy is two records in JSON, and route-local text notes list it twice.
 - Wrap, but keep the name `kgateway`: rejected. Claim IDs stay stable only while the wrapper appends, and output no longer shows which module made a claim.
 
 **Consequences:**
