@@ -183,3 +183,22 @@ Append-only. Newest at the bottom. Supersede, don't edit.
 
 **Alternatives:** change `Select` for everyone (rejected: kgwctl needs the strict rule); accept the output loss (rejected: krp's `--route` would show nothing on most corpus dumps).
 **Consequences:** krp output is unchanged for these cases. The JSON `selection` shows which routes krp added this way.
+
+## D-023 — A downstream module wraps the kgateway module (2026-11-27, after phase 9)
+**Context:** The kgateway module emits a policy record for every `merge.*` key, whatever the policy kind, but links only the kinds and fields its own table knows. A downstream module that knows a downstream filter can't link to that record when both run side by side in `Compose`: a link names a `Ref`, and rule 4 requires the record to be from the same module (program item A4). Owner proposal, reviewed by Codex (consult, not published: it names a downstream product).
+**Decision:**
+1. A downstream module wraps the kgateway module: it calls the wrapped module's `Claims`, keeps, drops or adds claims, and is the only module the consumer passes to `Compose`, under its own name. It finds a wrapped record by what the record asserts and links to its actual `Ref`; its own Refs don't repeat a wrapped one.
+2. `Claim.Module` labels who made a claim, for display and diagnostics. Consumers select and hide claims by assertion, evidence and certainty, never by module name. Claim IDs are unique only within one `Compose` result; `Ref`s have no meaning to parse.
+3. No API change. A4 (a cross-module link) stays open for a third module that must link to another module's records; it needs a way to obtain those Refs, not just a field.
+
+**Alternatives:**
+- Side by side with a cross-module link (A4): rejected for now. The second module never sees the other's Refs, so it also needs a hand-off; and it can't withdraw a wrong claim.
+- Side by side, the downstream module copies the record: rejected. Every such policy shows twice in text and JSON.
+- Wrap, but keep the name `kgateway`: rejected. Claim IDs stay stable only while the wrapper appends, and output no longer shows which module made a claim.
+
+**Consequences:**
+- Doc comments on `Claim`, `Module` and `kgateway.ModuleName` state these rules.
+- `TestCompose_WrappedModule` shows a wrapping module linking a record the kgateway module emitted, with one record per route.
+- In a downstream build every claim's `module` and ID prefix change, so its goldens differ from the OSS ones.
+- Consumers need a way to pass their own module set to `Compose`: kgwctl in its E15 migration, Snellius in Phase 12.
+- Snellius secure mode needs a test that a change to a policy the viewer can't read leaves the response unchanged, including whether a block appears. That holds for any module set.

@@ -6,10 +6,12 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/DuncanDoyle/xdsview/internal/snaptest"
+	"github.com/DuncanDoyle/xdsview/pkg/adapter/kgateway"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/model"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/parser"
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/provenance"
@@ -630,6 +632,85 @@ func TestVendorNeutral_TransformationEvidence(t *testing.T) {
 		got := composed(t, oneFilter(f, meta)).byName[f.Name]
 		if (len(got) == 1) != c.linked {
 			t.Errorf("%s: labels %+v, want linked=%v", c.label, got, c.linked)
+		}
+	}
+}
+
+// wrapper is a test downstream module that wraps the kgateway module: it
+// forwards its claims and links the AcmePolicy records kgateway emits, but
+// can't place, to the acme_waf slot of the route's HCM.
+type wrapper struct{ inner provenance.Module }
+
+func (wrapper) Name() string { return "acme-kgateway" }
+
+func (m wrapper) Claims(snap *model.Snapshot) []provenance.Claim {
+	out := m.inner.Claims(snap)
+	slot := map[model.ID]model.ID{} // route -> acme_waf slot of the HCM serving it
+	for _, l := range snap.Listeners {
+		for _, fc := range l.FilterChains {
+			if fc.HCM == nil || fc.HCM.RouteConfig == nil {
+				continue
+			}
+			for _, f := range fc.HCM.HTTPFilters {
+				if f.Type == wafType {
+					for _, vh := range fc.HCM.RouteConfig.VirtualHosts {
+						for _, r := range vh.Routes {
+							slot[r.ID] = f.ID
+						}
+					}
+				}
+			}
+		}
+	}
+	for _, c := range slices.Clone(out) {
+		rec, ok := c.Assertion.(provenance.PolicyRecord)
+		if !ok || rec.Policy.Kind != "AcmePolicy" || rec.Field != "acmeWaf" || slot[c.Subject] == "" {
+			continue
+		}
+		// Link to the wrapped record by its Ref, found by what it asserts.
+		out = append(out, provenance.Claim{Subject: c.Subject, Certainty: model.Inferred,
+			Assertion: provenance.FilterLink{Record: c.Ref, Slot: slot[c.Subject]},
+			Evidence:  []provenance.Evidence{{Kind: provenance.EvidenceTable, Subject: slot[c.Subject], Field: "type"}}})
+	}
+	return out
+}
+
+// TestCompose_WrappedModule: a module that wraps the kgateway module links a
+// record kgateway emitted, so one record serves the route, with no copy.
+func TestCompose_WrappedModule(t *testing.T) {
+	snap := parseString(t, pluginDump)
+	snaptest.IDs(snap)
+	ix, err := provenance.Compose(snap, wrapper{inner: kgateway.New()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w := ix.Warnings(); len(w) != 0 {
+		t.Errorf("warnings = %+v, want none", w)
+	}
+	links, records := 0, map[model.ID]int{}
+	for _, c := range ix.Claims() {
+		if c.Module != "acme-kgateway" {
+			t.Errorf("claim %s: module %q, want the wrapper's name", c.ID, c.Module)
+		}
+		if r, ok := c.Assertion.(provenance.PolicyRecord); ok && r.Policy.Kind == "AcmePolicy" {
+			records[c.Subject]++
+		}
+		l, ok := c.Assertion.(provenance.FilterLink)
+		if !ok || !strings.HasSuffix(string(l.Slot), "/F0") { // F0 is acme_waf
+			continue
+		}
+		links++
+		rec, ok := ix.Record(c)
+		if r, _ := rec.Assertion.(provenance.PolicyRecord); !ok || r.Policy.Name != "waf" || rec.Subject != c.Subject {
+			t.Errorf("link %s: record = %+v, %v; want AcmePolicy ns/waf on %s", c.ID, rec, ok, c.Subject)
+		}
+	}
+	if links != 2 {
+		t.Errorf("acme_waf links = %d, want 2 (one per route use)", links)
+	}
+	for subject, n := range records {
+		if n != 1 {
+			t.Errorf("route %s: %d AcmePolicy records, want 1", subject, n)
 		}
 	}
 }

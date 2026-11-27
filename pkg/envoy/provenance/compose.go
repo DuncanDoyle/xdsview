@@ -11,6 +11,11 @@ import (
 
 // Module makes claims about a snapshot. Claims must not modify the snapshot;
 // [Compose] may pass it a copy.
+//
+// A module may wrap another: call its Claims, keep, drop or add claims, and
+// return them under its own name. Its new claims link to a wrapped record by
+// that record's Ref, found by what the record asserts, not by the Ref's text;
+// its own Refs must not repeat a wrapped one.
 type Module interface {
 	Name() string
 	Claims(snap *model.Snapshot) []Claim

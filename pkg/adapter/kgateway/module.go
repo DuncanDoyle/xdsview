@@ -19,7 +19,9 @@ import (
 	"github.com/DuncanDoyle/xdsview/pkg/envoy/provenance"
 )
 
-// ModuleName is the name of the module [New] returns.
+// ModuleName is the name of the module [New] returns. It labels claims; don't
+// select claims by it, because a downstream module may wrap this one under
+// its own name (see [provenance.Claim]).
 const ModuleName = "kgateway"
 
 // New returns the kgateway module. It takes no caller context: a consumer

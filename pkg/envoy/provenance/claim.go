@@ -16,6 +16,12 @@ import (
 )
 
 // Claim is one assertion a module makes about one occurrence.
+//
+// Module says who made the claim, for display and diagnostics. Select and
+// hide claims by Assertion, Evidence and Certainty, never by Module: a
+// downstream module may wrap another and rename its claims. ID is unique only
+// within one [Compose] result, and Ref only within its module; neither has a
+// meaning to parse.
 type Claim struct {
 	ID        string          `json:"id"`            // set by Compose: "<module>/<n>", n the emission index
 	Ref       string          `json:"ref,omitempty"` // module-local name, unique in the module; a FilterLink refers to it
