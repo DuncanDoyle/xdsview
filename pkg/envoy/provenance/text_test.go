@@ -50,6 +50,25 @@ func TestText_RowsPerRoute(t *testing.T) {
 	}
 }
 
+// TestText_NarrowedAgreeing: kept readings that differ only in their flags are
+// one reading, as in Resolve, not an ambiguous label.
+func TestText_NarrowedAgreeing(t *testing.T) {
+	partial := source(route1, routeA, model.Inferred)
+	a := partial.Assertion.(provenance.RouteSource)
+	a.Exhaustive, a.Incomplete = false, true
+	partial.Assertion = a
+	snap := twoListeners()
+	ix := compose(t, snap, fixed{"m", []provenance.Claim{source(route1, routeA, model.Inferred), partial, source(route1, routeB, model.Inferred)}})
+	narrowed := []provenance.Narrowing{{Route: route1, Kept: provenance.Resolve[provenance.RouteSource](ix, route1).Claims[:2]}}
+	var b bytes.Buffer
+	if err := render.Text(&b, snap, chain.Effective(snap), render.Options{Labels: provenance.Labels(ix, narrowed)}); err != nil {
+		t.Fatal(err)
+	}
+	if want := "route / · HTTPRoute ns/a · rule 0 · match 0 (chosen from known HTTPRoutes)\n"; !strings.Contains(b.String(), want) {
+		t.Errorf("no %q in\n%s", want, b.String())
+	}
+}
+
 // TestText_Levels: a policy linked from several levels prints once per row
 // with its levels, most specific first, and no override label: whether a less
 // specific level still applies is filter-specific (Codex r6 P1).

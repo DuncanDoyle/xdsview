@@ -183,6 +183,38 @@ func TestResolve_AgreeingReadings(t *testing.T) {
 	}
 }
 
+// TestResolve_IndexCertainty: agreeing readings keep the best index
+// certainty, where unset means the claim's own certainty.
+func TestResolve_IndexCertainty(t *testing.T) {
+	for _, tc := range []struct {
+		claim      model.Certainty
+		a, b, want model.Certainty
+	}{
+		{model.Exact, model.Unknown, model.Inferred, model.Unknown},
+		{model.Exact, model.Inferred, model.Unknown, model.Unknown},
+		{model.Exact, model.Inferred, model.Inferred, model.Inferred},
+		{model.Inferred, model.Unknown, model.Exact, model.Exact},
+		{model.Inferred, model.Exact, model.Unknown, model.Exact},
+		{model.Inferred, model.Unknown, model.Unknown, model.Unknown},
+	} {
+		with := func(ic model.Certainty) provenance.Claim {
+			c := source(route0, routeA, tc.claim)
+			r := c.Assertion.(provenance.RouteSource)
+			r.IndexCertainty = ic
+			c.Assertion = r
+			return c
+		}
+		ix := compose(t, twoListeners(), fixed{"a", []provenance.Claim{with(tc.a)}}, fixed{"b", []provenance.Claim{with(tc.b)}})
+		r := provenance.Resolve[provenance.RouteSource](ix, route0)
+		if len(r.Candidates) != 1 {
+			t.Fatalf("%v: candidates = %+v, want one", tc, r.Candidates)
+		}
+		if got := r.Candidates[0].IndexCertainty; got != tc.want {
+			t.Errorf("%v: index certainty = %v, want %v", tc, got, tc.want)
+		}
+	}
+}
+
 // TestCompose_Rule4 resolves filter links: a dangling or rejected record, a
 // slot on another HCM, a route with no per-filter config for the slot, a
 // record on an unrelated listener, and two links from one record on one route

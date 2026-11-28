@@ -57,21 +57,21 @@ func Notes(ix *Index) func(render.Row) []render.Line {
 			return nil
 		}
 		var own []string
-		var inherited policyGroups
+		var above policyGroups
 		for _, c := range Records(ix, ix.snap, r.Route) {
 			p := c.Assertion.(PolicyRecord)
 			if p.Level == LevelRoute {
 				own = append(own, policyText(p.Policy, []string{p.Field}, c.Certainty))
 			} else {
-				inherited = inherited.add(p, c.Certainty)
+				above = above.add(p, c.Certainty)
 			}
 		}
 		var out []render.Line
 		if len(own) > 0 {
 			out = append(out, render.Line{Label: PoliciesLabel, Text: strings.Join(own, ", ")})
 		}
-		if len(inherited) > 0 {
-			out = append(out, render.Line{Label: AboveRouteLabel, Text: inherited.text()})
+		if len(above) > 0 {
+			out = append(out, render.Line{Label: AboveRouteLabel, Text: above.text()})
 		}
 		return out
 	}
@@ -216,9 +216,16 @@ func (ix *Index) routeLabel(id model.ID, n Narrowing, narrowed bool) string {
 	res := Resolve[RouteSource](ix, id)
 	cands := res.Candidates
 	if narrowed {
+		// Kept readings merge as in Resolve; they share the top certainty.
 		cands = nil
 		for _, c := range n.Kept {
-			if a, ok := c.Assertion.(RouteSource); ok && !slices.ContainsFunc(cands, func(b RouteSource) bool { return b == a }) {
+			a, ok := c.Assertion.(RouteSource)
+			if !ok {
+				continue
+			}
+			if j := slices.IndexFunc(cands, func(b RouteSource) bool { return sameReading(a, b) }); j >= 0 {
+				cands[j] = combine(cands[j], a, c.Certainty)
+			} else {
 				cands = append(cands, a)
 			}
 		}

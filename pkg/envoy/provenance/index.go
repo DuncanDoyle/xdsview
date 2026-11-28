@@ -108,7 +108,7 @@ func resolve[T Assertion](ix *Index, id model.ID, mirror string) Resolution[T] {
 			continue
 		}
 		if j := slices.IndexFunc(res.Candidates, func(b T) bool { return sameReading(a, b) }); j >= 0 {
-			res.Candidates[j] = combine(res.Candidates[j], a)
+			res.Candidates[j] = combine(res.Candidates[j], a, res.Certainty)
 		} else {
 			res.Candidates = append(res.Candidates, a)
 		}
@@ -130,10 +130,10 @@ func sameReading[T Assertion](a, b T) bool {
 	return x.Route == y.Route && x.RuleIndex == y.RuleIndex && x.RuleName == y.RuleName && x.MatchIndex == y.MatchIndex
 }
 
-// combine merges two agreeing readings of the same certainty: a RouteSource is
-// exhaustive only if both are, incomplete if either is, and keeps the better
-// index certainty. Unset means the claim's own certainty, which is the best.
-func combine[T Assertion](a, b T) T {
+// combine merges two agreeing readings from claims of certainty c: a
+// RouteSource is exhaustive only if both are, incomplete if either is, and
+// keeps the better index certainty, where unset means c.
+func combine[T Assertion](a, b T, c model.Certainty) T {
 	x, ok := any(a).(RouteSource)
 	if !ok {
 		return a
@@ -141,10 +141,14 @@ func combine[T Assertion](a, b T) T {
 	y := any(b).(RouteSource)
 	x.Exhaustive = x.Exhaustive && y.Exhaustive
 	x.Incomplete = x.Incomplete || y.Incomplete
-	if x.IndexCertainty == model.Unknown || y.IndexCertainty == model.Unknown {
+	effective := func(r RouteSource) model.Certainty {
+		if r.IndexCertainty == model.Unknown {
+			return c
+		}
+		return r.IndexCertainty
+	}
+	if x.IndexCertainty = max(effective(x), effective(y)); x.IndexCertainty == c {
 		x.IndexCertainty = model.Unknown
-	} else {
-		x.IndexCertainty = max(x.IndexCertainty, y.IndexCertainty)
 	}
 	return any(x).(T)
 }
@@ -771,7 +775,7 @@ func isRouter(f model.HTTPFilter) bool {
 	return strings.HasSuffix(f.Type, ".filters.http.router.v3.Router")
 }
 
-// Records returns the [PolicyRecord] claims that apply to a route: on the
+// Records returns the [PolicyRecord] claims recorded for a route: on the
 // route, its virtual host, the route config source its use resolves to, and
 // its listener, most specific first. Each record's Level says where it sits.
 func Records(ix *Index, snap *model.Snapshot, route model.ID) []Claim {
