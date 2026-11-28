@@ -18,11 +18,9 @@ Consumers: E15 (this release): kgwctl `proxy routes`, kgwctl Phase 6 via E7, Sne
 - #26 (P2) kube source: cancellation through an API-server proxy, not a requirement (owner, 2026-11-05).
 - #30: the remaining kgateway policy fields.
 - Phase 7 deferred (D-011): resumes only on a named convergence question from the program.
-- From kgwctl (2026-11-27), owner decides, proposed as one patch (`v0.7.1`) with a Codex review:
-  1. (P3 architecture) `Notes` labels ancestor records "inherited policies"; they only show where the controller recorded a policy. kgwctl relabels by matching that exact string. Proposal: wording "policies recorded at", label as an exported constant, tell kgwctl before the push.
-  2. (P2 correctness) `combine` (`provenance/index.go`) takes `max(IndexCertainty)`; unset (0) is below Inferred, so an exact reading merged with an agreeing inferred one prints "(partly from name)". Reachable only with a wrapping module (D-023). Proposal: unset in either stays unset, else max; regression test first.
 
 ## Notes
+- 2026-11-28: owner said fix both kgwctl notes. Four Codex rounds (`reviews/kgwctl-notes-codex.md`). Released as patch `v0.7.1`; notice kgwctl#17.
 - 2026-11-27: D-023 (wrapping module) merged to `main` and pushed (`7094201`), no tag; Snellius told. Two kgwctl notes added to the carry-over, waiting on the owner. Program E15 commit waits in the program session.
 - 2026-11-26: Phase 9 closed. Owner said go: merged to `main`, tagged `v0.7.0`. Strategies draft sent to the Snellius and program sessions (owner read it).
 - 2026-11-26: owner decisions 1–4 done: bootstrap listeners need no attribution (`a503fc4`, scope fixed `ae0955d`); kind capture with kgateway v2.5.2 matched the fixtures, added as scenario 10 (`86357d8`..`77215bd`); `Index.Inputs` with gap reasons, `Complete` and `Exhaustive` (`ad3dcf6`, `5887ced`, `aefc86c`); Codex rounds r6 and r7 triaged and fixed. Decision 6: both upstream asks are already U2 (kgateway#15067, #15068); the new cost evidence and stale-collision case await the owner for a comment. Decision 5: strategies draft (local, not published), Codex-reviewed, not yet sent. Next, owner: send the draft; merge, push, tag `v0.7.0`; phase record; program E15; notices.
