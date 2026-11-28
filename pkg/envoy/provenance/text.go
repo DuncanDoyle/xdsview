@@ -225,8 +225,7 @@ func (ix *Index) routeLabel(id model.ID, n Narrowing, narrowed bool) string {
 				continue
 			}
 			if j := slices.IndexFunc(cands, func(b RouteSource) bool { return sameReading(a, b) }); j >= 0 {
-				cands[j] = combine(cands[j], certs[j], a, c.Certainty)
-				certs[j] = max(certs[j], c.Certainty)
+				cands[j], certs[j] = combine(cands[j], certs[j], a, c.Certainty)
 			} else {
 				cands, certs = append(cands, a), append(certs, c.Certainty)
 			}

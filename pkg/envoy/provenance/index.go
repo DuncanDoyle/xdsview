@@ -108,7 +108,7 @@ func resolve[T Assertion](ix *Index, id model.ID, mirror string) Resolution[T] {
 			continue
 		}
 		if j := slices.IndexFunc(res.Candidates, func(b T) bool { return sameReading(a, b) }); j >= 0 {
-			res.Candidates[j] = combine(res.Candidates[j], res.Certainty, a, res.Certainty)
+			res.Candidates[j], _ = combine(res.Candidates[j], res.Certainty, a, res.Certainty)
 		} else {
 			res.Candidates = append(res.Candidates, a)
 		}
@@ -132,20 +132,23 @@ func sameReading[T Assertion](a, b T) bool {
 
 // combine merges two agreeing readings, a from a claim of certainty ca and b
 // from one of cb: a RouteSource is exhaustive only if both are, incomplete if
-// either is, and keeps the better index certainty, where unset means the
-// claim's certainty. It stays unset only when both are unset at one certainty.
-func combine[T Assertion](a T, ca model.Certainty, b T, cb model.Certainty) T {
+// either is, and takes the IndexCertainty of the reading whose indices are
+// more certain (unset means the claim's certainty), preferring unset on a tie,
+// since an explicit value says the indices came from a name. It also returns
+// the certainty that an unset result stands for.
+func combine[T Assertion](a T, ca model.Certainty, b T, cb model.Certainty) (T, model.Certainty) {
 	x, ok := any(a).(RouteSource)
 	if !ok {
-		return a
+		return a, ca
 	}
 	y := any(b).(RouteSource)
 	x.Exhaustive = x.Exhaustive && y.Exhaustive
 	x.Incomplete = x.Incomplete || y.Incomplete
-	if x.IndexCertainty != model.Unknown || y.IndexCertainty != model.Unknown || ca != cb {
-		x.IndexCertainty = max(indexCertainty(x, ca), indexCertainty(y, cb))
+	ex, ey := indexCertainty(x, ca), indexCertainty(y, cb)
+	if ey > ex || (ey == ex && x.IndexCertainty != model.Unknown && y.IndexCertainty == model.Unknown) {
+		x.IndexCertainty, ca = y.IndexCertainty, cb
 	}
-	return any(x).(T)
+	return any(x).(T), ca
 }
 
 // indexCertainty returns r's index certainty in a claim of certainty c.
