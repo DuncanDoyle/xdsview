@@ -558,7 +558,7 @@ type Class int // ClassListener, ClassVirtualHost, ClassRoute, ClassFilter, Clas
 
 `provenance` supplies the hooks for its claims, so krp and kgwctl print the same text:
 - `provenance.Labels(ix, narrowings)` is the `Labels` hook. A listener row shows its port or section; a virtual host its listener; a route its reading (`HTTPRoute ns/name · rule 0 · match 0`, a narrowed one marked `(chosen from known HTTPRoutes)`, one with indices from the name marked `(partly from name)`). A filter row shows the extension that defines it and the policy records linked to it on that route, each policy field once with its levels, most specific first. A route-only link prints no level. Inferred labels say `inferred`; exact ones print bare.
-- `provenance.Notes(ix)` is the `Trailer` hook: `policies:` for the route's own records and `inherited policies:` for those at its virtual host, route config and listener.
+- `provenance.Notes(ix)` is the `Trailer` hook: `policies:` for the route's own records and `policies recorded above the route:` for those at its virtual host, route config and listener (renamed from `inherited policies:` after the phase, at kgwctl's request).
 
 A test puts one slot under two routes with different per-filter config and links, and checks each row gets its own text.
 

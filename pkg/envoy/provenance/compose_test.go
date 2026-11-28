@@ -190,8 +190,9 @@ func TestResolve_IndexCertainty(t *testing.T) {
 		claim      model.Certainty
 		a, b, want model.Certainty
 	}{
-		{model.Exact, model.Unknown, model.Inferred, model.Unknown},
-		{model.Exact, model.Inferred, model.Unknown, model.Unknown},
+		{model.Exact, model.Unknown, model.Inferred, model.Exact},
+		{model.Exact, model.Inferred, model.Unknown, model.Exact},
+		{model.Inferred, model.Inferred, model.Inferred, model.Inferred},
 		{model.Exact, model.Inferred, model.Inferred, model.Inferred},
 		{model.Inferred, model.Unknown, model.Exact, model.Exact},
 		{model.Inferred, model.Exact, model.Unknown, model.Exact},

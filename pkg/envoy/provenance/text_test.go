@@ -67,6 +67,23 @@ func TestText_NarrowedAgreeing(t *testing.T) {
 	if want := "route / · HTTPRoute ns/a · rule 0 · match 0 (chosen from known HTTPRoutes)\n"; !strings.Contains(b.String(), want) {
 		t.Errorf("no %q in\n%s", want, b.String())
 	}
+
+	// Kept claims of different certainty merge the same in either order.
+	fromName := source(route1, routeA, model.Exact)
+	r := fromName.Assertion.(provenance.RouteSource)
+	r.IndexCertainty = model.Inferred
+	fromName.Assertion = r
+	weak := source(route1, routeA, model.Ambiguous)
+	for _, kept := range [][]provenance.Claim{{fromName, weak}, {weak, fromName}} {
+		b.Reset()
+		opts := render.Options{Labels: provenance.Labels(ix, []provenance.Narrowing{{Route: route1, Kept: kept}})}
+		if err := render.Text(&b, snap, chain.Effective(snap), opts); err != nil {
+			t.Fatal(err)
+		}
+		if want := "route / · HTTPRoute ns/a · rule 0 · match 0 (partly from name) (chosen from known HTTPRoutes)\n"; !strings.Contains(b.String(), want) {
+			t.Errorf("no %q in\n%s", want, b.String())
+		}
+	}
 }
 
 // TestText_Levels: a policy linked from several levels prints once per row

@@ -216,17 +216,19 @@ func (ix *Index) routeLabel(id model.ID, n Narrowing, narrowed bool) string {
 	res := Resolve[RouteSource](ix, id)
 	cands := res.Candidates
 	if narrowed {
-		// Kept readings merge as in Resolve; they share the top certainty.
+		// Kept readings merge as in Resolve, each with its claim's certainty.
 		cands = nil
+		var certs []model.Certainty
 		for _, c := range n.Kept {
 			a, ok := c.Assertion.(RouteSource)
 			if !ok {
 				continue
 			}
 			if j := slices.IndexFunc(cands, func(b RouteSource) bool { return sameReading(a, b) }); j >= 0 {
-				cands[j] = combine(cands[j], a, c.Certainty)
+				cands[j] = combine(cands[j], certs[j], a, c.Certainty)
+				certs[j] = max(certs[j], c.Certainty)
 			} else {
-				cands = append(cands, a)
+				cands, certs = append(cands, a), append(certs, c.Certainty)
 			}
 		}
 	}

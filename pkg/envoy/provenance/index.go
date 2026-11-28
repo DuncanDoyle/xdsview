@@ -108,7 +108,7 @@ func resolve[T Assertion](ix *Index, id model.ID, mirror string) Resolution[T] {
 			continue
 		}
 		if j := slices.IndexFunc(res.Candidates, func(b T) bool { return sameReading(a, b) }); j >= 0 {
-			res.Candidates[j] = combine(res.Candidates[j], a, res.Certainty)
+			res.Candidates[j] = combine(res.Candidates[j], res.Certainty, a, res.Certainty)
 		} else {
 			res.Candidates = append(res.Candidates, a)
 		}
@@ -130,10 +130,11 @@ func sameReading[T Assertion](a, b T) bool {
 	return x.Route == y.Route && x.RuleIndex == y.RuleIndex && x.RuleName == y.RuleName && x.MatchIndex == y.MatchIndex
 }
 
-// combine merges two agreeing readings from claims of certainty c: a
-// RouteSource is exhaustive only if both are, incomplete if either is, and
-// keeps the better index certainty, where unset means c.
-func combine[T Assertion](a, b T, c model.Certainty) T {
+// combine merges two agreeing readings, a from a claim of certainty ca and b
+// from one of cb: a RouteSource is exhaustive only if both are, incomplete if
+// either is, and keeps the better index certainty, where unset means the
+// claim's certainty. It stays unset only when both are unset at one certainty.
+func combine[T Assertion](a T, ca model.Certainty, b T, cb model.Certainty) T {
 	x, ok := any(a).(RouteSource)
 	if !ok {
 		return a
@@ -141,16 +142,18 @@ func combine[T Assertion](a, b T, c model.Certainty) T {
 	y := any(b).(RouteSource)
 	x.Exhaustive = x.Exhaustive && y.Exhaustive
 	x.Incomplete = x.Incomplete || y.Incomplete
-	effective := func(r RouteSource) model.Certainty {
-		if r.IndexCertainty == model.Unknown {
-			return c
-		}
-		return r.IndexCertainty
-	}
-	if x.IndexCertainty = max(effective(x), effective(y)); x.IndexCertainty == c {
-		x.IndexCertainty = model.Unknown
+	if x.IndexCertainty != model.Unknown || y.IndexCertainty != model.Unknown || ca != cb {
+		x.IndexCertainty = max(indexCertainty(x, ca), indexCertainty(y, cb))
 	}
 	return any(x).(T)
+}
+
+// indexCertainty returns r's index certainty in a claim of certainty c.
+func indexCertainty(r RouteSource, c model.Certainty) model.Certainty {
+	if r.IndexCertainty == model.Unknown {
+		return c
+	}
+	return r.IndexCertainty
 }
 
 // Dependencies is the evidence scope of a block: what its view rests on.
