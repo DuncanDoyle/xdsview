@@ -7,7 +7,7 @@ listener~8080 [::]:8080 · active · port 8080 (inferred)
         3 envoy.extensions.filters.http.header_mutation  enabled by route · TrafficPolicy demo/tp-route-http (headerModifiers, inferred)
         4 envoy.filters.http.router                      on
       policies: TrafficPolicy demo/tp-route-http (headerModifiers), TrafficPolicy demo/tp-route-http (rateLimit.local)
-      inherited policies: TrafficPolicy demo/tp-listener-http (cors; vhost), TrafficPolicy demo/tp-gateway (cors; route config, listener), TrafficPolicy demo/tp-gateway (rateLimit.local; route config, listener)
+      policies recorded above the route: TrafficPolicy demo/tp-listener-http (cors; vhost), TrafficPolicy demo/tp-gateway (cors; route config, listener), TrafficPolicy demo/tp-gateway (rateLimit.local; route config, listener)
       backend: kube_demo_echo_8080
 listener~8081 [::]:8081 · active · port 8081 (inferred)
 └─ vhost listener~8081~admin_example_com [admin.example.com] · port 8081 (inferred)
@@ -16,7 +16,7 @@ listener~8081 [::]:8081 · active · port 8081 (inferred)
         1 envoy.filters.http.cors    enabled by route config · TrafficPolicy demo/tp-gateway (cors, inferred; route config, listener)
         2 ratelimit/local            enabled by route config · TrafficPolicy demo/tp-gateway (rateLimit.local, inferred; route config, listener)
         3 envoy.filters.http.router  on
-      inherited policies: TrafficPolicy demo/tp-gateway (cors; route config, listener), TrafficPolicy demo/tp-gateway (rateLimit.local; route config, listener)
+      policies recorded above the route: TrafficPolicy demo/tp-gateway (cors; route config, listener), TrafficPolicy demo/tp-gateway (rateLimit.local; route config, listener)
       backend: kube_demo_echo_8080
 readiness_listener [::]:8082 · active · static
 └─ vhost local_service [*]

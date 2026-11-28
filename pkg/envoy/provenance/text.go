@@ -40,10 +40,17 @@ func Labels(ix *Index, narrowings []Narrowing) func(render.Row) []string {
 	}
 }
 
+// Labels of the [Notes] lines. A caller that rewords a line matches on these.
+const (
+	PoliciesLabel   = "policies"
+	AboveRouteLabel = "policies recorded above the route"
+)
+
 // Notes returns a [render.Options.Trailer] hook with the lines printed after
-// a route's filters: "policies:" for the route's own policy records, and
-// "inherited policies:" for those at its virtual host, route config and
-// listener, each policy field once with its levels.
+// a route's filters: [PoliciesLabel] for the route's own policy records, and
+// [AboveRouteLabel] for those at its virtual host, route config and listener,
+// each policy field once with its levels. A record says where the controller
+// recorded a policy, not whether it applies to the route.
 func Notes(ix *Index) func(render.Row) []render.Line {
 	return func(r render.Row) []render.Line {
 		if r.Route == "" || r.Slot != "" {
@@ -61,10 +68,10 @@ func Notes(ix *Index) func(render.Row) []render.Line {
 		}
 		var out []render.Line
 		if len(own) > 0 {
-			out = append(out, render.Line{Label: "policies", Text: strings.Join(own, ", ")})
+			out = append(out, render.Line{Label: PoliciesLabel, Text: strings.Join(own, ", ")})
 		}
 		if len(inherited) > 0 {
-			out = append(out, render.Line{Label: "inherited policies", Text: inherited.text()})
+			out = append(out, render.Line{Label: AboveRouteLabel, Text: inherited.text()})
 		}
 		return out
 	}

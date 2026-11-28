@@ -42,7 +42,7 @@ func TestText_RowsPerRoute(t *testing.T) {
 		"1 authz   enabled by route · Extension ns/authz (inferred) · Policy ns/b (f, inferred)",
 		"policies: Policy ns/a (f)",
 		"policies: Policy ns/b (f)",
-		"inherited policies: Policy ns/b (f; vhost)",
+		"policies recorded above the route: Policy ns/b (f; vhost)",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("no %q in\n%s", want, out)
@@ -69,7 +69,7 @@ func TestText_Levels(t *testing.T) {
 	}
 	for _, want := range []string{
 		"enabled by route · Policy ns/a (f, inferred; route config, listener) · Policy ns/b (f, inferred)\n",
-		"inherited policies: Policy ns/a (f; route config, listener)\n",
+		"policies recorded above the route: Policy ns/a (f; route config, listener)\n",
 	} {
 		if !strings.Contains(b.String(), want) {
 			t.Errorf("no %q in\n%s", want, b.String())

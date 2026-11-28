@@ -102,7 +102,7 @@ A route settled by 1 or 2 is marked "(chosen from known HTTPRoutes)": a route En
 
 With `--file` and none of these, a route prints `ambiguous:` and its readings. `-o json` lists every reading as a `routeSource` claim, with a `certainty` of `exact`, `inferred` or `ambiguous`.
 
-Every label states how it was derived. `(inferred)` marks one read from a naming convention or the kgateway module's field-to-filter table; `exact` ones, read from metadata, print bare. `(partly from name)` marks a route whose identity came from metadata while at least one of its rule index, rule name or match index came from the Envoy route name. A policy is linked to a filter only when exactly one filter configured for the route matches its field; otherwise it shows under `policies:` only. Policies recorded at the virtual host, route config or listener show under `inherited policies:`.
+Every label states how it was derived. `(inferred)` marks one read from a naming convention or the kgateway module's field-to-filter table; `exact` ones, read from metadata, print bare. `(partly from name)` marks a route whose identity came from metadata while at least one of its rule index, rule name or match index came from the Envoy route name. A policy is linked to a filter only when exactly one filter configured for the route matches its field; otherwise it shows under `policies:` only. Policies recorded at the virtual host, route config or listener show under `policies recorded above the route:`. These lines show where kgateway recorded a policy, not whether it applies to the route.
 
 With `--gateway`, listener lines end with `Gateway <ns>/<name> (from --gateway)`: the Gateway krp was pointed at, not something read from the dump.
 
