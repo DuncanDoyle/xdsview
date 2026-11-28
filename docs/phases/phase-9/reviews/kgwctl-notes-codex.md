@@ -26,6 +26,10 @@ I traced both tests against `74e04c5`. `TestResolve_IndexCertainty` gets `Unknow
 ## Round 4 (base `c7a6c4b`)
 
 - **P2 · correctness.** The Phase 9 design still specifies keeping the highest `IndexCertainty` field. HEAD compares effective certainty and can keep the field unset. For example, an `Exact` claim with unset indices beats an agreeing claim with explicit `Inferred` indices and keeps the field unset. The documented rule would preserve the name attribution that this fix removes. [design.md:304](docs/phases/phase-9/design.md)
+## Round 5 (base `dee751a`, tie preference, kgwctl report after v0.7.1)
+
+no P1/P2 findings
+
 ## Triage
 
 | Round | # | P | Dimension | Finding | Decision |
@@ -39,3 +43,4 @@ I traced both tests against `74e04c5`. `TestResolve_IndexCertainty` gets `Unknow
 | 2 | 3 | P2 | correctness | design still names the old label | accept (`c7a6c4b`) |
 | 3 | 1 | P1 | correctness | two unset readings merge into explicit `Inferred` ("partly from name") | accept: keep the winner's own value (`1821423`) |
 | 4 | 1 | P2 | correctness | design still says "highest `IndexCertainty`" | accept: design amended |
+| 5 | — | — | — | no P1/P2 findings on the tie change (`9d9fb1d`) | n/a |
