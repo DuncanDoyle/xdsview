@@ -84,6 +84,19 @@ func TestText_NarrowedAgreeing(t *testing.T) {
 			t.Errorf("no %q in\n%s", want, b.String())
 		}
 	}
+	// Metadata named the route and only a name gave the indices: a tie at
+	// inferred keeps "(partly from name)", in either order.
+	nameOnly := source(route1, routeA, model.Inferred)
+	for _, kept := range [][]provenance.Claim{{fromName, nameOnly}, {nameOnly, fromName}} {
+		b.Reset()
+		opts := render.Options{Labels: provenance.Labels(ix, []provenance.Narrowing{{Route: route1, Kept: kept}})}
+		if err := render.Text(&b, snap, chain.Effective(snap), opts); err != nil {
+			t.Fatal(err)
+		}
+		if want := "route / · HTTPRoute ns/a · rule 0 · match 0 (partly from name) (chosen from known HTTPRoutes)\n"; !strings.Contains(b.String(), want) {
+			t.Errorf("no %q in\n%s", want, b.String())
+		}
+	}
 	// Neither claim read its indices from a name, so the merge doesn't say so.
 	table := source(route1, routeA, model.Inferred)
 	for _, kept := range [][]provenance.Claim{{table, weak}, {weak, table}} {

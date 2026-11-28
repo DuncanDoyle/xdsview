@@ -197,6 +197,9 @@ func TestResolve_IndexCertainty(t *testing.T) {
 		{model.Inferred, model.Unknown, model.Exact, model.Exact},
 		{model.Inferred, model.Exact, model.Unknown, model.Exact},
 		{model.Inferred, model.Unknown, model.Unknown, model.Unknown},
+		// A tie keeps the explicit marker: the indices came from a name.
+		{model.Inferred, model.Unknown, model.Inferred, model.Inferred},
+		{model.Inferred, model.Inferred, model.Unknown, model.Inferred},
 	} {
 		with := func(ic model.Certainty) provenance.Claim {
 			c := source(route0, routeA, tc.claim)

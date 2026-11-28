@@ -133,9 +133,9 @@ func sameReading[T Assertion](a, b T) bool {
 // combine merges two agreeing readings, a from a claim of certainty ca and b
 // from one of cb: a RouteSource is exhaustive only if both are, incomplete if
 // either is, and takes the IndexCertainty of the reading whose indices are
-// more certain (unset means the claim's certainty), preferring unset on a tie,
-// since an explicit value says the indices came from a name. It also returns
-// the certainty that an unset result stands for.
+// more certain (unset means the claim's certainty). On a tie it keeps an
+// explicit value: an unset one may also come from a name. It also returns the
+// certainty that an unset result stands for.
 func combine[T Assertion](a T, ca model.Certainty, b T, cb model.Certainty) (T, model.Certainty) {
 	x, ok := any(a).(RouteSource)
 	if !ok {
@@ -145,7 +145,7 @@ func combine[T Assertion](a T, ca model.Certainty, b T, cb model.Certainty) (T, 
 	x.Exhaustive = x.Exhaustive && y.Exhaustive
 	x.Incomplete = x.Incomplete || y.Incomplete
 	ex, ey := indexCertainty(x, ca), indexCertainty(y, cb)
-	if ey > ex || (ey == ex && x.IndexCertainty != model.Unknown && y.IndexCertainty == model.Unknown) {
+	if ey > ex || (ey == ex && x.IndexCertainty == model.Unknown && y.IndexCertainty != model.Unknown) {
 		x.IndexCertainty, ca = y.IndexCertainty, cb
 	}
 	return any(x).(T), ca
