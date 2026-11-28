@@ -20,6 +20,7 @@ Consumers: E15 (this release): kgwctl `proxy routes`, kgwctl Phase 6 via E7, Sne
 - Phase 7 deferred (D-011): resumes only on a named convergence question from the program.
 
 ## Notes
+- 2026-11-28: kgwctl reported the index-certainty tie (unset beat an explicit marker). Owner said go: fixed (`9d9fb1d`), Codex round 5 clean, patch `v0.7.2`; notice kgwctl#18.
 - 2026-11-28: owner said fix both kgwctl notes. Four Codex rounds (`reviews/kgwctl-notes-codex.md`). Released as patch `v0.7.1`; notice kgwctl#17.
 - 2026-11-27: D-023 (wrapping module) merged to `main` and pushed (`7094201`), no tag; Snellius told. Two kgwctl notes added to the carry-over, waiting on the owner. Program E15 commit waits in the program session.
 - 2026-11-26: Phase 9 closed. Owner said go: merged to `main`, tagged `v0.7.0`. Strategies draft sent to the Snellius and program sessions (owner read it).
