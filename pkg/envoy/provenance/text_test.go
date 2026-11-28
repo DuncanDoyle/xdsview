@@ -100,6 +100,15 @@ func TestText_Formats(t *testing.T) {
 			"route / · HTTPRoute ns/a · rule 1 · match 0 (inferred)\n"},
 		{[]provenance.Claim{read(provenance.RouteSource{Route: routeA, RuleIndex: 1, RuleName: "api", MatchIndex: 0, IndexCertainty: model.Inferred}, model.Exact)},
 			"route / · HTTPRoute ns/a · rule 1 (api) · match 0 (partly from name)\n"},
+		// An agreeing reading with indices from metadata wins, in either order.
+		{[]provenance.Claim{
+			read(provenance.RouteSource{Route: routeA, RuleIndex: 1, RuleName: "api", MatchIndex: 0}, model.Exact),
+			read(provenance.RouteSource{Route: routeA, RuleIndex: 1, RuleName: "api", MatchIndex: 0, IndexCertainty: model.Inferred}, model.Exact)},
+			"route / · HTTPRoute ns/a · rule 1 (api) · match 0\n"},
+		{[]provenance.Claim{
+			read(provenance.RouteSource{Route: routeA, RuleIndex: 1, RuleName: "api", MatchIndex: 0, IndexCertainty: model.Inferred}, model.Exact),
+			read(provenance.RouteSource{Route: routeA, RuleIndex: 1, RuleName: "api", MatchIndex: 0}, model.Exact)},
+			"route / · HTTPRoute ns/a · rule 1 (api) · match 0\n"},
 		{[]provenance.Claim{read(provenance.RouteSource{Route: routeA, RuleIndex: 0, MatchIndex: 0}, model.Inferred), read(provenance.RouteSource{Route: routeB, RuleIndex: 1, MatchIndex: 0}, model.Inferred)},
 			"route / · ambiguous: HTTPRoute ns/a, HTTPRoute ns/b\n"},
 	}

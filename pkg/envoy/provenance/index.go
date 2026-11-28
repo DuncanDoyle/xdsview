@@ -130,8 +130,9 @@ func sameReading[T Assertion](a, b T) bool {
 	return x.Route == y.Route && x.RuleIndex == y.RuleIndex && x.RuleName == y.RuleName && x.MatchIndex == y.MatchIndex
 }
 
-// combine merges two agreeing readings: a RouteSource is exhaustive only if
-// both are, incomplete if either is, and keeps the higher index certainty.
+// combine merges two agreeing readings of the same certainty: a RouteSource is
+// exhaustive only if both are, incomplete if either is, and keeps the better
+// index certainty. Unset means the claim's own certainty, which is the best.
 func combine[T Assertion](a, b T) T {
 	x, ok := any(a).(RouteSource)
 	if !ok {
@@ -140,7 +141,11 @@ func combine[T Assertion](a, b T) T {
 	y := any(b).(RouteSource)
 	x.Exhaustive = x.Exhaustive && y.Exhaustive
 	x.Incomplete = x.Incomplete || y.Incomplete
-	x.IndexCertainty = max(x.IndexCertainty, y.IndexCertainty)
+	if x.IndexCertainty == model.Unknown || y.IndexCertainty == model.Unknown {
+		x.IndexCertainty = model.Unknown
+	} else {
+		x.IndexCertainty = max(x.IndexCertainty, y.IndexCertainty)
+	}
 	return any(x).(T)
 }
 
